@@ -1,0 +1,261 @@
+db schema for dbdiagram.io
+
+Table users {
+  id uuid [pk]
+  email varchar [unique, not null]
+  username varchar [unique, not null]
+  password varchar
+  first_name varchar
+  last_name varchar
+  role varchar // artist, lecturer, admin
+  is_verified bool
+  is_active bool
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table artist_profiles {
+  id uuid [pk]
+  user_id uuid [not null, unique]
+  bio text
+  avatar_url varchar
+  website varchar
+  instagram varchar
+  twitter varchar
+  phone varchar
+  location varchar
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table categories {
+  id uuid [pk]
+  name varchar
+  slug varchar
+}
+
+Table tags {
+  id uuid [pk]
+  name varchar
+  slug varchar
+}
+
+Table artworks {
+  id uuid [pk]
+
+  artist_id uuid [not null]
+  category_id uuid
+
+  title varchar
+  slug varchar [unique]
+
+  description text
+
+  medium varchar
+
+  current_version_id uuid
+
+  banner_image varchar
+
+  year_created int
+
+  dimensions varchar
+
+  status varchar // draft,published,archived
+
+  allow_comments bool
+
+  is_featured bool
+
+  created_at timestamp
+  updated_at timestamp
+  published_at timestamp
+}
+
+Table artwork_versions {
+  id uuid [pk]
+
+  artwork_id uuid
+
+  version_number int
+
+  markdown_statement text
+
+  rendered_html text
+
+  ai_generated bool
+
+  change_note varchar
+
+  created_at timestamp
+}
+
+Table artwork_images {
+  id uuid [pk]
+
+  artwork_id uuid
+
+  image_url varchar
+
+  caption varchar
+
+  display_order int
+
+  is_process_image bool
+
+  created_at timestamp
+}
+
+Table artwork_tags {
+  artwork_id uuid
+  tag_id uuid
+}
+
+Table qr_codes {
+  id uuid [pk]
+
+  artwork_id uuid [unique]
+
+  qr_slug varchar [unique]
+
+  qr_image_url varchar
+
+  scans int
+
+  created_at timestamp
+}
+
+Table expert_reviews {
+  id uuid [pk]
+
+  artwork_id uuid
+
+  reviewer_id uuid
+
+  title varchar
+
+  markdown_review text
+
+  rating int
+
+  is_pinned bool
+
+  created_at timestamp
+}
+
+Table comments {
+  id uuid [pk]
+
+  artwork_id uuid
+
+  user_id uuid
+
+  parent_comment_id uuid
+
+  comment text
+
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table favorites {
+  id uuid [pk]
+
+  user_id uuid
+
+  artwork_id uuid
+
+  created_at timestamp
+}
+
+Table artwork_views {
+  id uuid [pk]
+
+  artwork_id uuid
+
+  visitor_hash varchar
+
+  viewed_from varchar
+
+  user_agent varchar
+
+  viewed_at timestamp
+}
+
+Table qr_scans {
+  id uuid [pk]
+
+  qr_code_id uuid
+
+  visitor_hash varchar
+
+  scanned_at timestamp
+}
+
+Table ai_generations {
+  id uuid [pk]
+
+  artwork_id uuid
+
+  user_id uuid
+
+  prompt text
+
+  generated_text text
+
+  model_used varchar
+
+  accepted bool
+
+  created_at timestamp
+}
+
+Table notifications {
+  id uuid [pk]
+
+  user_id uuid
+
+  title varchar
+
+  message text
+
+  type varchar
+
+  is_read bool
+
+  created_at timestamp
+}
+
+Ref: artist_profiles.user_id > users.id
+
+Ref: artworks.artist_id > users.id
+Ref: artworks.category_id > categories.id
+Ref: artworks.current_version_id > artwork_versions.id
+
+Ref: artwork_versions.artwork_id > artworks.id
+
+Ref: artwork_images.artwork_id > artworks.id
+
+Ref: artwork_tags.artwork_id > artworks.id
+Ref: artwork_tags.tag_id > tags.id
+
+Ref: qr_codes.artwork_id > artworks.id
+
+Ref: expert_reviews.artwork_id > artworks.id
+Ref: expert_reviews.reviewer_id > users.id
+
+Ref: comments.artwork_id > artworks.id
+Ref: comments.user_id > users.id
+Ref: comments.parent_comment_id > comments.id
+
+Ref: favorites.user_id > users.id
+Ref: favorites.artwork_id > artworks.id
+
+Ref: artwork_views.artwork_id > artworks.id
+
+Ref: qr_scans.qr_code_id > qr_codes.id
+
+Ref: ai_generations.artwork_id > artworks.id
+Ref: ai_generations.user_id > users.id
+
+Ref: notifications.user_id > users.id
