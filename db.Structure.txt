@@ -7,9 +7,15 @@ Table users {
   password varchar
   first_name varchar
   last_name varchar
-  role varchar // artist, lecturer, admin
+
+  // permission-based identity model
+  is_artist bool
+  is_expert bool
   is_verified bool
   is_active bool
+  is_staff bool
+  is_superuser bool
+
   created_at timestamp
   updated_at timestamp
 }

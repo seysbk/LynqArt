@@ -1,12 +1,12 @@
 # PROJECT_CONTEXT.md
 
-# ArtLink
+# LynqArt
 
 ## Project Overview
 
-LynqArt is a Digital Exhibition & Artist Statement Platform built primarily for artists. It enables artists to upload artworks, write artist statements using Markdown, generate QR codes that link directly to each artwork, receive expert critiques from lecturers, collect public feedback, and maintain a permanent archive of their artistic works.
+LynqArt is a digital exhibition and artist statement platform. All users register as regular users first. Guests can browse the platform without an account, while registered users gain additional capabilities depending on permission flags rather than a single role field.
 
-The goal is not to create another online art marketplace. Instead, the platform focuses on improving the exhibition experience by allowing viewers to understand the meaning behind artworks even when the artist is unavailable.
+The platform supports public exhibition viewing, artist publishing workflows, expert critique, and future expansion for additional user capability types. The goal is to provide a digital archive of artistic work while keeping access permissions flexible and extensible.
 
 The QR code serves as a bridge between physical exhibitions and digital content.
 
@@ -22,49 +22,99 @@ Printed artist statements have several limitations:
 * Printed text is limited in length.
 * There is no permanent digital archive.
 
-ArtLink solves these problems by allowing every artwork to have its own webpage that can be accessed through a QR code.
+LynqArt solves these problems by allowing every artwork to have its own webpage that can be accessed through a QR code.
 
 ---
 
 # Target Users
 
-## Artists
-
-Can
-
-* Register
-* Upload artworks
-* Edit artworks
-* Write artist statements
-* Generate QR codes
-* View analytics
-* Manage their gallery
-
----
-
-## Lecturers (Experts)
-
-Can
-
-* Leave expert critiques
-* Review artworks
-* Receive expert verification badge
-
-Expert reviews appear above public comments.
-
----
-
-## Visitors
+## Guest (Unauthenticated)
 
 Can
 
 * Browse artworks
 * Scan QR codes
-* Read statements
+* View artist statements
 * View artist profiles
-* Leave comments
+* Search artworks
+* View comments and expert reviews
 
-Visitors do NOT need an account to view artworks.
+Cannot
+
+* Comment
+* Favorite artworks
+* Follow artists
+* Upload artworks
+
+---
+
+## Registered User
+
+All accounts start as a regular registered user.
+
+Can
+
+* Manage their profile
+* Comment on artworks
+* Reply to comments
+* Favorite artworks
+* Follow artists (future feature)
+
+A registered user is not automatically an artist.
+
+---
+
+## Artist
+
+A registered user may become an artist by taking a "Become an Artist" action inside the platform.
+
+Can
+
+* Upload artworks
+* Edit artworks
+* Write Markdown artist statements
+* Generate QR codes
+* View analytics
+* Use the AI writing assistant
+* Manage their gallery
+* Access the artist dashboard
+
+Artists retain all regular user permissions.
+
+An artist profile is created only when the user becomes an artist.
+
+---
+
+## Expert / Lecturer
+
+Experts are never self-assigned.
+
+Only an administrator grants expert privileges in Django Admin.
+
+Can
+
+* Leave expert reviews
+* Receive an expert badge
+* Have their reviews displayed above public comments
+
+Experts may also be artists.
+
+---
+
+## Administrator
+
+Administrators are created through Django's administration system.
+
+Can
+
+* Manage users
+* Verify experts
+* Moderate content
+* Manage reported comments
+* Manage featured artworks
+* Perform full platform administration
+
+No public registration path exists for administrators.
 
 ---
 
@@ -123,6 +173,46 @@ Neon
 
 ---
 
+# Permission Model
+
+Do not use a single `role` field such as:
+
+* role = artist
+* role = lecturer
+* role = admin
+
+Instead, use independent permission flags.
+
+Example:
+
+```python
+class User(AbstractUser):
+    is_artist = models.BooleanField(default=False)
+    is_expert = models.BooleanField(default=False)
+```
+
+Continue using Django's built-in `is_staff` and `is_superuser` for administrative access.
+
+This design allows one user to simultaneously be:
+
+* a regular user and artist,
+* an artist and expert,
+* or even an administrator and artist.
+
+---
+
+# Authentication Philosophy
+
+Authentication identifies who the user is.
+
+Permissions determine what the user is allowed to do.
+
+Avoid coupling identity to a single role.
+
+Use permissions or capability flags instead.
+
+---
+
 # Architecture
 
 React Frontend
@@ -157,6 +247,20 @@ The backend exposes REST APIs that can later be consumed by a React Native mobil
 * Search
 * Analytics
 * AI Writing Assistant
+
+---
+
+# Future Extensibility
+
+This permission-based architecture should make it easy to add future capabilities without redesigning the database.
+
+Examples include:
+
+* Verified Artist
+* Curator
+* Exhibition Organizer
+* Moderator
+* Department Representative
 
 ---
 

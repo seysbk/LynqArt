@@ -1,3 +1,31 @@
 *.pptx
-Prompt.md
-ToDo.md
+
+# Python / Django
+venv/
+.venv/
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+*.sqlite3
+*.db
+.db
+media/
+uploads/
+staticfiles/
+coverage/
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+*.log
+*.pot
+*.pem
+*.key
+*.crt
+*.p12
+
+# IDE / OS
+.vscode/
+.DS_Store
+Thumbs.db
