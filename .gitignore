@@ -4,8 +4,9 @@
 venv/
 .venv/
 .env
-.env.*
-!.env.example
+.env.local
+.env.*.local
+.env.example
 __pycache__/
 *.py[cod]
 *.sqlite3
@@ -29,3 +30,8 @@ htmlcov/
 .vscode/
 .DS_Store
 Thumbs.db
+
+API_REFERENCE.md
+DOCUMENTATION_INDEX.md
+ENVIRONMENT_SETUP.md
+PHASE_1_COMPLETE.md

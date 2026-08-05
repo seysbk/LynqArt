@@ -4,7 +4,9 @@
 
 ## Project Overview
 
-LynqArt is a digital exhibition and artist statement platform. All users register as regular users first. Guests can browse the platform without an account, while registered users gain additional capabilities depending on permission flags rather than a single role field.
+LynqArt is a digital exhibition management and artist statement platform that connects physical and digital art experiences through QR codes. It enables artists to publish artworks, write rich Markdown artist statements, participate in exhibitions, receive expert critiques, and preserve their work in a permanent digital archive.
+
+All users register as regular users first. Guests can browse the platform without an account, while registered users gain additional capabilities depending on permission flags rather than a single role field.
 
 The platform supports public exhibition viewing, artist publishing workflows, expert critique, and future expansion for additional user capability types. The goal is to provide a digital archive of artistic work while keeping access permissions flexible and extensible.
 
@@ -22,7 +24,7 @@ Printed artist statements have several limitations:
 * Printed text is limited in length.
 * There is no permanent digital archive.
 
-LynqArt solves these problems by allowing every artwork to have its own webpage that can be accessed through a QR code.
+LynqArt solves these problems by allowing every artwork and exhibition to have a permanent digital page that can be accessed through a QR code.
 
 ---
 
@@ -38,6 +40,7 @@ Can
 * View artist profiles
 * Search artworks
 * View comments and expert reviews
+* Browse exhibition catalogues
 
 Cannot
 
@@ -85,6 +88,22 @@ An artist profile is created only when the user becomes an artist.
 
 ---
 
+## Exhibition Organizer
+
+An exhibition organizer is a user with permission to manage exhibition content.
+
+Can
+
+* Create and edit exhibitions
+* Add artworks to exhibitions
+* Generate exhibition QR codes
+* Manage exhibition visibility
+* Review exhibition analytics
+
+This capability is granted through permissions rather than a hard-coded role.
+
+---
+
 ## Expert / Lecturer
 
 Experts are never self-assigned.
@@ -112,6 +131,7 @@ Can
 * Moderate content
 * Manage reported comments
 * Manage featured artworks
+* Manage exhibitions
 * Perform full platform administration
 
 No public registration path exists for administrators.
@@ -127,7 +147,7 @@ No public registration path exists for administrators.
 * React Router
 * Axios
 * React Markdown
-* Tailwind CSS (or CSS Modules)
+* Tailwind CSS or CSS Modules
 
 ---
 
@@ -189,6 +209,7 @@ Example:
 class User(AbstractUser):
     is_artist = models.BooleanField(default=False)
     is_expert = models.BooleanField(default=False)
+    can_manage_exhibitions = models.BooleanField(default=False)
 ```
 
 Continue using Django's built-in `is_staff` and `is_superuser` for administrative access.
@@ -197,7 +218,30 @@ This design allows one user to simultaneously be:
 
 * a regular user and artist,
 * an artist and expert,
+* an exhibition organizer and artist,
 * or even an administrator and artist.
+
+---
+
+# Core Design Principles
+
+LynqArt is built around four core principles.
+
+1. Every artwork has a story.
+
+Every artwork should have an accompanying artist statement that helps viewers understand the artist's intent.
+
+2. Physical and digital exhibitions should complement each other.
+
+QR codes connect physical artworks to richer digital experiences without distracting from the artwork itself.
+
+3. Artists retain ownership of their work.
+
+LynqArt assists artists through AI writing tools but never replaces the artist's creative voice.
+
+4. Preserve artistic history.
+
+Artworks and exhibitions should remain accessible long after physical exhibitions have ended, creating a permanent digital archive.
 
 ---
 
@@ -217,17 +261,11 @@ Use permissions or capability flags instead.
 
 React Frontend
 
-↓
+-> Django REST API
 
-Django REST API
+-> PostgreSQL
 
-↓
-
-PostgreSQL
-
-↓
-
-Cloudinary
+-> Cloudinary
 
 The backend exposes REST APIs that can later be consumed by a React Native mobile application without requiring major backend changes.
 
@@ -241,6 +279,11 @@ The backend exposes REST APIs that can later be consumed by a React Native mobil
 * Markdown Artist Statements
 * Live Markdown Preview
 * QR Code Generation
+* Exhibition Management
+* Exhibition QR Codes
+* Exhibition Catalogues
+* Artwork Exhibition Associations
+* Homepage Featured Exhibitions
 * Expert Reviews
 * Public Comments
 * Artwork Version History
@@ -250,17 +293,33 @@ The backend exposes REST APIs that can later be consumed by a React Native mobil
 
 ---
 
-# Future Extensibility
+# Exhibition System
 
-This permission-based architecture should make it easy to add future capabilities without redesigning the database.
+Exhibitions are first-class entities within LynqArt.
 
-Examples include:
+An exhibition represents a curated collection of artworks and may correspond to:
 
-* Verified Artist
-* Curator
-* Exhibition Organizer
-* Moderator
-* Department Representative
+* University exhibitions
+* Department showcases
+* Galleries
+* Competitions
+* Festivals
+* Personal exhibitions
+
+Each exhibition contains:
+
+* Title
+* Banner
+* Description in Markdown
+* QR Code
+* Start and End Dates
+* Organizer
+* Location
+* Artwork Collection
+
+An artwork may belong to multiple exhibitions.
+
+Exhibitions remain accessible after they end, creating a permanent digital archive.
 
 ---
 
@@ -275,7 +334,10 @@ It assists artists by
 * Generating draft artist statements
 * Correcting grammar
 * Improving clarity
-* Creating exhibition summaries
+* Generating exhibition summaries
+* Improving curator introductions
+* Suggesting keywords and tags
+* Improving accessibility text in future versions
 
 The artist always reviews and edits AI output before publishing.
 
@@ -287,41 +349,77 @@ The application should still function completely if AI is disabled.
 
 # QR Code Workflow
 
+## Artwork QR
+
 Artist uploads artwork
 
-↓
+->
 
 Publishes artwork
 
-↓
+->
 
 Backend generates permanent URL
 
-↓
+->
 
 Backend generates QR Code
 
-↓
+->
 
 QR Code stored in Cloudinary
 
-↓
+->
 
 Artist downloads QR Code
 
-↓
+->
 
 QR attached to physical artwork
 
-↓
+->
 
 Visitor scans QR
 
-↓
+->
 
 Artwork page opens
 
 QR codes should always point to permanent slugs or UUIDs instead of numeric IDs.
+
+## Exhibition QR
+
+Exhibition created
+
+->
+
+Backend generates exhibition QR code
+
+->
+
+QR Code stored in Cloudinary
+
+->
+
+Organizer places QR on exhibition material
+
+->
+
+Visitor scans QR
+
+->
+
+Exhibition catalogue opens
+
+->
+
+Visitor browses artworks
+
+->
+
+Visitor opens individual artwork
+
+Exhibition QR codes should lead to a catalogue or landing page for the exhibition, not directly to a single artwork unless that is the intended presentation.
 
 ---
 
@@ -360,31 +458,23 @@ No personally identifiable visitor information should be displayed to artists.
 
 Main models
 
-User
-
-ArtistProfile
-
-Artwork
-
-ArtworkVersion
-
-Comment
-
-ExpertReview
-
-QRCode
-
-ArtworkView
-
-Favorite
-
-Notification
-
-Department
-
-Category
-
-Tag
+* User
+* ArtistProfile
+* Artwork
+* ArtworkVersion
+* ArtworkImage
+* Category
+* Tag
+* Exhibition
+* ExhibitionArtwork
+* QRCode
+* Comment
+* ExpertReview
+* Favorite
+* ArtworkView
+* QRScan
+* AIGeneration
+* Notification
 
 ---
 
@@ -439,12 +529,16 @@ Future versions may include
 
 * Mobile application
 * Virtual exhibitions
+* Exhibition catalogue PDF export
+* Curator notes
+* Exhibition maps
 * Audio artist statements
 * Multi-language support
-* Department archives
-* Exhibition collections
-* AI accessibility tools
+* AI accessibility descriptions
 * Visitor heat maps
+* Exhibition attendance tracking
+* Digital certificates for exhibitions
+* Public API
 * Offline exhibition mode
 
 ---

@@ -43,17 +43,100 @@ Visitors can browse the gallery, scan QR codes, read artist statements, view pro
 
 ## Core Features
 
-- User authentication with role-based access
+### Authentication & Roles
+- User registration and JWT authentication
+- Permission flags: `is_artist`, `is_expert`, `is_verified`, `can_manage_exhibitions`
+- Users start as regular members; become artists through "Become an Artist" action
+- Experts appointed by Django admins
+- Exhibition managers assigned by admins
+
+### Artists & Profiles
 - Artist profiles with bio, social links, and portfolio metadata
+- Artist portfolio management
 - Artwork upload and publication workflow
+- Artist statement versioning and history
+
+### Artworks & Exhibitions
+- Artwork management with metadata and categorization
+- Artwork versioning to preserve prior statements
+- Exhibition management and curation
+- Group artworks into exhibitions
+- Mark exhibitions as featured
+
+### Statements & Content
 - Markdown artist statements with live preview
 - Artwork version history to preserve prior statements
+- Optional AI writing assistant for drafting and editing
+- AI-generated content requires artist approval
+
+### Engagement & Discovery
 - QR code generation linked to permanent artwork URLs
+- QR code tracking with scan analytics
 - Expert review system with pinned reviews
-- Public comments and discussion threads
-- Search and filtering for artworks, artists, and categories
+- Public comments and discussion threads (threaded/nested)
+- Search and filtering for artworks, artists, categories, and exhibitions
 - Artwork analytics including views, QR scans, and engagement
-- Optional AI writing assistant for drafting and editing statements
+- Favorite/bookmark system for visitors
+
+### Notifications
+- User notification system for interactions and events
+- Read/unread tracking
+
+### Viewing & Analytics
+- Public gallery browsing (no authentication required)
+- Artwork view analytics with visitor tracking
+- QR scan tracking
+- User engagement metrics
+
+## Quick Start
+
+### Backend Setup (Django)
+
+1. **Clone and navigate to backend:**
+   ```bash
+   cd backend
+   ```
+
+2. **Create virtual environment:**
+   ```bash
+   python -m venv venv
+   # Windows
+   .\venv\Scripts\activate
+   # macOS/Linux
+   source venv/bin/activate
+   ```
+
+3. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Configure environment:**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your settings (see ENVIRONMENT_SETUP.md for detailed guide)
+   ```
+
+5. **Run migrations:**
+   ```bash
+   python manage.py migrate
+   ```
+
+6. **Create superuser:**
+   ```bash
+   python manage.py createsuperuser
+   ```
+
+7. **Start development server:**
+   ```bash
+   python manage.py runserver
+   ```
+
+The backend will be available at `http://localhost:8000`
+Admin interface at `http://localhost:8000/admin`
+
+**For detailed environment configuration (databases, email, storage, etc.):**
+👉 See [ENVIRONMENT_SETUP.md](ENVIRONMENT_SETUP.md)
 
 ## Technology Stack
 
@@ -66,22 +149,26 @@ Visitors can browse the gallery, scan QR codes, read artist statements, view pro
 - Tailwind CSS
 
 ### Backend
-- Django
-- Django REST Framework
-- JWT authentication
+- Django 5.2.6
+- Django REST Framework 3.16.1
+- Django REST Framework SimpleJWT 5.5.1
+- Django CORS Headers 4.9.0
 - Python qrcode
 - Pillow
 
 ### Database
-- PostgreSQL (Neon)
+- SQLite 3 (development)
+- PostgreSQL via Neon (production)
 
-### Storage
-- Cloudinary
+### Storage & Services
+- Cloudinary (optional, for production image/QR storage)
+- OpenAI API (optional, for AI writing assistance)
 
 ### Deployment
 - Frontend: Vercel
-- Backend: Render
-- Database: Neon
+- Backend: Render, Railway, or similar
+- Database: Neon PostgreSQL
+- Storage: Cloudinary
 
 ## System Architecture
 

@@ -1,14 +1,16 @@
-db schema for dbdiagram.io
+//////////////////////////////////////////////////
+// USERS
+//////////////////////////////////////////////////
 
 Table users {
   id uuid [pk]
   email varchar [unique, not null]
   username varchar [unique, not null]
   password varchar
+
   first_name varchar
   last_name varchar
 
-  // permission-based identity model
   is_artist bool
   is_expert bool
   is_verified bool
@@ -16,23 +18,38 @@ Table users {
   is_staff bool
   is_superuser bool
 
+  // New capability
+  can_manage_exhibitions bool
+
   created_at timestamp
   updated_at timestamp
 }
 
+//////////////////////////////////////////////////
+// ARTISTS
+//////////////////////////////////////////////////
+
 Table artist_profiles {
   id uuid [pk]
   user_id uuid [not null, unique]
+
   bio text
   avatar_url varchar
+
   website varchar
   instagram varchar
   twitter varchar
+
   phone varchar
   location varchar
+
   created_at timestamp
   updated_at timestamp
 }
+
+//////////////////////////////////////////////////
+// LOOKUP TABLES
+//////////////////////////////////////////////////
 
 Table categories {
   id uuid [pk]
@@ -45,6 +62,10 @@ Table tags {
   name varchar
   slug varchar
 }
+
+//////////////////////////////////////////////////
+// ARTWORKS
+//////////////////////////////////////////////////
 
 Table artworks {
   id uuid [pk]
@@ -117,21 +138,80 @@ Table artwork_tags {
   tag_id uuid
 }
 
-Table qr_codes {
+//////////////////////////////////////////////////
+// EXHIBITIONS
+//////////////////////////////////////////////////
+
+Table exhibitions {
   id uuid [pk]
 
-  artwork_id uuid [unique]
+  organizer_id uuid
+
+  title varchar
+
+  slug varchar [unique]
+
+  banner_image varchar
+
+  short_description varchar
+
+  markdown_description text
+
+  location varchar
+
+  start_date date
+  end_date date
+
+  status varchar // draft,published,completed,archived
+
+  show_on_homepage bool
+
+  is_featured bool
+
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table exhibition_artworks {
+
+  exhibition_id uuid
+
+  artwork_id uuid
+
+  display_order int
+
+  is_featured bool
+}
+
+//////////////////////////////////////////////////
+// QR CODES
+//////////////////////////////////////////////////
+
+Table qr_codes {
+
+  id uuid [pk]
 
   qr_slug varchar [unique]
 
   qr_image_url varchar
+
+  entity_type varchar
+  // artwork
+  // exhibition
+
+  entity_id uuid
 
   scans int
 
   created_at timestamp
 }
 
+//////////////////////////////////////////////////
+// REVIEWS
+//////////////////////////////////////////////////
+
 Table expert_reviews {
+
   id uuid [pk]
 
   artwork_id uuid
@@ -149,7 +229,12 @@ Table expert_reviews {
   created_at timestamp
 }
 
+//////////////////////////////////////////////////
+// COMMENTS
+//////////////////////////////////////////////////
+
 Table comments {
+
   id uuid [pk]
 
   artwork_id uuid
@@ -161,10 +246,16 @@ Table comments {
   comment text
 
   created_at timestamp
+
   updated_at timestamp
 }
 
+//////////////////////////////////////////////////
+// FAVORITES
+//////////////////////////////////////////////////
+
 Table favorites {
+
   id uuid [pk]
 
   user_id uuid
@@ -174,7 +265,12 @@ Table favorites {
   created_at timestamp
 }
 
+//////////////////////////////////////////////////
+// ANALYTICS
+//////////////////////////////////////////////////
+
 Table artwork_views {
+
   id uuid [pk]
 
   artwork_id uuid
@@ -189,6 +285,7 @@ Table artwork_views {
 }
 
 Table qr_scans {
+
   id uuid [pk]
 
   qr_code_id uuid
@@ -198,7 +295,12 @@ Table qr_scans {
   scanned_at timestamp
 }
 
+//////////////////////////////////////////////////
+// AI
+//////////////////////////////////////////////////
+
 Table ai_generations {
+
   id uuid [pk]
 
   artwork_id uuid
@@ -216,7 +318,12 @@ Table ai_generations {
   created_at timestamp
 }
 
+//////////////////////////////////////////////////
+// NOTIFICATIONS
+//////////////////////////////////////////////////
+
 Table notifications {
+
   id uuid [pk]
 
   user_id uuid
@@ -232,6 +339,10 @@ Table notifications {
   created_at timestamp
 }
 
+//////////////////////////////////////////////////
+// RELATIONSHIPS
+//////////////////////////////////////////////////
+
 Ref: artist_profiles.user_id > users.id
 
 Ref: artworks.artist_id > users.id
@@ -245,7 +356,10 @@ Ref: artwork_images.artwork_id > artworks.id
 Ref: artwork_tags.artwork_id > artworks.id
 Ref: artwork_tags.tag_id > tags.id
 
-Ref: qr_codes.artwork_id > artworks.id
+Ref: exhibitions.organizer_id > users.id
+
+Ref: exhibition_artworks.exhibition_id > exhibitions.id
+Ref: exhibition_artworks.artwork_id > artworks.id
 
 Ref: expert_reviews.artwork_id > artworks.id
 Ref: expert_reviews.reviewer_id > users.id

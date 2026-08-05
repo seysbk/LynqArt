@@ -1,598 +1,192 @@
-# TODO.md - LynqArt Development Roadmap
+# TODO.md - LynqArt Build Plan
 
-> Digital Exhibition & Artist Statement Platform
+> Digital exhibition and artist statement platform
 >
 > Stack:
 >
 > * Frontend: React + Vite
-> * CSS: Tailwind CSS
 > * Backend: Django + Django REST Framework
 > * Database: PostgreSQL (Neon)
-> * Image Storage: Cloudinary
-> * Authentication: JWT
-> * AI: OpenAI (optional, pluggable)
-> * Markdown: react-markdown + remark plugins
-> * QR Codes: Python qrcode library
+> * Storage: Cloudinary
+> * Auth: JWT
+> * Markdown: react-markdown
+> * QR codes: Python `qrcode`
 >
-> Development Philosophy:
-> Complete one phase before moving to the next. Every phase should leave the application in a working state.
+> Goal:
+> Build a complete, maintainable exhibition platform with permanent artwork and exhibition pages.
 
 ---
 
-# Phase 0 — Planning
+# Already in Project
 
-## Goals
+## Context and schema
 
-* [ ] Create GitHub repository
-* [ ] Initialize README
-* [ ] Decide project structure
-* [ ] Draw database ERD
-* [ ] Create UI wireframes
-* [ ] List MVP features
-* [ ] List future features
+* [x] `ProjectContext.md` updated with the exhibition-first product direction
+* [x] `db.Structure.txt` exists and defines the target data model
 
-Deliverables
+## Django models
 
-* ER Diagram
-* API endpoint list
-* Component tree
-* Folder structure
+* [x] User and artist profile models
+* [x] Artwork, versions, images, tags, categories
+* [x] Comments and favorites
+* [x] Expert reviews
+* [x] QR code and scan models
+* [x] Analytics and AI generation models
+* [x] Notification model
+* [x] Exhibition models
 
----
+## Model alignment fixes
 
-# Phase 1 — Backend Setup
-
-## Django
-
-* [ ] Create Django project
-* [ ] Create virtual environment
-* [ ] Install DRF
-* [ ] Install JWT
-* [ ] Configure PostgreSQL
-* [ ] Configure CORS
-* [ ] Configure environment variables
-* [ ] Create base settings
-
-Apps
-
-* [ ] accounts
-* [ ] artworks
-* [ ] comments
-* [ ] reviews
-* [ ] analytics
-* [ ] ai
-* [ ] qr
-
-Deliverables
-
-Working API
+* [x] Added `can_manage_exhibitions` to `User`
+* [x] Added UUID default to `Exhibition.id`
+* [x] Updated QR model to support artwork or exhibition targets
 
 ---
 
-# Phase 2 — React Setup
+# MVP Backlog
 
-* [ ] Create React app
-* [ ] Install React Router
-* [ ] Configure Axios
-* [ ] Authentication context
-* [ ] Layout
-* [ ] Navbar
-* [ ] Footer
-* [ ] Theme
+## 1. Backend foundation
 
-Pages
+* [x] Confirm app list and settings for accounts, artworks, exhibitions, comments, reviews, analytics, ai, qr, notifications
+* [x] Register custom user model in Django settings
+* [x] Add database migrations for the current models
+* [x] Verify app imports and circular dependency safety
+* [x] Configure CORS, media storage, and env vars
 
-* Home
-* Explore
-* Artwork
-* Artist
-* Login
-* Register
-* My Gallery
-* Dashboard
-* Upload Artwork
-
-Deliverables
-
-Responsive frontend skeleton
-
----
-
-# Phase 3 — Authentication
-
-Backend
+## 2. Authentication and permissions
 
 * [ ] Register
 * [ ] Login
 * [ ] Refresh token
 * [ ] Logout
-* [ ] Profile endpoint
+* [ ] Current user endpoint
+* [ ] Permission checks for artist actions
+* [ ] Permission checks for exhibition organizers
+* [ ] Admin-only expert assignment
 
-Frontend
+## 3. Artist profile flow
 
-* [ ] Login form
-* [ ] Register form
-* [ ] Protected routes
-* [ ] Persist login
+* [ ] Create artist profile when a user becomes an artist
+* [ ] Public artist profile page
+* [ ] Edit bio, links, avatar, phone, location
+* [ ] Show artist artworks and exhibition participation
 
-Roles
+## 4. Artwork publishing
 
-* Artist
-* Lecturer
-* Admin
+* [ ] Create artwork CRUD endpoints
+* [ ] Upload artwork image(s)
+* [ ] Publish / draft / archive artwork states
+* [ ] Category and tag assignment
+* [ ] Artwork detail page
+* [ ] Public artwork slug routing
 
-Deliverables
+## 5. Artist statements
 
-Secure authentication
-
----
-
-# Phase 4 — Artist Profiles
-
-Artist Profile
-
-* [ ] Bio
-* [ ] Profile picture
-* [ ] Social links
-* [ ] Contact links
-* [ ] Department
-* [ ] Portfolio
-
-Deliverables
-
-Public artist profile
-
----
-
-# Phase 5 — Artwork Upload
-
-Fields
-
-* Title
-* Image
-* Medium
-* Category
-* Dimensions
-* Year
-* Tags
-* Description
-
-Features
-
-* [ ] Upload image
-* [ ] Edit artwork
-* [ ] Delete artwork
-* [ ] Draft mode
-* [ ] Publish mode
-
-Deliverables
-
-Artists can upload work
-
----
-
-# Phase 6 — Markdown Artist Statements
-
-Backend
-
-* [ ] Store Markdown
-* [ ] Version table
-
-Frontend
-
-* [ ] Markdown editor
+* [ ] Markdown statement editor
 * [ ] Live preview
-* [ ] Toolbar
-* [ ] Syntax guide
+* [ ] Save statement versions
+* [ ] Restore prior version
+* [ ] Render statement safely on public pages
 
-Deliverables
+## 6. QR code workflows
 
-Frontend Mentor style editor
+* [ ] Generate artwork QR codes
+* [ ] Generate exhibition QR codes
+* [ ] Store QR image URLs
+* [ ] Download QR image
+* [ ] Route artwork QR to artwork page
+* [ ] Route exhibition QR to exhibition catalogue
 
----
+## 7. Exhibition system
 
-# Phase 7 — Artwork Versions
+* [ ] Exhibition CRUD endpoints
+* [ ] Exhibition artwork linking
+* [ ] Public exhibition catalogue page
+* [ ] Featured exhibitions on homepage
+* [ ] Exhibition organizer permissions
+* [ ] Exhibition slug routing
 
-Tables
+## 8. Public engagement
 
-Artwork
+* [ ] Public comments on artworks
+* [ ] Threaded replies
+* [ ] Expert reviews above public comments
+* [ ] Favorites for artworks
+* [ ] Anonymous view tracking
 
-ArtworkVersion
+## 9. Analytics dashboard
 
-Features
+* [ ] Artwork views
+* [ ] QR scans
+* [ ] Unique visitor tracking
+* [ ] Comment and favorite counts
+* [ ] Artist dashboard summary cards
 
-* [ ] Save versions
-* [ ] Restore versions
-* [ ] Current version
-* [ ] Version history
+## 10. AI writing assistant
 
-Deliverables
+* [ ] Draft artist statement generation
+* [ ] Grammar and clarity rewrite
+* [ ] Exhibition summary draft
+* [ ] Curator intro draft
+* [ ] Save AI output for review before publishing
 
-Complete version system
+## 11. Search and discovery
 
----
+* [ ] Search artworks by title, category, tag, medium, year
+* [ ] Search artists by name
+* [ ] Search exhibitions by title and location
+* [ ] Basic filter and sort controls
 
-# Phase 8 — QR Code System
+## 12. Notifications
 
-Backend
+* [ ] Notify artists about comments
+* [ ] Notify artists about expert reviews
+* [ ] Notify users about relevant engagement
+* [ ] Notification read state
 
-* [ ] Generate QR
-* [ ] Save QR image
-* [ ] Download QR
+## 13. Frontend app shell
 
-Routes
+* [ ] Public layout
+* [ ] Auth layout
+* [ ] Navigation
+* [ ] Footer
+* [ ] Responsive design system
+* [ ] API client and auth state handling
 
-/artwork/{slug}
+## 14. Core pages
 
-/qr/{slug}
+* [ ] Home
+* [ ] Explore artworks
+* [ ] Artwork detail
+* [ ] Artist profile
+* [ ] Exhibition catalogue
+* [ ] Login
+* [ ] Register
+* [ ] Artist dashboard
+* [ ] Upload artwork
+* [ ] Manage exhibition
 
-Workflow
+## 15. Release readiness
 
-Upload artwork
-
-↓
-
-Publish
-
-↓
-
-Generate QR
-
-↓
-
-Save QR
-
-↓
-
-Download
-
-↓
-
-Print
-
-↓
-
-Visitor scans
-
-↓
-
-Artwork page
-
-Deliverables
-
-Permanent QR code system
-
----
-
-# Phase 9 — Public Gallery
-
-Guest users can
-
-* Browse artworks
-* Search artists
-* Filter
-* View profiles
-* View statements
-
-No login required.
-
-Deliverables
-
-Digital exhibition
+* [ ] Add seed data for local testing
+* [ ] Document setup steps
+* [ ] Document API endpoints
+* [ ] Add basic tests for models and critical flows
+* [ ] Verify production env variables
+* [ ] Deploy backend
+* [ ] Deploy frontend
 
 ---
 
-# Phase 10 — Comments
-
-Guest
-
-Read only
-
-Registered
-
-Comment
-
-Artist
-
-Reply
-
-Features
-
-* Edit
-* Delete
-* Report
-
-Deliverables
-
-Discussion system
-
----
-
-# Phase 11 — Expert Reviews
-
-Roles
-
-Lecturer
-
-Features
-
-* Verified badge
-* Pin review
-* Rich formatting
-* Academic critique
-
-Review appears above comments.
-
-Deliverables
-
-Expert review system
-
----
-
-# Phase 12 — Analytics
-
-Track
-
-* Artwork views
-* Unique visitors
-* QR scans
-* Comments
-* Favorites
-
-Dashboard
-
-Views
-
-QR scans
-
-Weekly views
-
-Monthly views
-
-Deliverables
-
-Artist dashboard
-
----
-
-# Phase 13 — AI Assistant
-
-Important
-
-AI never publishes automatically.
-
-Workflow
-
-Artist enters notes
-
-↓
-
-AI generates draft
-
-↓
-
-Artist edits
-
-↓
-
-Preview
-
-↓
-
-Save
-
-AI Features
-
-* Artist statement
-* Grammar correction
-* Rewrite
-* Short summary
-* Exhibition description
-
-Future
-
-* Accessibility descriptions
-* Translation
-
-Deliverables
-
-AI writing assistant
-
----
-
-# Phase 14 — Search
-
-Search by
-
-* Artist
-* Title
-* Category
-* Department
-* Medium
-* Year
-
-Deliverables
-
-Search engine
-
----
-
-# Phase 15 — Favorites
-
-Users can
-
-* Favorite artwork
-* Save artists
-
-Deliverables
-
-Collections
-
----
-
-# Phase 16 — Notifications
-
-Artist notified when
-
-* Comment added
-* Review added
-* Favorite received
-
-Deliverables
-
-Notification center
-
----
-
-# Phase 17 — Admin
-
-Manage
-
-Users
-
-Artworks
-
-Reviews
-
-Reports
-
-Experts
-
-Departments
-
-Deliverables
-
-Admin dashboard
-
----
-
-# Phase 18 — Deployment
-
-Backend
-
-Render
-
-Frontend
-
-Vercel
-
-Database
-
-Neon
-
-Images
-
-Cloudinary
-
-Deliverables
-
-Production system
-
----
-
-# Phase 19 — Documentation
-
-Create
-
-README
-
-API docs
-
-Installation guide
-
-ERD
-
-Architecture diagram
-
-Screenshots
-
-User manual
-
-Deployment guide
-
-Deliverables
-
-Project documentation
-
----
-
-# Future Features
-
-* Mobile app
-* Audio artist statements
-* Virtual exhibitions
-* Exhibition collections
-* AI artwork explanation
-* Multi-language support
-* Email notifications
-* Certificates
-* Awards
-* Exhibition timeline
-* Visitor heat maps
-* Department archive
-* Offline exhibition mode
-
----
-
-# AI Development Rules
-
-## Rule 1
-
-Never ask an AI to build multiple phases at once.
-
----
-
-## Rule 2
-
-Each prompt should focus on one feature.
-
-Examples
-
-✅ Build the Artwork model.
-
-❌ Build the entire backend.
-
----
-
-## Rule 3
-
-Commit after every completed feature.
-
----
-
-## Rule 4
-
-Test before asking AI for the next feature.
-
----
-
-## Rule 5
-
-Read and understand every generated line of code before accepting it.
-
----
-
-## Rule 6
-
-When changing LLMs, provide only the current phase, relevant files, and the specific task. Do not ask the new model to infer the whole project.
-
----
-
-## Rule 7
-
-Keep a PROJECT_CONTEXT.md file containing:
-
-* Project overview
-* Tech stack
-* Folder structure
-* Database schema
-* API endpoints
-* Coding conventions
-* Current phase
-* Known issues
-* Next task
-
-Paste or attach this file whenever switching to a different LLM so it immediately has the context it needs.
+# Important Product Rules
+
+* Do not add a single `role` field.
+* Use capability flags like `is_artist`, `is_expert`, and `can_manage_exhibitions`.
+* Artists are not automatically experts.
+* AI must never publish content automatically.
+* Artwork and exhibition pages should use stable slugs or UUIDs.
+* Exhibitions are first-class entities, not just homepage content.
+* Keep the MVP focused on publishing, exhibition browsing, QR access, comments, expert reviews, and analytics.
 
 ---
 
@@ -600,24 +194,14 @@ Paste or attach this file whenever switching to a different LLM so it immediatel
 
 The MVP is complete when:
 
-✓ Artists can register.
-
-✓ Artists can upload artworks.
-
-✓ Artists can write Markdown artist statements.
-
-✓ Each artwork receives a QR code.
-
-✓ Guests can scan and view artworks without logging in.
-
-✓ Lecturers can leave expert reviews.
-
-✓ Users can leave comments.
-
-✓ Artists can edit their work while preserving version history.
-
-✓ Artists can view analytics.
-
-✓ AI assists with writing artist statements but never publishes automatically.
-
-Only after these are complete should future enhancements be implemented.
+* [ ] Artists can register and become artists
+* [ ] Artists can upload artworks and write Markdown statements
+* [ ] Each artwork gets a QR code and public page
+* [ ] Exhibitions can be created and linked to artworks
+* [ ] Exhibition QR codes open exhibition catalogues
+* [ ] Guests can browse artworks and exhibitions without logging in
+* [ ] Lecturers can leave expert reviews
+* [ ] Users can leave comments and favorites
+* [ ] Artists can edit work while preserving version history
+* [ ] Artists can view analytics
+* [ ] AI helps with writing but never publishes automatically

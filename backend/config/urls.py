@@ -10,4 +10,6 @@ urlpatterns = [
     path('api/analytics/', include('analytics.urls')),
     path('api/ai/', include('ai.urls')),
     path('api/qr/', include('qr.urls')),
+    path('api/exhibitions/', include('exhibitions.urls')),
+    path('api/notifications/', include('notifications.urls')),
 ]

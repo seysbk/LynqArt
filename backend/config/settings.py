@@ -29,6 +29,8 @@ INSTALLED_APPS = [
     'analytics',
     'ai',
     'qr',
+    'exhibitions',
+    'notifications',
 ]
 
 MIDDLEWARE = [
@@ -87,8 +89,19 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Cloudinary Configuration (optional)
+CLOUDINARY_STORAGE_ENABLED = os.environ.get('CLOUDINARY_ENABLED', 'False').lower() in {'1', 'true', 'yes', 'on'}
+if CLOUDINARY_STORAGE_ENABLED:
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+    CLOUDINARY = {
+        'cloud_name': os.environ.get('CLOUDINARY_CLOUD_NAME', ''),
+        'api_key': os.environ.get('CLOUDINARY_API_KEY', ''),
+        'api_secret': os.environ.get('CLOUDINARY_API_SECRET', ''),
+    }
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -115,8 +128,10 @@ SIMPLE_JWT = {
 }
 
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
+    origin.strip() for origin in os.environ.get(
+        'CORS_ALLOWED_ORIGINS', 
+        'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173'
+    ).split(',') if origin.strip()
 ]
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_ALL_ORIGINS = os.environ.get('CORS_ALLOW_ALL_ORIGINS', 'False').lower() in {'1', 'true', 'yes', 'on'}
