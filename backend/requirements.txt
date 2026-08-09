@@ -23,6 +23,7 @@ drf-spectacular==0.28.0
 
 # Images
 Pillow==11.3.0
+qrcode[pil]==8.2
 cloudinary==1.44.1
 django-cloudinary-storage==0.3.0
 

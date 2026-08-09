@@ -511,15 +511,16 @@ This file should be updated after every completed phase.
 
 Current Phase:
 
-Phase 0
+Phase 2
 
 Completed:
 
-None
+Phase 1
+Phase 2
 
 Next Task:
 
-Initialize backend project.
+Frontend app shell and public pages.
 
 ---
 

@@ -114,7 +114,7 @@ Visitors can browse the gallery, scan QR codes, read artist statements, view pro
 4. **Configure environment:**
    ```bash
    cp .env.example .env
-   # Edit .env with your settings (see ENVIRONMENT_SETUP.md for detailed guide)
+   # Edit .env with your settings (see docs/ENVIRONMENT_SETUP.md for detailed guide)
    ```
 
 5. **Run migrations:**
@@ -136,7 +136,7 @@ The backend will be available at `http://localhost:8000`
 Admin interface at `http://localhost:8000/admin`
 
 **For detailed environment configuration (databases, email, storage, etc.):**
-👉 See [ENVIRONMENT_SETUP.md](ENVIRONMENT_SETUP.md)
+👉 See [ENVIRONMENT_SETUP.md](docs/ENVIRONMENT_SETUP.md)
 
 ## Technology Stack
 
@@ -193,6 +193,7 @@ The system is built around a set of core entities:
 - Category
 - Tag
 - QRCode
+- Exhibition
 - ExpertReview
 - Comment
 - Favorite
@@ -273,16 +274,23 @@ The minimum viable product is considered complete when:
 
 ## Repository Structure
 
-The project is planned around a clean split between frontend and backend responsibilities:
+- `backend/`: Django REST API project
+- `docs/`: Project documentation and guides
+- `frontend/`: (Planned) Vite + React frontend application
 
-- frontend/
-- backend/
-- docs/
-- database/
-- media/
+## Documentation
 
-The exact structure will be finalized as the project moves from planning into implementation.
+Comprehensive project documentation is located in the [`docs/`](docs/) directory:
 
+- [Documentation Index](docs/DOCUMENTATION_INDEX.md)
+- [Environment Setup Guide](docs/ENVIRONMENT_SETUP.md)
+- [API Reference](docs/API_REFERENCE.md)
+- [Project Context & Architecture](docs/ProjectContext.md)
+- [Database Schema Reference](docs/db.Structure.txt)
+- [Development Guidelines](docs/Prompt.md)
+- [Project Build Plan & TODO](docs/ToDo.md)
+- [Phase 1 Completion Summary](docs/PHASE_1_COMPLETE.md)
+- [Phase 2 Completion Summary](docs/PHASE_2_COMPLETE.md)
 
 ## Long-Term Vision
 

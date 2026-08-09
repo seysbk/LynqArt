@@ -29,9 +29,4 @@ htmlcov/
 # IDE / OS
 .vscode/
 .DS_Store
-Thumbs.db
-
-API_REFERENCE.md
-DOCUMENTATION_INDEX.md
-ENVIRONMENT_SETUP.md
-PHASE_1_COMPLETE.md
+Thumbs.db
