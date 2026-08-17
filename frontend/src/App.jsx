@@ -10,6 +10,9 @@ import { ExplorePage } from './pages/public/ExplorePage'
 import { HomePage } from './pages/public/HomePage'
 import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
+import { ArtworkManagerPage } from './pages/dashboard/ArtworkManagerPage'
+import { ExhibitionManagerPage } from './pages/dashboard/ExhibitionManagerPage'
+import { QRLandingPage } from './pages/public/QRLandingPage'
 
 function App() {
   const session = useSession()
@@ -17,11 +20,12 @@ function App() {
   return (
     <Routes>
       <Route element={<AppLayout session={session} />}>
-        <Route index element={<HomePage />} />
+        <Route index element={<HomePage session={session} />} />
         <Route path="explore" element={<ExplorePage />} />
-        <Route path="artworks/:artworkId" element={<ArtworkDetailPage session={session} />} />
+        <Route path="artworks/:artworkSlug" element={<ArtworkDetailPage session={session} />} />
         <Route path="artists/:artistId" element={<ArtistProfilePage />} />
-        <Route path="exhibitions/:exhibitionId" element={<ExhibitionPage />} />
+        <Route path="exhibitions/:exhibitionSlug" element={<ExhibitionPage />} />
+        <Route path="qr/:qrSlug" element={<QRLandingPage />} />
         <Route path="login" element={<LoginPage session={session} />} />
         <Route path="register" element={<RegisterPage session={session} />} />
         <Route
@@ -32,6 +36,12 @@ function App() {
             </ProtectedRoute>
           }
         />
+      </Route>
+      <Route element={<AppLayout session={session} />}>
+        <Route path="dashboard/artworks/new" element={<ProtectedRoute session={session}><ArtworkManagerPage /></ProtectedRoute>} />
+        <Route path="dashboard/artworks/:artworkSlug/edit" element={<ProtectedRoute session={session}><ArtworkManagerPage /></ProtectedRoute>} />
+        <Route path="dashboard/exhibitions/new" element={<ProtectedRoute session={session}><ExhibitionManagerPage /></ProtectedRoute>} />
+        <Route path="dashboard/exhibitions/:exhibitionSlug/edit" element={<ProtectedRoute session={session}><ExhibitionManagerPage /></ProtectedRoute>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

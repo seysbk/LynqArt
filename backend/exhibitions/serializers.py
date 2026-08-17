@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from django.contrib.auth import get_user_model
+from django.utils.text import slugify
 
 from accounts.serializers import UserBriefSerializer
 from artworks.serializers import ArtworkSerializer
@@ -20,7 +21,7 @@ class ExhibitionArtworkSerializer(serializers.ModelSerializer):
 
 class ExhibitionSerializer(serializers.ModelSerializer):
     organizer = UserBriefSerializer(read_only=True)
-    organizer_id = serializers.PrimaryKeyRelatedField(source='organizer', queryset=User.objects.all(), write_only=True)
+    organizer_id = serializers.PrimaryKeyRelatedField(source='organizer', queryset=User.objects.all(), write_only=True, required=False)
     artworks = serializers.SerializerMethodField()
 
     class Meta:
@@ -44,7 +45,27 @@ class ExhibitionSerializer(serializers.ModelSerializer):
             'updated_at',
             'artworks',
         )
-        read_only_fields = ('id', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'slug', 'created_at', 'updated_at')
+
+    def _unique_slug(self, title, instance_id=None):
+        base = slugify(title) or 'exhibition'
+        candidate, number = base, 1
+        queryset = Exhibition.objects.all()
+        if instance_id:
+            queryset = queryset.exclude(pk=instance_id)
+        while queryset.filter(slug=candidate).exists():
+            candidate = f'{base}-{number}'
+            number += 1
+        return candidate
+
+    def create(self, validated_data):
+        validated_data['slug'] = self._unique_slug(validated_data['title'])
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        if 'title' in validated_data and validated_data['title'] != instance.title:
+            validated_data['slug'] = self._unique_slug(validated_data['title'], instance.pk)
+        return super().update(instance, validated_data)
 
     def get_artworks(self, obj):
         qs = obj.exhibitionartwork_set.select_related('artwork').all().order_by('display_order')

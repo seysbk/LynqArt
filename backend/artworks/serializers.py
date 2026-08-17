@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from django.contrib.auth import get_user_model
+from django.utils.text import slugify
 
 from accounts.serializers import UserBriefSerializer
 from .models import Artwork, ArtworkImage, ArtworkTag, ArtworkVersion, Category, Tag
@@ -61,7 +62,7 @@ class ArtworkTagSerializer(serializers.ModelSerializer):
 
 class ArtworkSerializer(serializers.ModelSerializer):
     artist = UserBriefSerializer(read_only=True)
-    artist_id = serializers.PrimaryKeyRelatedField(source='artist', queryset=User.objects.all(), write_only=True)
+    artist_id = serializers.PrimaryKeyRelatedField(source='artist', queryset=User.objects.all(), write_only=True, required=False)
     category_detail = CategorySerializer(source='category', read_only=True)
     category_id = serializers.PrimaryKeyRelatedField(source='category', queryset=Category.objects.all(), write_only=True, required=False, allow_null=True)
     current_version_detail = ArtworkVersionSerializer(source='current_version', read_only=True)
@@ -97,7 +98,18 @@ class ArtworkSerializer(serializers.ModelSerializer):
             'tags',
             'tag_ids',
         )
-        read_only_fields = ('id', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'slug', 'created_at', 'updated_at')
+
+    def _unique_slug(self, title, instance_id=None):
+        base = slugify(title) or 'artwork'
+        candidate, number = base, 1
+        queryset = Artwork.objects.all()
+        if instance_id:
+            queryset = queryset.exclude(pk=instance_id)
+        while queryset.filter(slug=candidate).exists():
+            candidate = f'{base}-{number}'
+            number += 1
+        return candidate
 
     def get_tags(self, obj):
         tags = [artwork_tag.tag for artwork_tag in obj.artwork_tags.select_related('tag').all()]
@@ -111,6 +123,7 @@ class ArtworkSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         tag_ids = validated_data.pop('tag_ids', [])
+        validated_data['slug'] = self._unique_slug(validated_data['title'])
         artwork = super().create(validated_data)
         if tag_ids:
             self._sync_tags(artwork, tag_ids)
@@ -118,6 +131,8 @@ class ArtworkSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         tag_ids = validated_data.pop('tag_ids', None)
+        if 'title' in validated_data and validated_data['title'] != instance.title:
+            validated_data['slug'] = self._unique_slug(validated_data['title'], instance.pk)
         artwork = super().update(instance, validated_data)
         if tag_ids is not None:
             self._sync_tags(artwork, tag_ids)

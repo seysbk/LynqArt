@@ -29,4 +29,8 @@ htmlcov/
 # IDE / OS
 .vscode/
 .DS_Store
-Thumbs.db
+Thumbs.db
+
+node_modules/
+.package-lock.json
+.package.json

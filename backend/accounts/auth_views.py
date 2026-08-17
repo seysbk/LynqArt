@@ -36,6 +36,8 @@ class BecomeArtistView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        if not request.user.first_name.strip() or not request.user.last_name.strip():
+            return Response({'detail': 'First and last name are required before artist enrollment.'}, status=status.HTTP_400_BAD_REQUEST)
         serializer = BecomeArtistSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         profile = serializer.save()

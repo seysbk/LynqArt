@@ -25,7 +25,7 @@ from .serializers import (
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all().order_by('name')
     serializer_class = CategorySerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsArtistOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ('name', 'slug')
     ordering_fields = ('name', 'created_at', 'updated_at')
@@ -34,7 +34,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
 class TagViewSet(viewsets.ModelViewSet):
     queryset = Tag.objects.all().order_by('name')
     serializer_class = TagSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsArtistOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ('name', 'slug')
     ordering_fields = ('name', 'created_at', 'updated_at')
@@ -43,6 +43,7 @@ class TagViewSet(viewsets.ModelViewSet):
 class ArtworkViewSet(viewsets.ModelViewSet):
     queryset = Artwork.objects.select_related('artist', 'category', 'current_version').prefetch_related('versions', 'images', 'artwork_tags__tag').all().order_by('-created_at')
     serializer_class = ArtworkSerializer
+    lookup_field = 'slug'
     permission_classes = [IsArtistOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ('title', 'slug', 'description', 'medium', 'artist__username', 'artist__email', 'category__name')
@@ -50,6 +51,10 @@ class ArtworkViewSet(viewsets.ModelViewSet):
     ordering_fields = ('created_at', 'updated_at', 'published_at', 'title')
 
     def perform_create(self, serializer):
+        profile = getattr(self.request.user, 'artist_profile', None)
+        if not self.request.user.first_name.strip() or not self.request.user.last_name.strip() or not profile or not profile.bio.strip() or not profile.location.strip():
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({'detail': 'Complete artist onboarding before creating an artwork.'})
         serializer.save(artist=self.request.user)
 
     def get_queryset(self):
@@ -69,7 +74,7 @@ class ArtworkViewSet(viewsets.ModelViewSet):
         methods=['post'],
         parser_classes=[MultiPartParser, FormParser],
     )
-    def upload_images(self, request, pk=None):
+    def upload_images(self, request, slug=None):
         artwork = self.get_object()
         uploaded_file = request.FILES.get('image')
         if not uploaded_file:
@@ -89,7 +94,7 @@ class ArtworkViewSet(viewsets.ModelViewSet):
         methods=['post'],
         parser_classes=[MultiPartParser, FormParser],
     )
-    def upload_banner(self, request, pk=None):
+    def upload_banner(self, request, slug=None):
         artwork = self.get_object()
         uploaded_file = request.FILES.get('banner')
         if not uploaded_file:

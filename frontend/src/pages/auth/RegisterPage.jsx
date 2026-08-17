@@ -1,6 +1,10 @@
+import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { useState } from 'react'
 import { AuthForm } from '../../components/ui/AuthForm'
+import { getApiErrorMessage } from '../../lib/errors'
+
+const inputClass =
+  'w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-slate-100 text-sm outline-none transition focus:border-indigo-500 placeholder:text-slate-500'
 
 export function RegisterPage({ session }) {
   const navigate = useNavigate()
@@ -16,32 +20,37 @@ export function RegisterPage({ session }) {
         email: form.get('email'),
         username: form.get('username'),
         password: form.get('password'),
+        password_confirm: form.get('password_confirm'),
         first_name: form.get('first_name'),
         last_name: form.get('last_name'),
       })
       navigate('/dashboard')
-    } catch {
-      setError('Registration failed. Please review the fields and try again.')
+    } catch (error) {
+      setError(getApiErrorMessage(error, 'Please review your registration details and try again.'))
     }
   }
 
   return (
     <AuthForm
-      title="Register"
-      subtitle="Create a free account to publish artworks and manage your exhibition tools."
+      title="Create LynqArt Account"
+      subtitle="Register a free account to participate in discussions, bookmark artworks, and activate your artist profile."
       onSubmit={onSubmit}
       error={error}
-      cta="Create account"
+      cta="Create Account"
     >
-      <input className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-stone-50 outline-none placeholder:text-stone-400 focus:border-amber-200/50" name="username" placeholder="Username" required />
-      <input className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-stone-50 outline-none placeholder:text-stone-400 focus:border-amber-200/50" name="email" type="email" placeholder="Email" required />
+      <input className={inputClass} name="username" placeholder="Username *" required />
+      <input className={inputClass} name="email" type="email" placeholder="Email address *" required />
       <div className="grid gap-4 sm:grid-cols-2">
-        <input className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-stone-50 outline-none placeholder:text-stone-400 focus:border-amber-200/50" name="first_name" placeholder="First name" />
-        <input className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-stone-50 outline-none placeholder:text-stone-400 focus:border-amber-200/50" name="last_name" placeholder="Last name" />
+        <input className={inputClass} name="first_name" placeholder="First name" />
+        <input className={inputClass} name="last_name" placeholder="Last name" />
       </div>
-      <input className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-stone-50 outline-none placeholder:text-stone-400 focus:border-amber-200/50" name="password" type="password" placeholder="Password" required />
-      <p className="text-sm text-stone-300">
-        Already have an account? <Link className="text-amber-200 hover:text-amber-100" to="/login">Login</Link>
+      <input className={inputClass} name="password" type="password" placeholder="Password *" required />
+      <input className={inputClass} name="password_confirm" type="password" placeholder="Confirm password *" required />
+      <p className="text-xs text-slate-400 text-center pt-2">
+        Already registered?{' '}
+        <Link className="text-indigo-400 font-semibold hover:underline" to="/login">
+          Sign In
+        </Link>
       </p>
     </AuthForm>
   )

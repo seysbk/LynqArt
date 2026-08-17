@@ -129,7 +129,7 @@ SIMPLE_JWT = {
     'SIGNING_KEY': SECRET_KEY,
     'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
-    'TOKEN_OBTAIN_SERIALIZER': 'rest_framework_simplejwt.serializers.TokenObtainPairSerializer',
+    'TOKEN_OBTAIN_SERIALIZER': 'accounts.serializers.EmailOrUsernameTokenObtainPairSerializer',
     'TOKEN_REFRESH_SERIALIZER': 'rest_framework_simplejwt.serializers.TokenRefreshSerializer',
 }
 
@@ -140,4 +140,5 @@ CORS_ALLOWED_ORIGINS = [
     ).split(',') if origin.strip()
 ]
 CORS_ALLOW_CREDENTIALS = True
+FRONTEND_BASE_URL = os.getenv('FRONTEND_BASE_URL', 'http://localhost:5173')
 CORS_ALLOW_ALL_ORIGINS = os.environ.get('CORS_ALLOW_ALL_ORIGINS', 'False').lower() in {'1', 'true', 'yes', 'on'}

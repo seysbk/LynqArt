@@ -1,5 +1,13 @@
+import os
+from uuid import uuid4
+
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, permissions, viewsets
+from rest_framework import filters, permissions, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.response import Response
 
 from accounts.permissions import IsCanManageExhibitionsOrReadOnly, IsOwnerOrReadOnly
 
@@ -10,6 +18,7 @@ from .serializers import ExhibitionArtworkSerializer, ExhibitionSerializer
 class ExhibitionViewSet(viewsets.ModelViewSet):
     queryset = Exhibition.objects.select_related('organizer').prefetch_related('exhibitionartwork_set__artwork').all().order_by('-created_at')
     serializer_class = ExhibitionSerializer
+    lookup_field = 'slug'
     permission_classes = [IsCanManageExhibitionsOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ('title', 'slug', 'location', 'short_description', 'markdown_description', 'organizer__username')
@@ -24,6 +33,18 @@ class ExhibitionViewSet(viewsets.ModelViewSet):
         if self.action in {'update', 'partial_update', 'destroy'} and self.request.user.is_authenticated:
             return queryset.filter(organizer=self.request.user)
         return queryset
+
+    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    def upload_banner(self, request, slug=None):
+        exhibition = self.get_object()
+        uploaded_file = request.FILES.get('banner')
+        if not uploaded_file:
+            return Response({'banner': 'This field is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        _, extension = os.path.splitext(uploaded_file.name)
+        path = default_storage.save(f'exhibition-banners/{uuid4().hex}{extension.lower()}', ContentFile(uploaded_file.read()))
+        exhibition.banner_image = default_storage.url(path)
+        exhibition.save(update_fields=['banner_image', 'updated_at'])
+        return Response({'id': exhibition.id, 'banner_image': exhibition.banner_image})
 
 
 class ExhibitionArtworkViewSet(viewsets.ModelViewSet):

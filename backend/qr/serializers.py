@@ -1,4 +1,8 @@
 from rest_framework import serializers
+from django.utils.text import slugify
+
+from artworks.models import Artwork
+from exhibitions.models import Exhibition
 
 from .models import QRCode, QRScan
 
@@ -16,7 +20,19 @@ class QRCodeSerializer(serializers.ModelSerializer):
             'scans',
             'created_at',
         )
-        read_only_fields = ('id', 'qr_image_path', 'scans', 'created_at')
+        read_only_fields = ('id', 'qr_slug', 'qr_image_path', 'scans', 'created_at')
+
+    def create(self, validated_data):
+        entity_type = validated_data['entity_type']
+        model = Artwork if entity_type == QRCode.ENTITY_ARTWORK else Exhibition
+        target = model.objects.get(pk=validated_data['entity_id'])
+        base = f'{entity_type}-{slugify(target.slug)}'
+        candidate, number = base, 1
+        while QRCode.objects.filter(qr_slug=candidate).exists():
+            candidate = f'{base}-{number}'
+            number += 1
+        validated_data['qr_slug'] = candidate
+        return super().create(validated_data)
 
     def validate(self, attrs):
         entity_type = attrs.get('entity_type', getattr(self.instance, 'entity_type', ''))
@@ -34,6 +50,10 @@ class QRCodeSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'entity_type': 'Exhibition QR creation requires exhibition management permission.'})
             if entity_type == QRCode.ENTITY_ARTWORK and not getattr(user, 'is_artist', False):
                 raise serializers.ValidationError({'entity_type': 'Artwork QR creation requires artist permission.'})
+            if entity_type == QRCode.ENTITY_ARTWORK and not Artwork.objects.filter(pk=entity_id, artist=user).exists():
+                raise serializers.ValidationError({'entity_id': 'You can only generate QR codes for your own artworks.'})
+            if entity_type == QRCode.ENTITY_EXHIBITION and not Exhibition.objects.filter(pk=entity_id, organizer=user).exists() and not user.is_staff:
+                raise serializers.ValidationError({'entity_id': 'You can only generate QR codes for exhibitions you manage.'})
 
         return attrs
 

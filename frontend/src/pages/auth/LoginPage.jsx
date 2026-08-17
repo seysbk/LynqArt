@@ -1,6 +1,10 @@
+import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { useState } from 'react'
 import { AuthForm } from '../../components/ui/AuthForm'
+import { getApiErrorMessage } from '../../lib/errors'
+
+const inputClass =
+  'w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-slate-100 text-sm outline-none transition focus:border-indigo-500 placeholder:text-slate-500'
 
 export function LoginPage({ session }) {
   const navigate = useNavigate()
@@ -13,27 +17,41 @@ export function LoginPage({ session }) {
 
     try {
       await session.signIn({
-        email: form.get('email'),
+        username: form.get('identifier'),
         password: form.get('password'),
       })
       navigate('/dashboard')
-    } catch {
-      setError('Login failed. Check your email and password.')
+    } catch (error) {
+      setError(getApiErrorMessage(error, 'Please check your credentials and try again.'))
     }
   }
 
   return (
     <AuthForm
-      title="Login"
-      subtitle="Use your JWT-backed account to access the dashboard."
+      title="Sign In to LynqArt"
+      subtitle="Access your creator dashboard, statement history, and physical QR codes."
       onSubmit={onSubmit}
       error={error}
-      cta="Login"
+      cta="Sign In"
     >
-      <input className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-stone-50 outline-none ring-0 placeholder:text-stone-400 focus:border-amber-200/50" name="email" type="email" placeholder="Email" required />
-      <input className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-stone-50 outline-none ring-0 placeholder:text-stone-400 focus:border-amber-200/50" name="password" type="password" placeholder="Password" required />
-      <p className="text-sm text-stone-300">
-        New here? <Link className="text-amber-200 hover:text-amber-100" to="/register">Create an account</Link>
+      <input
+        className={inputClass}
+        name="identifier"
+        placeholder="Username or Email address"
+        required
+      />
+      <input
+        className={inputClass}
+        name="password"
+        type="password"
+        placeholder="Password"
+        required
+      />
+      <p className="text-xs text-slate-400 text-center pt-2">
+        Don't have an account yet?{' '}
+        <Link className="text-indigo-400 font-semibold hover:underline" to="/register">
+          Create free account
+        </Link>
       </p>
     </AuthForm>
   )

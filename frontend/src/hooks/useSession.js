@@ -60,7 +60,7 @@ export function useSession() {
 
   const register = async (payload) => {
     await api.post('/accounts/register/', payload)
-    await signIn({ email: payload.email, password: payload.password })
+    await signIn({ username: payload.username, password: payload.password })
   }
 
   return { ...session, signIn, signOut, register }

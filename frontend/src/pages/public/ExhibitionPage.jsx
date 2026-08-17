@@ -1,19 +1,32 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { api } from '../../lib/api'
-import { CenteredState } from '../../components/ui/CenteredState'
-import { PageHeader } from '../../components/ui/PageHeader'
-import { SectionCard } from '../../components/ui/SectionCard'
+import { mediaUrl } from '../../lib/media'
+import { ArtworkCard } from '../../components/ui/ArtworkCard'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { LoadingState } from '../../components/ui/LoadingState'
+import { MapPin, Calendar } from 'lucide-react'
+
+const formatDate = (value) => {
+  if (!value) return 'Pending'
+  try {
+    return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  } catch {
+    return String(value)
+  }
+}
 
 export function ExhibitionPage() {
-  const { exhibitionId } = useParams()
+  const { exhibitionSlug } = useParams()
   const [exhibition, setExhibition] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let alive = true
     api
-      .get(`/exhibitions/${exhibitionId}/`)
+      .get(`/exhibitions/${exhibitionSlug}/`)
       .then(({ data }) => {
         if (!alive) return
         setExhibition(data)
@@ -27,71 +40,84 @@ export function ExhibitionPage() {
     return () => {
       alive = false
     }
-  }, [exhibitionId])
+  }, [exhibitionSlug])
 
-  if (loading) {
-    return <CenteredState title="Loading exhibition" description="Fetching the public catalogue..." />
-  }
-
-  if (!exhibition) {
-    return <CenteredState title="Nothing to see here" description="This exhibition does not have public data yet." />
-  }
+  if (loading) return <LoadingState title="Loading Exhibition Catalogue" description="Fetching catalogue details..." />
+  if (!exhibition) return <EmptyState title="Exhibition Not Found" description="This exhibition catalogue does not exist or is private." />
 
   const artworks = exhibition.artworks || []
+  const bannerImage = mediaUrl(exhibition.banner_image)
 
   return (
-    <section className="space-y-6">
-      <PageHeader
-        eyebrow="Public exhibition catalogue"
-        title={exhibition.title}
-        subtitle={exhibition.short_description || exhibition.markdown_description || 'No description yet.'}
-      />
-
-      <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
-        <SectionCard title="Catalogue details" meta={exhibition.location || 'Location not listed'}>
-          <dl className="space-y-3 text-sm text-stone-300">
-            <div className="flex items-center justify-between gap-4">
-              <dt>Status</dt>
-              <dd>{exhibition.status || 'draft'}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt>Start</dt>
-              <dd>{exhibition.start_date || 'Not set'}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt>End</dt>
-              <dd>{exhibition.end_date || 'Not set'}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt>Featured</dt>
-              <dd>{exhibition.is_featured ? 'Yes' : 'No'}</dd>
-            </div>
-          </dl>
-        </SectionCard>
-
-        <SectionCard title="Linked artworks" meta={`${artworks.length} artworks`}>
-          <div className="space-y-3">
-            {artworks.length ? artworks.map((item) => {
-              const artwork = item.artwork_detail || {}
-              return (
-                <div key={item.id} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="font-semibold text-stone-50">{artwork.title || 'Untitled artwork'}</p>
-                      <p className="text-sm text-stone-300">{artwork.medium || artwork.category_detail?.name || 'Artwork'}</p>
-                    </div>
-                    {artwork.id ? (
-                      <Link className="text-sm text-amber-200 hover:text-amber-100" to={`/artworks/${artwork.id}`}>
-                        Open
-                      </Link>
-                    ) : null}
-                  </div>
-                </div>
-              )
-            }) : <p className="text-sm text-stone-300">Nothing to see here yet. No artworks are linked to this exhibition.</p>}
+    <div className="space-y-12 lg:space-y-16">
+      {/* 1. Exhibition Banner (Section 38 Structure) */}
+      <div className="surface-card overflow-hidden">
+        {bannerImage ? (
+          <div className="relative aspect-[21/9] w-full overflow-hidden bg-[#0D0F14]">
+            <img src={bannerImage} alt={exhibition.title} className="h-full w-full object-cover" />
           </div>
-        </SectionCard>
+        ) : null}
+
+        <div className="p-6 sm:p-8 space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400">
+              Digital Catalogue Archive
+            </span>
+            {exhibition.is_featured && (
+              <span className="text-[11px] font-semibold uppercase px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300">
+                Featured
+              </span>
+            )}
+          </div>
+
+          <h1 className="text-3xl sm:text-5xl font-extrabold text-[#F4F4F5]">{exhibition.title}</h1>
+
+          <div className="flex flex-wrap items-center gap-4 text-xs text-[#A1A1AA]">
+            <span className="flex items-center gap-1.5">
+              <MapPin className="h-4 w-4 text-indigo-400" />
+              <span>{exhibition.location || 'Gallery Location'}</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Calendar className="h-4 w-4 text-indigo-400" />
+              <span>{formatDate(exhibition.start_date)} &rarr; {formatDate(exhibition.end_date)}</span>
+            </span>
+          </div>
+
+          {exhibition.short_description && (
+            <p className="text-sm text-[#A1A1AA] leading-relaxed max-w-3xl">
+              {exhibition.short_description}
+            </p>
+          )}
+        </div>
       </div>
-    </section>
+
+      {/* Curator Description */}
+      {exhibition.markdown_description && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-indigo-400">Curator Statement</h2>
+          <div className="prose prose-invert max-w-[750px] text-sm text-[#F4F4F5] leading-relaxed">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{exhibition.markdown_description}</ReactMarkdown>
+          </div>
+        </section>
+      )}
+
+      {/* 2. Exhibition Artworks Collection (Section 38) */}
+      <section className="space-y-6 pt-4 border-t border-white/[0.08]">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-[#F4F4F5]">Catalogue Artworks ({artworks.length})</h2>
+        </div>
+
+        {artworks.length > 0 ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {artworks.map((item) => {
+              const artwork = item.artwork_detail || item
+              return <ArtworkCard key={item.id || artwork.id} artwork={artwork} />
+            })}
+          </div>
+        ) : (
+          <EmptyState title="No Linked Artworks" description="No artworks have been added to this exhibition catalogue yet." />
+        )}
+      </section>
+    </div>
   )
 }

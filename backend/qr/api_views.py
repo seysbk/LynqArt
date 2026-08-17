@@ -2,12 +2,13 @@ import io
 import os
 from uuid import uuid4
 
+from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.http import FileResponse
 from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from .models import QRCode, QRScan
@@ -20,8 +21,26 @@ class QRCodeViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ('qr_slug', 'entity_type')
-    filterset_fields = ('entity_type',)
+    filterset_fields = ('entity_type', 'entity_id')
     ordering_fields = ('created_at', 'scans')
+
+    @action(detail=False, methods=['get'])
+    def resolve(self, request):
+        code = self.get_queryset().filter(qr_slug=request.query_params.get('slug', '')).first()
+        if not code:
+            return Response({'detail': 'QR code not found.'}, status=status.HTTP_404_NOT_FOUND)
+        code.scans = code.scans + 1
+        code.save(update_fields=['scans'])
+        payload = self.get_serializer(code).data
+        try:
+            from artworks.models import Artwork
+            from exhibitions.models import Exhibition
+            model = Artwork if code.entity_type == QRCode.ENTITY_ARTWORK else Exhibition
+            target = model.objects.filter(pk=code.entity_id).values('slug').first()
+            payload['target_slug'] = target['slug'] if target else None
+        except (ImportError, TypeError):
+            payload['target_slug'] = None
+        return Response(payload)
 
     def _store_qr_image(self, qr_slug, image_bytes):
         filename = f'qr-codes/{qr_slug}-{uuid4().hex}.png'
@@ -38,7 +57,8 @@ class QRCodeViewSet(viewsets.ModelViewSet):
             ) from exc
 
         qr = qrcode.QRCode(border=2, box_size=10)
-        qr.add_data(qr_code.qr_slug)
+        frontend_url = getattr(settings, 'FRONTEND_BASE_URL', 'http://localhost:5173').rstrip('/')
+        qr.add_data(f'{frontend_url}/qr/{qr_code.qr_slug}')
         qr.make(fit=True)
         image = qr.make_image(fill_color='black', back_color='white')
 
@@ -60,7 +80,7 @@ class QRCodeViewSet(viewsets.ModelViewSet):
 
         return Response({'qr_image_url': qr_code.qr_image_url}, status=status.HTTP_200_OK)
 
-    @action(detail=False, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    @action(detail=False, methods=['post'], parser_classes=[JSONParser, MultiPartParser, FormParser])
     def generate_qr(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)

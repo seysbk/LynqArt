@@ -1,10 +1,25 @@
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import ArtistProfile
 
 User = get_user_model()
+
+
+class EmailOrUsernameTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        login_value = attrs.get(self.username_field) or attrs.get('email')
+        if login_value and '@' in login_value:
+            try:
+                user = User.objects.get(email__iexact=login_value)
+            except User.DoesNotExist:
+                pass
+            else:
+                attrs[self.username_field] = user.get_username()
+        attrs.pop('email', None)
+        return super().validate(attrs)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -62,9 +77,11 @@ class CurrentUserSerializer(UserSerializer):
 
 
 class UserBriefSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(source='get_full_name', read_only=True)
+
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'is_artist', 'is_expert')
+        fields = ('id', 'username', 'full_name', 'email', 'is_artist', 'is_expert')
         read_only_fields = fields
 
 
@@ -107,6 +124,10 @@ class BecomeArtistSerializer(serializers.ModelSerializer):
         forbidden = self.protected_fields.intersection(self.initial_data.keys())
         if forbidden:
             raise serializers.ValidationError({field: 'This field cannot be set through artist enrollment.' for field in sorted(forbidden)})
+        if not (attrs.get('bio') or getattr(self.instance, 'bio', '')):
+            raise serializers.ValidationError({'bio': 'Tell visitors a little about your artistic practice.'})
+        if not (attrs.get('location') or getattr(self.instance, 'location', '')):
+            raise serializers.ValidationError({'location': 'Your location is required.'})
         return attrs
 
     def create(self, validated_data):

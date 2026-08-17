@@ -1,68 +1,70 @@
-import { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import ReactMarkdown from 'react-markdown'
 import { api } from '../../lib/api'
-import { CenteredState } from '../../components/ui/CenteredState'
-import { PageHeader } from '../../components/ui/PageHeader'
-import { SectionCard } from '../../components/ui/SectionCard'
+import { mediaUrl } from '../../lib/media'
+import { Button } from '../../components/ui/Button'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { LoadingState } from '../../components/ui/LoadingState'
+import { Image, QrCode, MessageSquare, Heart, Plus, ShieldCheck, User } from 'lucide-react'
 
 export function DashboardPage({ session }) {
   const user = session.user ?? {}
   const [profile, setProfile] = useState(null)
   const [artistProfile, setArtistProfile] = useState(null)
   const [artworks, setArtworks] = useState([])
-  const [exhibitions, setExhibitions] = useState([])
   const [qrCodes, setQrCodes] = useState([])
   const [comments, setComments] = useState([])
   const [favorites, setFavorites] = useState([])
+  const [aiGenerations, setAiGenerations] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
-
-  const capabilityItems = useMemo(
-    () => [
-      ['Artist', user.is_artist ? 'Enabled' : 'Not enabled'],
-      ['Expert', user.is_expert ? 'Enabled' : 'Not enabled'],
-      ['Exhibitions', user.can_manage_exhibitions ? 'Enabled' : 'Not enabled'],
-    ],
-    [user.is_artist, user.is_expert, user.can_manage_exhibitions],
-  )
+  const [showArtistOnboarding, setShowArtistOnboarding] = useState(false)
+  const [onboarding, setOnboarding] = useState({
+    first_name: '',
+    last_name: '',
+    bio: '',
+    location: '',
+    phone: '',
+    website: '',
+  })
 
   useEffect(() => {
     let alive = true
-
     Promise.all([
       api.get('/accounts/profile/'),
       api.get('/accounts/artist-profile/').catch(() => ({ data: null })),
       api.get('/artworks/', { params: { ordering: '-created_at' } }),
-      api.get('/exhibitions/', { params: { ordering: '-created_at' } }),
       api.get('/qr/codes/', { params: { ordering: '-created_at' } }),
-      api.get('/comments/', { params: { user: user.id, ordering: '-created_at' } }).catch(() => ({ data: { results: [] } })),
+      api.get('/comments/', { params: { ordering: '-created_at' } }).catch(() => ({ data: { results: [] } })),
       api.get('/comments/favorites/', { params: { ordering: '-created_at' } }).catch(() => ({ data: { results: [] } })),
+      api.get('/ai/generations/').catch(() => ({ data: { results: [] } })),
     ])
-      .then(([profileRes, artistRes, artworksRes, exhibitionsRes, qrRes, commentsRes, favoritesRes]) => {
+      .then(([profileRes, artistRes, artworksRes, qrRes, commentsRes, favoritesRes, aiRes]) => {
         if (!alive) return
         setProfile(profileRes.data)
         setArtistProfile(artistRes.data)
+
         const allArtworks = artworksRes.data.results || artworksRes.data || []
-        const allExhibitions = exhibitionsRes.data.results || exhibitionsRes.data || []
         const allQrCodes = qrRes.data.results || qrRes.data || []
+        const allComments = commentsRes.data.results || commentsRes.data || []
+        const allFavorites = favoritesRes.data.results || favoritesRes.data || []
+        const allAi = aiRes.data.results || aiRes.data || []
+
         setArtworks(allArtworks.filter((item) => item.artist?.id === user.id))
-        setExhibitions(allExhibitions.filter((item) => item.organizer?.id === user.id))
         setQrCodes(
-          allQrCodes.filter(
-            (item) =>
-              (item.entity_type === 'artwork' && artworksRes.data && allArtworks.some((artwork) => artwork.id === item.entity_id)) ||
-              (item.entity_type === 'exhibition' && allExhibitions.some((exhibition) => exhibition.id === item.entity_id)),
+          allQrCodes.filter((item) =>
+            item.entity_type === 'artwork'
+              ? allArtworks.some((artwork) => artwork.id === item.entity_id && artwork.artist?.id === user.id)
+              : true,
           ),
         )
-        setComments(commentsRes.data.results || commentsRes.data || [])
-        setFavorites(favoritesRes.data.results || favoritesRes.data || [])
+        setComments(allComments.filter((item) => item.user?.id === user.id))
+        setFavorites(allFavorites.filter((item) => item.user?.id === user.id))
+        setAiGenerations(allAi)
         setLoading(false)
       })
       .catch(() => {
         if (!alive) return
-        setError('Could not load dashboard data right now.')
         setLoading(false)
       })
 
@@ -71,224 +73,280 @@ export function DashboardPage({ session }) {
     }
   }, [user.id])
 
-  const handleBecomeArtist = async () => {
-    setStatusMessage('')
+  const handleBecomeArtist = async (event) => {
+    event.preventDefault()
     try {
-      const { data } = await api.post('/accounts/become-artist/', {})
+      await api.patch('/accounts/profile/', { first_name: onboarding.first_name, last_name: onboarding.last_name })
+      const { data } = await api.post('/accounts/become-artist/', {
+        bio: onboarding.bio,
+        location: onboarding.location,
+        phone: onboarding.phone,
+        website: onboarding.website,
+      })
       setProfile(data.user)
       setArtistProfile(data.artist_profile)
-      setStatusMessage('Artist access enabled.')
+      setStatusMessage('Artist status activated!')
+      setShowArtistOnboarding(false)
     } catch {
-      setStatusMessage('Unable to enable artist access.')
+      setStatusMessage('Please complete name, bio, and location details.')
     }
   }
 
-  const handleProfileSave = async (event) => {
-    event.preventDefault()
-    const form = new FormData(event.currentTarget)
-    setStatusMessage('')
-    try {
-      const { data } = await api.patch('/accounts/profile/', {
-        first_name: form.get('first_name'),
-        last_name: form.get('last_name'),
-      })
-      setProfile(data)
-      setStatusMessage('Profile saved.')
-    } catch {
-      setStatusMessage('Profile update failed.')
-    }
-  }
-
-  const handleArtistSave = async (event) => {
-    event.preventDefault()
-    const form = new FormData(event.currentTarget)
-    setStatusMessage('')
-    try {
-      const { data } = await api.patch('/accounts/artist-profile/', {
-        bio: form.get('bio'),
-        website: form.get('website'),
-        instagram: form.get('instagram'),
-        twitter: form.get('twitter'),
-        phone: form.get('phone'),
-        location: form.get('location'),
-      })
-      setArtistProfile(data)
-      setStatusMessage('Artist profile saved.')
-    } catch {
-      setStatusMessage('Artist profile update failed.')
-    }
-  }
-
-  const handleGenerateQr = async (entityType, entityId) => {
-    try {
-      const { data } = await api.post('/qr/codes/generate_qr/', { entity_type: entityType, entity_id: entityId })
-      setQrCodes((current) => [data, ...current.filter((item) => item.entity_type !== entityType || item.entity_id !== entityId)])
-      setStatusMessage('QR code generated.')
-    } catch {
-      setStatusMessage('QR generation failed.')
-    }
-  }
-
-  if (loading) {
-    return <CenteredState title="Loading dashboard" description="Fetching your artworks, exhibitions, QR codes, and profile data..." />
-  }
-
-  if (error) {
-    return <CenteredState title="Dashboard unavailable" description={error} />
-  }
+  if (loading) return <LoadingState title="Loading Dashboard" description="Fetching user workspace..." />
 
   return (
-    <section className="space-y-8">
-      <PageHeader
-        eyebrow="Authenticated workspace"
-        title="Dashboard"
-        subtitle="A working space for artist tools, QR workflows, analytics, and profile management."
-      />
+    <div className="space-y-8">
+      {/* Header & Quick Action Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.08] pb-6">
+        <div>
+          <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400">Creator Workspace</span>
+          <h1 className="text-3xl font-extrabold text-[#F4F4F5]">Dashboard</h1>
+        </div>
 
-      {statusMessage ? (
-        <div className="rounded-2xl border border-amber-200/20 bg-amber-200/10 px-4 py-3 text-sm text-amber-50">
+        <div className="flex flex-wrap gap-2">
+          {profile?.is_artist && (
+            <Link to="/dashboard/artworks/new">
+              <Button variant="primary" className="!py-1.5 !px-3 text-xs">
+                <Plus className="h-4 w-4" />
+                <span>Upload Artwork</span>
+              </Button>
+            </Link>
+          )}
+
+          {user.can_manage_exhibitions && (
+            <Link to="/dashboard/exhibitions/new">
+              <Button variant="secondary" className="!py-1.5 !px-3 text-xs">
+                <Plus className="h-4 w-4" />
+                <span>Create Exhibition</span>
+              </Button>
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {statusMessage && (
+        <div className="rounded-[10px] bg-indigo-500/10 border border-indigo-500/30 p-3 text-xs text-indigo-300">
           {statusMessage}
         </div>
-      ) : null}
+      )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        {capabilityItems.map(([label, value]) => (
-          <SectionCard key={label} title={label} meta={value} />
-        ))}
-      </div>
+      {/* Account Info Surface */}
+      <div className="surface-card p-5 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full bg-slate-900 border border-white/[0.09] flex items-center justify-center text-indigo-400">
+            {profile?.is_artist ? <ShieldCheck className="h-5 w-5" /> : <User className="h-5 w-5" />}
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-[#F4F4F5]">{profile?.full_name || profile?.username}</p>
+            <p className="text-xs text-[#71717A]">{profile?.email}</p>
+          </div>
+        </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <SectionCard title="Profile" meta={profile?.email || user.email || 'Current account'}>
-          <form className="space-y-3" onSubmit={handleProfileSave}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input defaultValue={profile?.first_name || ''} name="first_name" className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-stone-50 placeholder:text-stone-400" placeholder="First name" />
-              <input defaultValue={profile?.last_name || ''} name="last_name" className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-stone-50 placeholder:text-stone-400" placeholder="Last name" />
-            </div>
-            <button className="rounded-full bg-gradient-to-r from-amber-200 to-fuchsia-300 px-5 py-3 font-semibold text-slate-950">
-              Save profile
-            </button>
-          </form>
-        </SectionCard>
-
-        <SectionCard title="Artist access" meta={profile?.is_artist ? 'Artist enabled' : 'Not an artist yet'}>
+        <div className="flex items-center gap-2 text-xs font-medium text-[#A1A1AA]">
+          <span>Role:</span>
           {profile?.is_artist ? (
-            <form className="space-y-3" onSubmit={handleArtistSave}>
-              <textarea defaultValue={artistProfile?.bio || ''} name="bio" rows="4" className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-stone-50 placeholder:text-stone-400" placeholder="Artist bio" />
-              <div className="grid gap-3 sm:grid-cols-2">
-                <input defaultValue={artistProfile?.website || ''} name="website" className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-stone-50 placeholder:text-stone-400" placeholder="Website" />
-                <input defaultValue={artistProfile?.instagram || ''} name="instagram" className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-stone-50 placeholder:text-stone-400" placeholder="Instagram" />
-                <input defaultValue={artistProfile?.twitter || ''} name="twitter" className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-stone-50 placeholder:text-stone-400" placeholder="Twitter" />
-                <input defaultValue={artistProfile?.phone || ''} name="phone" className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-stone-50 placeholder:text-stone-400" placeholder="Phone" />
-              </div>
-              <input defaultValue={artistProfile?.location || ''} name="location" className="w-full rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-stone-50 placeholder:text-stone-400" placeholder="Location" />
-              <button className="rounded-full bg-gradient-to-r from-amber-200 to-fuchsia-300 px-5 py-3 font-semibold text-slate-950">
-                Save artist profile
-              </button>
-            </form>
+            <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold">Artist</span>
           ) : (
-            <button
-              type="button"
-              onClick={handleBecomeArtist}
-              className="rounded-full bg-gradient-to-r from-amber-200 to-fuchsia-300 px-5 py-3 font-semibold text-slate-950"
-            >
-              Become an artist
-            </button>
+            <span className="px-2 py-0.5 rounded bg-slate-800 text-[#A1A1AA]">Regular User</span>
           )}
-        </SectionCard>
+          {user.is_expert && <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">Lecturer</span>}
+          {user.can_manage_exhibitions && <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Organizer</span>}
+        </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <SectionCard
-          title="Your artworks"
-          meta={`${artworks.length} items`}
-          href="/explore"
-        >
-          <div className="space-y-3">
-            {artworks.length ? artworks.slice(0, 5).map((artwork) => (
-              <div key={artwork.id} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-semibold text-stone-50">{artwork.title}</p>
-                    <p className="text-sm text-stone-300">{artwork.status || 'draft'}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Link className="text-sm text-amber-200 hover:text-amber-100" to={`/artworks/${artwork.id}`}>
-                      View
-                    </Link>
-                    <button
-                      type="button"
-                      className="text-sm text-amber-200 hover:text-amber-100"
-                      onClick={() => handleGenerateQr('artwork', artwork.id)}
-                    >
-                      QR
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )) : <p className="text-sm text-stone-300">Nothing to see here yet. You have no artworks in the database.</p>}
+      {/* Overview Metric Cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="surface-card p-4 space-y-1">
+          <div className="flex items-center justify-between text-xs text-[#71717A]">
+            <span>Artworks</span>
+            <Image className="h-4 w-4 text-indigo-400" />
           </div>
-        </SectionCard>
+          <p className="text-2xl font-bold text-[#F4F4F5]">{artworks.length}</p>
+          <p className="text-[11px] text-[#71717A]">{profile?.is_artist ? 'Published & drafts' : 'Become artist to publish'}</p>
+        </div>
 
-        <SectionCard title="Your exhibitions" meta={`${exhibitions.length} items`}>
-          <div className="space-y-3">
-            {exhibitions.length ? exhibitions.slice(0, 5).map((exhibition) => (
-              <div key={exhibition.id} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-semibold text-stone-50">{exhibition.title}</p>
-                    <p className="text-sm text-stone-300">{exhibition.location || 'No location'}</p>
-                  </div>
-                  <button
-                    type="button"
-                    className="text-sm text-amber-200 hover:text-amber-100"
-                    onClick={() => handleGenerateQr('exhibition', exhibition.id)}
-                  >
-                    QR
-                  </button>
-                </div>
-              </div>
-            )) : <p className="text-sm text-stone-300">Nothing to see here yet. You have no exhibitions in the database.</p>}
+        <div className="surface-card p-4 space-y-1">
+          <div className="flex items-center justify-between text-xs text-[#71717A]">
+            <span>QR Codes</span>
+            <QrCode className="h-4 w-4 text-indigo-400" />
           </div>
-        </SectionCard>
+          <p className="text-2xl font-bold text-[#F4F4F5]">{qrCodes.length}</p>
+          <p className="text-[11px] text-[#71717A]">Generated physical tags</p>
+        </div>
+
+        <div className="surface-card p-4 space-y-1">
+          <div className="flex items-center justify-between text-xs text-[#71717A]">
+            <span>Comments</span>
+            <MessageSquare className="h-4 w-4 text-indigo-400" />
+          </div>
+          <p className="text-2xl font-bold text-[#F4F4F5]">{comments.length}</p>
+          <p className="text-[11px] text-[#71717A]">Discussion posts</p>
+        </div>
+
+        <div className="surface-card p-4 space-y-1">
+          <div className="flex items-center justify-between text-xs text-[#71717A]">
+            <span>Favorites</span>
+            <Heart className="h-4 w-4 text-indigo-400" />
+          </div>
+          <p className="text-2xl font-bold text-[#F4F4F5]">{favorites.length}</p>
+          <p className="text-[11px] text-[#71717A]">Bookmarked works</p>
+        </div>
       </div>
 
+      {/* Become Artist Banner */}
+      {!profile?.is_artist && (
+        <div className="surface-card p-6 space-y-4">
+          {!showArtistOnboarding ? (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-base font-semibold text-[#F4F4F5]">Become an Artist</h3>
+                <p className="text-xs text-[#A1A1AA] mt-0.5">
+                  Publish artworks, write Markdown artist statements, generate QR code tags, and view analytics.
+                </p>
+              </div>
+              <Button variant="primary" onClick={() => setShowArtistOnboarding(true)} className="!py-1.5 text-xs">
+                Activate Artist Role
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleBecomeArtist} className="space-y-3 pt-1">
+              <h3 className="text-sm font-semibold text-[#F4F4F5]">Artist Profile Setup</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input
+                  required
+                  value={onboarding.first_name}
+                  onChange={(e) => setOnboarding({ ...onboarding, first_name: e.target.value })}
+                  placeholder="First Name *"
+                  className="rounded-[9px] bg-[#0D0F14] border border-white/[0.09] p-2.5 text-xs text-[#F4F4F5]"
+                />
+                <input
+                  required
+                  value={onboarding.last_name}
+                  onChange={(e) => setOnboarding({ ...onboarding, last_name: e.target.value })}
+                  placeholder="Last Name *"
+                  className="rounded-[9px] bg-[#0D0F14] border border-white/[0.09] p-2.5 text-xs text-[#F4F4F5]"
+                />
+              </div>
+              <textarea
+                required
+                rows={3}
+                value={onboarding.bio}
+                onChange={(e) => setOnboarding({ ...onboarding, bio: e.target.value })}
+                placeholder="Artist Bio &amp; Practice *"
+                className="w-full rounded-[9px] bg-[#0D0F14] border border-white/[0.09] p-2.5 text-xs text-[#F4F4F5]"
+              />
+              <input
+                required
+                value={onboarding.location}
+                onChange={(e) => setOnboarding({ ...onboarding, location: e.target.value })}
+                placeholder="Location *"
+                className="w-full rounded-[9px] bg-[#0D0F14] border border-white/[0.09] p-2.5 text-xs text-[#F4F4F5]"
+              />
+              <div className="flex gap-2">
+                <Button type="submit" variant="primary" className="!py-1.5 text-xs">Complete Setup</Button>
+                <Button variant="secondary" onClick={() => setShowArtistOnboarding(false)} className="!py-1.5 text-xs">Cancel</Button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+
+      {/* Management Columns */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <SectionCard title="QR codes" meta={`${qrCodes.length} generated`}>
-          <div className="space-y-3">
-            {qrCodes.length ? qrCodes.slice(0, 6).map((qr) => (
-              <div key={qr.id} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-semibold text-stone-50">{qr.qr_slug}</p>
-                    <p className="text-sm text-stone-300">{qr.entity_type}</p>
+        {/* Artwork Management List */}
+        <div className="surface-card p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+            <h2 className="text-sm font-semibold text-[#F4F4F5]">Your Artworks ({artworks.length})</h2>
+            {profile?.is_artist && (
+              <Link to="/dashboard/artworks/new" className="text-xs text-indigo-400 hover:underline">
+                + New
+              </Link>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            {artworks.length > 0 ? (
+              artworks.slice(0, 5).map((art) => (
+                <div key={art.id} className="flex items-center justify-between gap-3 p-2.5 rounded-[9px] bg-[#0D0F14] border border-white/[0.06]">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-[#F4F4F5] truncate">{art.title}</p>
+                    <p className="text-[10px] text-[#71717A] capitalize">{art.status} · {art.medium || 'Artwork'}</p>
                   </div>
-                  {qr.qr_image_url ? (
-                    <a className="text-sm text-amber-200 hover:text-amber-100" href={qr.qr_image_url} target="_blank" rel="noreferrer">
-                      Open
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Link to={`/artworks/${art.slug}`} className="text-xs text-[#A1A1AA] hover:text-white">View</Link>
+                    <Link to={`/dashboard/artworks/${art.slug}/edit`} className="text-xs text-indigo-400 hover:underline">Edit</Link>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-[#71717A] py-2">No artworks added yet.</p>
+            )}
+          </div>
+        </div>
+
+        {/* QR Codes Management List */}
+        <div className="surface-card p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+            <h2 className="text-sm font-semibold text-[#F4F4F5]">Generated Physical QR Tags ({qrCodes.length})</h2>
+          </div>
+
+          <div className="space-y-2">
+            {qrCodes.length > 0 ? (
+              qrCodes.slice(0, 5).map((qr) => (
+                <div key={qr.id} className="flex items-center justify-between gap-3 p-2.5 rounded-[9px] bg-[#0D0F14] border border-white/[0.06]">
+                  <div className="min-w-0">
+                    <p className="text-xs font-mono text-[#F4F4F5] truncate">{qr.qr_slug}</p>
+                    <p className="text-[10px] text-[#71717A] uppercase">{qr.entity_type}</p>
+                  </div>
+                  {qr.qr_image_url && (
+                    <a href={mediaUrl(qr.qr_image_url)} target="_blank" rel="noreferrer" className="text-xs text-indigo-400 hover:underline">
+                      Open QR Image
                     </a>
-                  ) : null}
+                  )}
                 </div>
-              </div>
-            )) : <p className="text-sm text-stone-300">Nothing to see here yet. No QR codes have been generated.</p>}
+              ))
+            ) : (
+              <p className="text-xs text-[#71717A] py-2">No physical QR codes generated yet.</p>
+            )}
           </div>
-        </SectionCard>
-
-        <SectionCard title="Engagement" meta="Comments and favorites">
-          <div className="space-y-3 text-sm text-stone-300">
-            <p>Comments: {comments.length}</p>
-            <p>Favorites: {favorites.length}</p>
-            <p>AI stays assistive only. All final publishing remains manual.</p>
-          </div>
-        </SectionCard>
+        </div>
       </div>
 
-      {artworks[0]?.current_version_detail?.rendered_html ? (
-        <SectionCard title="Latest statement preview" meta={artworks[0].title}>
-          <div className="prose prose-invert max-w-none prose-headings:text-stone-50 prose-p:text-stone-300">
-            <ReactMarkdown>{artworks[0].current_version_detail.markdown_statement || ''}</ReactMarkdown>
+      {/* AI Writing Generations Audit Log */}
+      {profile?.is_artist && (
+        <div className="surface-card p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+            <div>
+              <h2 className="text-sm font-semibold text-[#F4F4F5]">AI Writing Generations Audit Log ({aiGenerations.length})</h2>
+              <p className="text-[11px] text-[#71717A]">History of AI-drafted statements and artist review approvals</p>
+            </div>
           </div>
-        </SectionCard>
-      ) : null}
-    </section>
+
+          <div className="space-y-2">
+            {aiGenerations.length > 0 ? (
+              aiGenerations.slice(0, 5).map((gen) => (
+                <div key={gen.id} className="flex items-center justify-between gap-3 p-3 rounded-[9px] bg-[#0D0F14] border border-white/[0.06] text-xs">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-[#F4F4F5] truncate">
+                      {gen.artwork_detail?.title ? `Artwork: ${gen.artwork_detail.title}` : 'Statement Draft'}
+                    </p>
+                    <p className="text-[10px] text-[#71717A] truncate">
+                      Prompt: "{gen.prompt || 'Draft statement'}" · Model: {gen.model_used || 'AI Assistant'}
+                    </p>
+                  </div>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded shrink-0 ${
+                    gen.accepted ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-[#A1A1AA]'
+                  }`}>
+                    {gen.accepted ? 'Accepted & Inserted' : 'Draft Generated'}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-[#71717A] py-2">No AI statement generations drafted yet.</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

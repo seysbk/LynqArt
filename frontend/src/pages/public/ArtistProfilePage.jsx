@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { api } from '../../lib/api'
-import { CenteredState } from '../../components/ui/CenteredState'
-import { PageHeader } from '../../components/ui/PageHeader'
-import { SectionCard } from '../../components/ui/SectionCard'
+import { ArtworkCard } from '../../components/ui/ArtworkCard'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { LoadingState } from '../../components/ui/LoadingState'
+import { MapPin, Globe, Share2 } from 'lucide-react'
 
 export function ArtistProfilePage() {
   const { artistId } = useParams()
@@ -13,7 +14,6 @@ export function ArtistProfilePage() {
 
   useEffect(() => {
     let alive = true
-
     Promise.all([
       api.get('/accounts/artist-profiles/', { params: { user: artistId } }),
       api.get('/artworks/', { params: { artist_id: artistId, status: 'published', ordering: '-created_at' } }),
@@ -35,58 +35,77 @@ export function ArtistProfilePage() {
     }
   }, [artistId])
 
-  if (loading) {
-    return <CenteredState title="Loading artist profile" description="Fetching public profile data..." />
-  }
+  if (loading) return <LoadingState title="Loading Artist Portfolio" description="Fetching bio and artworks..." />
+  if (!profile) return <EmptyState title="Artist Profile Not Found" description="This artist profile is not available." />
 
-  if (!profile) {
-    return <CenteredState title="Nothing to see here" description="This artist profile does not have public data yet." />
-  }
+  const artistName = profile.user?.full_name || profile.user?.username || 'Artist'
 
   return (
-    <section className="space-y-6">
-      <PageHeader
-        eyebrow="Public artist profile"
-        title={profile.user?.full_name || profile.user?.username || 'Artist'}
-        subtitle={profile.bio || 'No bio provided yet.'}
-      />
-
-      <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
-        <SectionCard title="About" meta={profile.location || 'No location listed'}>
-          <dl className="space-y-3 text-sm text-stone-300">
-            <div className="flex items-center justify-between gap-4">
-              <dt>Website</dt>
-              <dd>{profile.website ? <a className="text-amber-200 hover:text-amber-100" href={profile.website} target="_blank" rel="noreferrer">{profile.website}</a> : 'Not provided'}</dd>
+    <div className="space-y-12 lg:space-y-16">
+      {/* Editorial Portfolio Header (Section 39) */}
+      <div className="surface-card p-6 sm:p-8 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <div className="h-16 w-16 rounded-full bg-[#191C27] border border-white/[0.09] flex items-center justify-center text-xl font-bold text-indigo-400">
+              {artistName.charAt(0).toUpperCase()}
             </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt>Instagram</dt>
-              <dd>{profile.instagram || 'Not provided'}</dd>
+            <div>
+              <h1 className="text-2xl sm:text-4xl font-extrabold text-[#F4F4F5]">{artistName}</h1>
+              {profile.location && (
+                <p className="text-xs text-[#A1A1AA] flex items-center gap-1 mt-1">
+                  <MapPin className="h-3.5 w-3.5 text-indigo-400" />
+                  <span>{profile.location}</span>
+                </p>
+              )}
             </div>
-            <div className="flex items-center justify-between gap-4">
-              <dt>Twitter</dt>
-              <dd>{profile.twitter || 'Not provided'}</dd>
-            </div>
-          </dl>
-        </SectionCard>
-
-        <SectionCard title="Published artworks" meta={`${artworks.length} public works`}>
-          <div className="space-y-3">
-            {artworks.length ? artworks.map((artwork) => (
-              <div key={artwork.id} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-semibold text-stone-50">{artwork.title}</p>
-                    <p className="text-sm text-stone-300">{artwork.category_detail?.name || artwork.medium || 'Artwork'}</p>
-                  </div>
-                  <Link className="text-sm text-amber-200 hover:text-amber-100" to={`/artworks/${artwork.id}`}>
-                    Open
-                  </Link>
-                </div>
-              </div>
-            )) : <p className="text-sm text-stone-300">Nothing to see here yet. No public artworks found.</p>}
           </div>
-        </SectionCard>
+
+          {/* Social & External Links */}
+          <div className="flex items-center gap-3 text-xs text-[#A1A1AA]">
+            {profile.website && (
+              <a href={profile.website} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-[#F4F4F5] transition-colors">
+                <Globe className="h-4 w-4 text-indigo-400" />
+                <span>Website</span>
+              </a>
+            )}
+            {profile.instagram && (
+              <span className="flex items-center gap-1">
+                <Share2 className="h-4 w-4 text-indigo-400" />
+                <span>{profile.instagram}</span>
+              </span>
+            )}
+            {profile.twitter && (
+              <span className="flex items-center gap-1">
+                <Share2 className="h-4 w-4 text-indigo-400" />
+                <span>{profile.twitter}</span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        {profile.bio && (
+          <div className="pt-4 border-t border-white/[0.06] text-sm text-[#A1A1AA] leading-relaxed max-w-3xl">
+            {profile.bio}
+          </div>
+        )}
       </div>
-    </section>
+
+      {/* Published Portfolio Artworks (Section 39) */}
+      <section className="space-y-6">
+        <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
+          <h2 className="text-2xl font-bold text-[#F4F4F5]">Portfolio Artworks ({artworks.length})</h2>
+        </div>
+
+        {artworks.length > 0 ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {artworks.map((artwork) => (
+              <ArtworkCard key={artwork.id} artwork={artwork} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState title="No Public Artworks" description="This artist has not published any public portfolio works yet." />
+        )}
+      </section>
+    </div>
   )
 }

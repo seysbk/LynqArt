@@ -1,90 +1,140 @@
-import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import React, { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { api } from '../../lib/api'
-import { CenteredState } from '../../components/ui/CenteredState'
-import { PageHeader } from '../../components/ui/PageHeader'
-import { SectionCard } from '../../components/ui/SectionCard'
+import { ArtworkCard } from '../../components/ui/ArtworkCard'
+import { ExhibitionCard } from '../../components/ui/ExhibitionCard'
+import { Button } from '../../components/ui/Button'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { LoadingState } from '../../components/ui/LoadingState'
+import { Search, Filter } from 'lucide-react'
 
 export function ExplorePage() {
   const [items, setItems] = useState([])
+  const [exhibitions, setExhibitions] = useState([])
   const [status, setStatus] = useState('loading')
   const [query, setQuery] = useSearchParams()
   const search = query.get('search') || ''
+  const filterType = query.get('type') || 'artworks'
+  const filterStatus = query.get('status') || 'published'
+  const sort = query.get('sort') || '-created_at'
 
   useEffect(() => {
     let alive = true
 
-    api
-      .get('/artworks/', { params: search ? { search } : undefined })
-      .then(({ data }) => {
-        if (!alive) return
-        setItems(data.results || data || [])
-        setStatus('ready')
-      })
-      .catch(() => {
-        if (!alive) return
-        setStatus('error')
-      })
+    if (filterType === 'exhibitions') {
+      api
+        .get('/exhibitions/', { params: { search, ordering: sort } })
+        .then(({ data }) => {
+          if (!alive) return
+          setExhibitions((data.results || data || []).filter((e) => e.status === 'published'))
+          setStatus('ready')
+        })
+        .catch(() => alive && setStatus('error'))
+    } else {
+      api
+        .get('/artworks/', { params: search ? { search, ordering: sort } : { ordering: sort } })
+        .then(({ data }) => {
+          if (!alive) return
+          setItems(data.results || data || [])
+          setStatus('ready')
+        })
+        .catch(() => alive && setStatus('error'))
+    }
 
     return () => {
       alive = false
     }
-  }, [search])
+  }, [search, sort, filterType])
+
+  const filteredItems = useMemo(() => {
+    if (filterStatus === 'all') return items
+    return items.filter((item) => item.status === filterStatus)
+  }, [filterStatus, items])
 
   const onSubmit = (event) => {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    setQuery(form.get('search') ? { search: form.get('search') } : {})
+    const next = {}
+    if (form.get('search')) next.search = form.get('search')
+    if (form.get('type')) next.type = form.get('type')
+    if (form.get('status')) next.status = form.get('status')
+    if (form.get('sort')) next.sort = form.get('sort')
+    setQuery(next)
   }
 
   return (
-    <section>
-      <PageHeader
-        eyebrow="Public browsing"
-        title="Explore artworks"
-        subtitle="Browse published pieces, categories, and statements."
-      />
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-extrabold text-[#F4F4F5]">Explore Digital Archives</h1>
+        <p className="text-xs text-[#A1A1AA] mt-1">Browse published artworks, artist statements, and curated exhibition catalogues</p>
+      </div>
 
-      <form onSubmit={onSubmit} className="mb-6 flex flex-col gap-3 sm:flex-row">
-        <input
-          className="flex-1 rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-stone-50 outline-none placeholder:text-stone-400 focus:border-amber-200/50"
-          name="search"
-          defaultValue={search}
-          placeholder="Search title, category, tag, year"
-        />
-        <button
-          type="submit"
-          className="rounded-full bg-gradient-to-r from-amber-200 to-fuchsia-300 px-5 py-3 font-semibold text-slate-950 transition hover:opacity-90"
+      {/* Filter Form Bar */}
+      <form
+        onSubmit={onSubmit}
+        className="surface-card p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-center"
+      >
+        <div className="relative lg:col-span-2">
+          <input
+            className="w-full rounded-[9px] bg-[#0D0F14] border border-white/[0.09] pl-9 pr-3 py-2 text-xs text-[#F4F4F5] outline-none focus:border-indigo-400"
+            name="search"
+            defaultValue={search}
+            placeholder="Search title, medium, category, year..."
+          />
+          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#71717A]" />
+        </div>
+
+        <select
+          className="rounded-[9px] bg-[#0D0F14] border border-white/[0.09] px-3 py-2 text-xs text-[#F4F4F5] outline-none"
+          name="type"
+          defaultValue={filterType}
         >
-          Search
-        </button>
+          <option value="artworks">Artworks Archive</option>
+          <option value="exhibitions">Exhibition Catalogues</option>
+        </select>
+
+        <select
+          className="rounded-[9px] bg-[#0D0F14] border border-white/[0.09] px-3 py-2 text-xs text-[#F4F4F5] outline-none"
+          name="sort"
+          defaultValue={sort}
+        >
+          <option value="-created_at">Newest First</option>
+          <option value="created_at">Oldest First</option>
+          <option value="title">Title (A-Z)</option>
+        </select>
+
+        <Button type="submit" variant="primary" className="!py-2 text-xs">
+          <Filter className="h-3.5 w-3.5" />
+          <span>Filter</span>
+        </Button>
       </form>
 
-      {status === 'loading' ? <CenteredState title="Loading" description="Fetching artworks..." /> : null}
-      {status === 'error' ? <CenteredState title="Error" description="Could not load artworks." /> : null}
+      {status === 'loading' && <LoadingState title="Searching Archives" description="Loading entries..." />}
+      {status === 'error' && <EmptyState title="Search Failed" description="Could not load entries." />}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {status === 'ready' && items.length === 0 ? (
-          <CenteredState title="Nothing to see here" description="There are no artworks in the database yet. Try again after content is published." />
-        ) : null}
-
-        {items.map((item) => (
-          <SectionCard
-            key={item.id}
-            title={item.title}
-            meta={item.status || item.category_name || 'Artwork'}
-            href={`/artworks/${item.id}`}
-          />
-        ))}
-      </div>
-
-      <div className="mt-8 text-sm text-stone-300">
-        Looking for more discovery tools? Try the{' '}
-        <Link className="text-amber-200 hover:text-amber-100" to="/dashboard">
-          dashboard
-        </Link>
-        .
-      </div>
-    </section>
+      {status === 'ready' && (
+        <>
+          {filterType === 'exhibitions' ? (
+            exhibitions.length > 0 ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {exhibitions.map((exhibition) => (
+                  <ExhibitionCard key={exhibition.id} exhibition={exhibition} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState title="Nothing to see here yet." description="No published exhibitions match your filter." />
+            )
+          ) : filteredItems.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredItems.map((item) => (
+                <ArtworkCard key={item.id} artwork={item} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="Nothing to see here yet." description="No published artworks match your filter." />
+          )}
+        </>
+      )}
+    </div>
   )
 }

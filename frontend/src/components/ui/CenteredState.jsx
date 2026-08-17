@@ -1,8 +1,15 @@
-export function CenteredState({ title, description }) {
+import React from 'react'
+import { Icon } from './Icons'
+
+export function CenteredState({ title, description, icon = 'sparkles', action }) {
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/6 px-6 py-14 text-center shadow-2xl shadow-black/30 backdrop-blur-sm">
-      <h2 className="text-2xl font-semibold text-stone-50">{title}</h2>
-      <p className="mx-auto mt-3 max-w-xl text-stone-300">{description}</p>
+    <section className="fm-card flex flex-col items-center justify-center px-6 py-16 text-center my-6">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 mb-4 shadow-lg shadow-indigo-500/10">
+        <Icon name={icon} className="h-8 w-8" />
+      </div>
+      <h2 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">{title}</h2>
+      <p className="mx-auto mt-2 max-w-md text-sm text-slate-400 leading-relaxed">{description}</p>
+      {action && <div className="mt-6">{action}</div>}
     </section>
   )
 }

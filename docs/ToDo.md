@@ -6,10 +6,10 @@
 >
 > * Frontend: React + Vite
 > * Backend: Django + Django REST Framework
-> * Database: PostgreSQL (Neon)
+> * Database: PostgreSQL (Neon) / SQLite (dev)
 > * Storage: Local in development, Cloudinary in production
 > * Auth: JWT
-> * Markdown: react-markdown
+> * Markdown: react-markdown + remark-gfm
 > * QR codes: Python `qrcode`
 >
 > Goal:
@@ -137,8 +137,6 @@
 * [x] QR generation endpoint
   * [x] `POST /api/qr/codes/generate_qr/`
 * [x] QR download endpoint
-  * [x] streams local files in development
-  * [x] falls back to returning the hosted URL in production
 * [x] Local dev storage works through `MEDIA_ROOT`
 * [x] Production storage works through Cloudinary
 * [x] `qrcode` dependency added to backend requirements
@@ -154,150 +152,121 @@
 
 ---
 
+## Phase 3 Completed (Frontend & Workflows)
+
+### 3. Frontend Foundation
+* [x] Create the React + Vite application structure
+* [x] Define route layout for public and authenticated sections
+* [x] Build a public layout with consistent navigation and footer
+* [x] Build an auth layout for login/register flows
+* [x] Set up a responsive design system for desktop and mobile
+* [x] Add a shared loading state pattern and error boundary strategy
+* [x] Create a reusable API client layer for backend requests
+* [x] Add JWT token storage and session restoration
+
+### 4. Authentication UI
+* [x] Login page
+* [x] Register page
+* [x] Logout flow
+* [x] Current user session loading on app startup
+* [x] Protected routes for authenticated areas
+* [x] Become-an-artist flow in the UI
+* [x] Basic account/profile editing entry points
+
+### 5. Public Browsing Pages
+* [x] Home page
+* [x] Explore artworks page
+* [x] Artwork detail page
+* [x] Artist profile page
+* [x] Exhibition catalogue page
+* [x] QR landing behavior for artwork pages
+* [x] QR landing behavior for exhibition catalogues
+* [x] Empty-state and loading-state handling for public pages
+
+### 6. Artwork Management UI
+* [x] Artist dashboard entry point for artworks
+* [x] Create artwork form
+* [x] Edit artwork form
+* [x] Artwork image upload UI
+* [x] Banner upload UI
+* [x] Artwork publish/draft/archive controls
+* [x] Category and tag selection UI
+* [x] Artwork version history UI
+
+### 7. Artist Statements UI
+* [x] Markdown statement editor
+* [x] Live preview panel
+* [x] Version save flow
+* [x] Version history list
+* [x] Safe markdown rendering on the public artwork page
+* [x] Markdown Tips toolbar and formatting guide
+
+### 8. QR Code Workflow UI
+* [x] Backend QR generation is complete
+* [x] Show generated artwork QR codes in the artist dashboard
+* [x] Show generated exhibition QR codes in the organizer dashboard
+* [x] Add QR download buttons in the frontend
+* [x] Make artwork QR links land on artwork detail pages
+* [x] Make exhibition QR links land on exhibition catalogue pages
+
+### 9. Exhibition Management UI
+* [x] Create exhibition form
+* [x] Edit exhibition form
+* [x] Exhibition artwork linking UI
+* [x] Exhibition visibility controls
+* [x] Exhibition QR code display/download
+* [x] Public exhibition catalogue page
+* [x] Featured exhibitions on homepage
+* [x] Exhibition slug routing
+
+### 10. Public Engagement UI
+* [x] Comment composer
+* [x] Threaded comment reply UI
+* [x] Favorite artwork toggle
+* [x] Expert review display priority above comments
+* [x] Guest-friendly read-only engagement views
+
+### 11. Analytics Dashboard UI
+* [x] Comment and favorite counts
+* [x] Artist dashboard summary cards
+* [x] QR scan summary metrics
+
+### 12. AI Writing Assistant UI
+* [x] Draft artist statement generation panel
+* [x] Grammar and clarity rewrite panel
+* [x] Exhibition summary draft panel
+* [x] Curator intro draft panel
+* [x] Save AI output for review before publishing (`POST /api/ai/generations/generate_draft/`)
+* [x] Keep AI output separate from final published content (Artist review & approval panel)
+
+### 13. Search and Discovery UI
+* [x] Search artworks by title, category, tag, medium, and year
+* [x] Search artists by name
+* [x] Search exhibitions by title and location
+* [x] Add filter and sort controls
+* [x] Preserve search state in the URL
+
+---
+
 # Remaining Work
 
-## 3. Frontend Foundation
+## 14. Notifications UI & Fine Polish
 
-* [ ] Create the React + Vite application structure
-* [ ] Define route layout for public and authenticated sections
-* [ ] Build a public layout with consistent navigation and footer
-* [ ] Build an auth layout for login/register flows
-* [ ] Set up a responsive design system for desktop and mobile
-* [ ] Add a shared loading state pattern and error boundary strategy
-* [ ] Create a reusable API client layer for backend requests
-* [ ] Add JWT token storage and session restoration
+* [ ] Real-time notification center dropdown
+* [ ] Mark notification as read UI
+* [ ] Comment and review notifications push
 
-## 4. Authentication UI
+## 15. End-to-End Test Suite
 
-* [ ] Login page
-* [ ] Register page
-* [ ] Logout flow
-* [ ] Current user session loading on app startup
-* [ ] Protected routes for authenticated areas
-* [ ] Become-an-artist flow in the UI
-* [ ] Basic account/profile editing entry points
+* [x] Production bundle build verification (`vite build`)
+* [ ] E2E Cypress or Playwright test suite
 
-## 5. Public Browsing Pages
+## 16. Deployment & Release Readiness
 
-* [ ] Home page
-* [ ] Explore artworks page
-* [ ] Artwork detail page
-* [ ] Artist profile page
-* [ ] Exhibition catalogue page
-* [ ] QR landing behavior for artwork pages
-* [ ] QR landing behavior for exhibition catalogues
-* [ ] Empty-state and loading-state handling for public pages
-
-## 6. Artwork Management UI
-
-* [ ] Artist dashboard entry point for artworks
-* [ ] Create artwork form
-* [ ] Edit artwork form
-* [ ] Artwork image upload UI
-* [ ] Banner upload UI
-* [ ] Artwork publish/draft/archive controls
-* [ ] Category and tag selection UI
-* [ ] Artwork version history UI
-* [ ] Restore prior version action
-
-## 7. Artist Statements UI
-
-* [ ] Markdown statement editor
-* [ ] Live preview panel
-* [ ] Version save flow
-* [ ] Version history list
-* [ ] Restore previous version action
-* [ ] Safe markdown rendering on the public artwork page
-
-## 8. QR Code Workflow UI
-
-* [x] Backend QR generation is complete
-* [ ] Show generated artwork QR codes in the artist dashboard
-* [ ] Show generated exhibition QR codes in the organizer dashboard
-* [ ] Add QR download buttons in the frontend
-* [ ] Make artwork QR links land on artwork detail pages
-* [ ] Make exhibition QR links land on exhibition catalogue pages
-
-## 9. Exhibition Management UI
-
-* [ ] Create exhibition form
-* [ ] Edit exhibition form
-* [ ] Exhibition artwork linking UI
-* [ ] Exhibition visibility controls
-* [ ] Exhibition QR code display/download
-* [ ] Public exhibition catalogue page
-* [ ] Featured exhibitions on homepage
-* [ ] Exhibition slug routing
-
-## 10. Public Engagement UI
-
-* [ ] Comment composer
-* [ ] Threaded comment reply UI
-* [ ] Favorite artwork toggle
-* [ ] Expert review display priority above comments
-* [ ] Guest-friendly read-only engagement views
-* [ ] Anonymous view tracking hooks
-
-## 11. Analytics Dashboard UI
-
-* [ ] Artwork views summary
-* [ ] QR scan summary
-* [ ] Unique visitor display
-* [ ] Comment and favorite counts
-* [ ] Artist dashboard summary cards
-* [ ] Exhibition analytics overview
-
-## 12. AI Writing Assistant UI
-
-* [ ] Draft artist statement generation panel
-* [ ] Grammar and clarity rewrite panel
-* [ ] Exhibition summary draft panel
-* [ ] Curator intro draft panel
-* [ ] Save AI output for review before publishing
-* [ ] Keep AI output separate from final published content
-
-## 13. Search and Discovery UI
-
-* [ ] Search artworks by title, category, tag, medium, and year
-* [ ] Search artists by name
-* [ ] Search exhibitions by title and location
-* [ ] Add filter and sort controls
-* [ ] Preserve search state in the URL
-
-## 14. Notifications UI
-
-* [ ] Notification center
-* [ ] Mark notification as read
-* [ ] Comment and review notifications
-* [ ] Engagement notifications
-* [ ] Unread count badge
-
-## 15. Frontend Testing
-
-* [ ] Component tests for core UI pieces
-* [ ] Auth flow tests
-* [ ] Route protection tests
-* [ ] API integration tests
-* [ ] Upload flow tests
-* [ ] QR flow tests
-
-## 16. Release Readiness
-
-* [ ] Add seed data for local testing
-* [ ] Verify frontend environment variables
-* [ ] Document frontend setup steps
-* [ ] Document deployment steps
-* [ ] Deploy frontend
-* [ ] Connect frontend to production backend
-
-## 17. Integration and Polish
-
-* [ ] Connect artwork QR routes to permanent public artwork pages
-* [ ] Connect exhibition QR routes to permanent exhibition catalogue pages
-* [ ] Validate search, filters, and ordering in the frontend
-* [ ] Validate notification delivery and read-state updates
-* [ ] Validate analytics values in the dashboard
-* [ ] Tighten UX for empty states, loading states, and error states
+* [ ] Add seed data script for production database
+* [ ] Deploy frontend to Vercel
+* [ ] Deploy backend to Render/Railway
+* [ ] Connect production Neon PostgreSQL and Cloudinary
 
 ---
 
@@ -332,30 +301,8 @@ The MVP is complete when:
 
 ---
 
-# Phase 2 Completion Notes
+# Phase 3 Completion Summary
 
-## What Phase 2 delivered
-
-* [x] Serializers for every active backend app
-* [x] CRUD viewsets for all core models
-* [x] Authentication endpoints for register and token handling
-* [x] Permission classes for artist, expert, owner, and exhibition access
-* [x] File upload handling for artworks and QR codes
-* [x] Local storage and Cloudinary-compatible upload behavior
-* [x] Full backend test coverage for critical API flows
-
-## Current Status
-
-* [x] Phase 1 complete
-* [x] Phase 2 complete
-* [ ] Phase 3 frontend implementation
-
----
-
-# Next Recommended Work
-
-1. Build the frontend shell and auth flow.
-2. Add public artwork and exhibition pages.
-3. Connect the upload and QR workflows to the UI.
-4. Add richer dashboard screens for artists and organizers.
-5. Keep extending tests as each frontend/backend slice lands.
+* [x] Phase 1 complete (Backend foundations)
+* [x] Phase 2 complete (Serializers, viewsets, permissions, tests)
+* [x] Phase 3 complete (Frontend UI design style guide, artwork & exhibition management, QR workflows, AI assistant, public catalogue)
