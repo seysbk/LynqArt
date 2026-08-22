@@ -13,10 +13,36 @@ export function Header({ session }) {
     { label: 'Exhibitions', path: '/explore?type=exhibitions' },
     { label: 'Artworks', path: '/explore' },
     { label: 'Dashboard', path: '/dashboard' },
-    { label: 'Profile', path: '/profile' },
   ]
 
   const userProfilePath = user ? '/profile' : '/login'
+  const avatarUrl = user?.artist_profile?.avatar_url
+  const userInitials = (user?.full_name || user?.username || 'U')
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .substring(0, 2)
+    .toUpperCase()
+
+  const renderProfileBadge = (size = 'md') => {
+    if (!user) {
+      return <User className={size === 'md' ? 'h-5 w-5' : 'h-4 w-4'} />
+    }
+    if (avatarUrl) {
+      return (
+        <img
+          src={avatarUrl}
+          alt={user.full_name || user.username}
+          className="h-full w-full rounded-full object-cover"
+        />
+      )
+    }
+    return (
+      <span className={`font-semibold text-indigo-400 ${size === 'md' ? 'text-xs' : 'text-[11px]'}`}>
+        {userInitials}
+      </span>
+    )
+  }
 
   return (
     <header className="w-full bg-[#0D0F14]/90 backdrop-blur-md sticky top-0 z-50 border-b border-white/[0.08]">
@@ -40,7 +66,7 @@ export function Header({ session }) {
                     to={item.path}
                     end={item.path === '/'}
                     className={({ isActive }) =>
-                      `px-4 py-2 transition-colors duration-150 rounded-md ${
+                      `px-4 py-2 transition-colors duration-150 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${
                         isActive
                           ? 'text-indigo-400 font-semibold'
                           : 'text-slate-300 hover:text-white'
@@ -58,15 +84,11 @@ export function Header({ session }) {
               <NotificationsCenter session={session} />
               <Link
                 to={userProfilePath}
-                className="h-10 w-10 rounded-full bg-slate-900 border border-white/[0.09] flex items-center justify-center text-slate-300 hover:text-white hover:border-white/20 transition-all"
+                className="h-10 w-10 rounded-full bg-slate-900 border border-white/[0.09] flex items-center justify-center text-slate-300 hover:text-white hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 transition-all overflow-hidden"
                 title={user ? `Profile: ${user.username}` : 'Sign In'}
-                aria-label="User Profile"
+                aria-label={user ? `User Profile for ${user.username}` : 'Sign In'}
               >
-                {user?.is_artist ? (
-                  <ShieldCheck className="h-5 w-5 text-indigo-400" />
-                ) : (
-                  <User className="h-5 w-5" />
-                )}
+                {renderProfileBadge('md')}
               </Link>
             </div>
           </div>
@@ -81,15 +103,11 @@ export function Header({ session }) {
 
           <Link
             to={userProfilePath}
-            className="h-9 w-9 rounded-full bg-slate-900 border border-white/[0.09] flex items-center justify-center text-slate-300 hover:text-white"
+            className="h-9 w-9 rounded-full bg-slate-900 border border-white/[0.09] flex items-center justify-center text-slate-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 overflow-hidden"
             title={user ? `Profile: ${user.username}` : 'Sign In'}
-            aria-label="User Profile"
+            aria-label={user ? `User Profile for ${user.username}` : 'Sign In'}
           >
-            {user?.is_artist ? (
-              <ShieldCheck className="h-4 w-4 text-indigo-400" />
-            ) : (
-              <User className="h-4 w-4" />
-            )}
+            {renderProfileBadge('sm')}
           </Link>
         </div>
 

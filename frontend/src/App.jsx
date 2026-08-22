@@ -11,7 +11,6 @@ import { ExplorePage } from './pages/public/ExplorePage'
 import { HomePage } from './pages/public/HomePage'
 import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
-import { ProfilePage } from './pages/public/ProfilePage'
 import { ArtworkManagerPage } from './pages/dashboard/ArtworkManagerPage'
 import { ExhibitionManagerPage } from './pages/dashboard/ExhibitionManagerPage'
 import { QRLandingPage } from './pages/public/QRLandingPage'
@@ -27,7 +26,7 @@ function App() {
         <Route index element={<HomePage session={session} />} />
         <Route path="explore" element={<ExplorePage />} />
         <Route path="artworks/:artworkSlug" element={<ArtworkDetailPage session={session} />} />
-        <Route path="artists/:artistId" element={<ArtistProfilePage />} />
+        <Route path="artists/:artistId/:slug?" element={<ArtistProfilePage />} />
         <Route path="exhibitions/:exhibitionSlug" element={<ExhibitionPage />} />
         <Route path="qr/:qrSlug" element={<QRLandingPage />} />
         <Route path="terms" element={<TermsPage />} />

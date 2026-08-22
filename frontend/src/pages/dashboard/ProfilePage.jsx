@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
-import { PageHeader } from '../../components/ui/PageHeader'
 import { Button } from '../../components/ui/Button'
 import { LoadingState } from '../../components/ui/LoadingState'
 import { User, ShieldCheck, Check, Sparkles } from 'lucide-react'
@@ -11,7 +10,6 @@ const inputClass =
 
 export function ProfilePage({ session }) {
   const [userProfile, setUserProfile] = useState(null)
-  const [artistProfile, setArtistProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [savingUser, setSavingUser] = useState(false)
   const [savingArtist, setSavingArtist] = useState(false)
@@ -26,6 +24,7 @@ export function ProfilePage({ session }) {
 
   const [artistForm, setArtistForm] = useState({
     bio: '',
+    avatar_url: '',
     location: '',
     phone: '',
     website: '',
@@ -47,9 +46,9 @@ export function ProfilePage({ session }) {
       })
 
       if (aRes.data) {
-        setArtistProfile(aRes.data)
         setArtistForm({
           bio: aRes.data.bio || '',
+          avatar_url: aRes.data.avatar_url || '',
           location: aRes.data.location || '',
           phone: aRes.data.phone || '',
           website: aRes.data.website || '',
@@ -89,8 +88,7 @@ export function ProfilePage({ session }) {
     setSavingArtist(true)
     setArtistMessage('')
     try {
-      const { data } = await api.patch('/accounts/artist-profile/', artistForm)
-      setArtistProfile(data)
+      await api.patch('/accounts/artist-profile/', artistForm)
       setArtistMessage('Artist profile details updated successfully.')
     } catch (err) {
       setArtistMessage(err?.response?.data?.detail || 'Could not update artist details.')
@@ -212,6 +210,32 @@ export function ProfilePage({ session }) {
             </div>
           )}
 
+          {/* Profile Picture / Avatar URL with preview */}
+          <div className="space-y-2">
+            <label className="block space-y-1 text-xs font-medium text-[#A1A1AA]">
+              Profile Picture / Avatar URL
+              <input
+                type="url"
+                value={artistForm.avatar_url}
+                onChange={(e) => setArtistForm({ ...artistForm, avatar_url: e.target.value })}
+                placeholder="https://example.com/avatar.jpg"
+                className={inputClass}
+              />
+            </label>
+
+            {artistForm.avatar_url && (
+              <div className="flex items-center gap-3 pt-1">
+                <img
+                  src={artistForm.avatar_url}
+                  alt="Avatar Preview"
+                  className="h-10 w-10 rounded-full object-cover border border-white/[0.09]"
+                  onError={(e) => { e.currentTarget.style.display = 'none' }}
+                />
+                <span className="text-[11px] text-[#A1A1AA]">Avatar preview</span>
+              </div>
+            )}
+          </div>
+
           <label className="block space-y-1 text-xs font-medium text-[#A1A1AA]">
             Artist Bio &amp; Creative Statement *
             <textarea
@@ -287,7 +311,11 @@ export function ProfilePage({ session }) {
             </Button>
 
             {userProfile?.id && (
-              <Link to={`/artists/${userProfile.id}`} target="_blank" className="text-xs text-indigo-400 hover:underline">
+              <Link
+                to={`/artists/${userProfile.id}/${encodeURIComponent((userProfile.full_name || userProfile.username || '').toLowerCase().replace(/\s+/g, '-'))}`}
+                target="_blank"
+                className="text-xs text-indigo-400 hover:underline"
+              >
                 View Public Artist Page &rarr;
               </Link>
             )}

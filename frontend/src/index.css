@@ -112,7 +112,7 @@
 
 /* Custom Chiller / Decorative font styling for LynqArt logo */
 .font-display-logo {
-  font-family: 'Chiller', 'Playfair Display', Georgia, serif;
+  font-family: 'Chiller', 'Brush Script MT', 'Comic Sans MS', cursive, 'Playfair Display', Georgia, serif;
   letter-spacing: -0.05em;
 }
 

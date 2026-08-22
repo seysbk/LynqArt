@@ -9,8 +9,8 @@ export function Logo({ className = '' }) {
         <span>y</span>
         <span>n</span>
         <span>q</span>
-        <span className="inline-block text-indigo-400 font-semibold" style={{ transform: 'rotate(-10deg)' }}>A</span>
-        <span className="inline-block" style={{ transform: 'rotate(-10deg) translateY(-2px) translateX(-1px)' }}>r</span>
+        <span className="inline-block text-indigo-400 font-semibold" style={{ transform: 'rotate(350deg)' }}>A</span>
+        <span className="inline-block" style={{ transform: 'rotate(350deg) translateY(-2px) translateX(-1px)' }}>r</span>
         <span>t</span>
       </span>
     </Link>
