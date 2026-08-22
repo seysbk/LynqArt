@@ -26,7 +26,7 @@ class ArtworkUploadTests(APITestCase):
     def test_artist_can_upload_artwork_image(self):
         self.client.force_authenticate(user=self.artist)
         response = self.client.post(
-            reverse('artwork-upload-images', args=[self.artwork.pk]),
+            reverse('artwork-upload-images', args=[self.artwork.slug]),
             {'image': self._image_file(), 'caption': 'Main image', 'display_order': 1, 'is_process_image': False},
             format='multipart',
         )
@@ -39,7 +39,7 @@ class ArtworkUploadTests(APITestCase):
     def test_artist_can_upload_banner(self):
         self.client.force_authenticate(user=self.artist)
         response = self.client.post(
-            reverse('artwork-upload-banner', args=[self.artwork.pk]),
+            reverse('artwork-upload-banner', args=[self.artwork.slug]),
             {'banner': self._image_file(name='banner.png')},
             format='multipart',
         )
@@ -51,7 +51,7 @@ class ArtworkUploadTests(APITestCase):
     def test_viewer_cannot_upload_artwork_image(self):
         self.client.force_authenticate(user=self.viewer)
         response = self.client.post(
-            reverse('artwork-upload-images', args=[self.artwork.pk]),
+            reverse('artwork-upload-images', args=[self.artwork.slug]),
             {'image': self._image_file()},
             format='multipart',
         )

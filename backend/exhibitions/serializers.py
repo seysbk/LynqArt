@@ -23,6 +23,7 @@ class ExhibitionSerializer(serializers.ModelSerializer):
     organizer = UserBriefSerializer(read_only=True)
     organizer_id = serializers.PrimaryKeyRelatedField(source='organizer', queryset=User.objects.all(), write_only=True, required=False)
     artworks = serializers.SerializerMethodField()
+    banner_image = serializers.CharField(allow_blank=True, required=False, allow_null=True, default='')
 
     class Meta:
         model = Exhibition

@@ -49,6 +49,10 @@ class UserSerializer(serializers.ModelSerializer):
 class ArtistProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     user_id = serializers.PrimaryKeyRelatedField(source='user', queryset=User.objects.all(), write_only=True)
+    avatar_url = serializers.CharField(allow_blank=True, required=False, default='')
+    website = serializers.CharField(allow_blank=True, required=False, default='')
+    instagram = serializers.CharField(allow_blank=True, required=False, default='')
+    twitter = serializers.CharField(allow_blank=True, required=False, default='')
 
     class Meta:
         model = ArtistProfile
@@ -115,6 +119,10 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class BecomeArtistSerializer(serializers.ModelSerializer):
     protected_fields = {'is_artist', 'is_expert', 'is_verified', 'can_manage_exhibitions', 'is_staff', 'is_superuser'}
+    avatar_url = serializers.CharField(allow_blank=True, required=False, default='')
+    website = serializers.CharField(allow_blank=True, required=False, default='')
+    instagram = serializers.CharField(allow_blank=True, required=False, default='')
+    twitter = serializers.CharField(allow_blank=True, required=False, default='')
 
     class Meta:
         model = ArtistProfile
@@ -124,10 +132,6 @@ class BecomeArtistSerializer(serializers.ModelSerializer):
         forbidden = self.protected_fields.intersection(self.initial_data.keys())
         if forbidden:
             raise serializers.ValidationError({field: 'This field cannot be set through artist enrollment.' for field in sorted(forbidden)})
-        if not (attrs.get('bio') or getattr(self.instance, 'bio', '')):
-            raise serializers.ValidationError({'bio': 'Tell visitors a little about your artistic practice.'})
-        if not (attrs.get('location') or getattr(self.instance, 'location', '')):
-            raise serializers.ValidationError({'location': 'Your location is required.'})
         return attrs
 
     def create(self, validated_data):

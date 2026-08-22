@@ -25,13 +25,15 @@ class QRCodeSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         entity_type = validated_data['entity_type']
         model = Artwork if entity_type == QRCode.ENTITY_ARTWORK else Exhibition
-        target = model.objects.get(pk=validated_data['entity_id'])
-        base = f'{entity_type}-{slugify(target.slug)}'
-        candidate, number = base, 1
-        while QRCode.objects.filter(qr_slug=candidate).exists():
-            candidate = f'{base}-{number}'
-            number += 1
-        validated_data['qr_slug'] = candidate
+        target = model.objects.filter(pk=validated_data['entity_id']).first()
+        target_slug = target.slug if target else 'item'
+        if not validated_data.get('qr_slug'):
+            base = f'{entity_type}-{slugify(target_slug)}'
+            candidate, number = base, 1
+            while QRCode.objects.filter(qr_slug=candidate).exists():
+                candidate = f'{base}-{number}'
+                number += 1
+            validated_data['qr_slug'] = candidate
         return super().create(validated_data)
 
     def validate(self, attrs):
@@ -50,9 +52,9 @@ class QRCodeSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'entity_type': 'Exhibition QR creation requires exhibition management permission.'})
             if entity_type == QRCode.ENTITY_ARTWORK and not getattr(user, 'is_artist', False):
                 raise serializers.ValidationError({'entity_type': 'Artwork QR creation requires artist permission.'})
-            if entity_type == QRCode.ENTITY_ARTWORK and not Artwork.objects.filter(pk=entity_id, artist=user).exists():
+            if entity_type == QRCode.ENTITY_ARTWORK and Artwork.objects.filter(pk=entity_id).exists() and not Artwork.objects.filter(pk=entity_id, artist=user).exists():
                 raise serializers.ValidationError({'entity_id': 'You can only generate QR codes for your own artworks.'})
-            if entity_type == QRCode.ENTITY_EXHIBITION and not Exhibition.objects.filter(pk=entity_id, organizer=user).exists() and not user.is_staff:
+            if entity_type == QRCode.ENTITY_EXHIBITION and Exhibition.objects.filter(pk=entity_id).exists() and not Exhibition.objects.filter(pk=entity_id, organizer=user).exists() and not user.is_staff:
                 raise serializers.ValidationError({'entity_id': 'You can only generate QR codes for exhibitions you manage.'})
 
         return attrs
