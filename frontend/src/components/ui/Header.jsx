@@ -14,7 +14,7 @@ export function Header({ session }) {
     { label: 'Dashboard', path: '/dashboard' },
   ]
 
-  const userProfilePath = user ? '/dashboard' : '/login'
+  const userProfilePath = user ? '/profile' : '/login'
 
   return (
     <header className="w-full bg-[#0D0F14]/90 backdrop-blur-md sticky top-0 z-50 border-b border-white/[0.08]">
