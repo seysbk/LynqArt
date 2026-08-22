@@ -51,10 +51,6 @@ class ArtworkViewSet(viewsets.ModelViewSet):
     ordering_fields = ('created_at', 'updated_at', 'published_at', 'title')
 
     def perform_create(self, serializer):
-        profile = getattr(self.request.user, 'artist_profile', None)
-        if not self.request.user.first_name.strip() or not self.request.user.last_name.strip() or not profile or not profile.bio.strip() or not profile.location.strip():
-            from rest_framework.exceptions import ValidationError
-            raise ValidationError({'detail': 'Complete artist onboarding before creating an artwork.'})
         serializer.save(artist=self.request.user)
 
     def get_queryset(self):
@@ -72,6 +68,7 @@ class ArtworkViewSet(viewsets.ModelViewSet):
     @action(
         detail=True,
         methods=['post'],
+        url_path='upload_images',
         parser_classes=[MultiPartParser, FormParser],
     )
     def upload_images(self, request, slug=None):
@@ -91,11 +88,17 @@ class ArtworkViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=True,
-        methods=['post'],
+        methods=['post', 'delete'],
+        url_path='upload_banner',
         parser_classes=[MultiPartParser, FormParser],
     )
     def upload_banner(self, request, slug=None):
         artwork = self.get_object()
+        if request.method == 'DELETE':
+            artwork.banner_image = ''
+            artwork.save(update_fields=['banner_image', 'updated_at'])
+            return Response({'id': artwork.id, 'banner_image': ''}, status=status.HTTP_200_OK)
+
         uploaded_file = request.FILES.get('banner')
         if not uploaded_file:
             return Response({'banner': 'This field is required.'}, status=status.HTTP_400_BAD_REQUEST)

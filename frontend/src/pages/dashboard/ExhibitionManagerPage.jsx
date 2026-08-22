@@ -115,6 +115,17 @@ export function ExhibitionManagerPage() {
     }
   }
 
+  const deleteBanner = async () => {
+    if (!item) return
+    try {
+      await api.delete(`/exhibitions/${item.slug}/upload_banner/`)
+      await refresh(item.slug)
+      setMessage('Banner image removed.')
+    } catch (error) {
+      setMessage(errorText(error))
+    }
+  }
+
   const generateQr = async () => {
     if (!item) return
     try {
@@ -294,7 +305,14 @@ export function ExhibitionManagerPage() {
 
           {/* Banner Upload */}
           <div className="surface-card p-5 space-y-3">
-            <h3 className="text-sm font-semibold text-[#F4F4F5]">Exhibition Banner Image</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-[#F4F4F5]">Exhibition Banner Image</h3>
+              {item.banner_image && (
+                <Button variant="secondary" onClick={deleteBanner} className="!py-1 !px-2.5 text-xs text-red-400 border-red-500/20 hover:bg-red-500/10">
+                  Remove Banner
+                </Button>
+              )}
+            </div>
             <ImageUpload label="Upload Banner Graphic" onChange={uploadBanner} />
             {item.banner_image && (
               <img src={mediaUrl(item.banner_image)} alt="Banner" className="h-24 w-full object-cover rounded-[9px]" />

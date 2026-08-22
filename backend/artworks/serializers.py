@@ -40,6 +40,8 @@ class ArtworkVersionSerializer(serializers.ModelSerializer):
 
 
 class ArtworkImageSerializer(serializers.ModelSerializer):
+    image_url = serializers.CharField(allow_blank=True, required=False)
+
     class Meta:
         model = ArtworkImage
         fields = (

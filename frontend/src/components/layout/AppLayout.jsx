@@ -16,12 +16,16 @@ export function AppLayout({ session }) {
         </PageContainer>
       </main>
 
-      {/* Subtle Minimal Footer */}
+      {/* Footer with Legal & Terms Links */}
       <footer className="border-t border-white/[0.08] bg-[#0D0F14] py-8 mt-16 text-xs text-[#71717A]">
         <PageContainer>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <p>&copy; {new Date().getFullYear()} LynqArt. Digital artwork archives &amp; permanent QR statements.</p>
-            <p className="text-[#A1A1AA]">Digital Archive + Contemporary Art Gallery</p>
+            <div className="flex items-center gap-4 text-[#A1A1AA]">
+              <a href="/terms" className="hover:text-white transition-colors">Terms of Service</a>
+              <span>·</span>
+              <a href="/privacy" className="hover:text-white transition-colors">Privacy Policy (Act 843)</a>
+            </div>
           </div>
         </PageContainer>
       </footer>

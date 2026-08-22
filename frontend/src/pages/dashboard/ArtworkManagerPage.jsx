@@ -50,6 +50,8 @@ export function ArtworkManagerPage() {
   const [newCategory, setNewCategory] = useState('')
   const [newTag, setNewTag] = useState('')
   const [imageMeta, setImageMeta] = useState({ caption: '', display_order: 0, is_process_image: false })
+  const [exhibitions, setExhibitions] = useState([])
+  const [linkedExhibitionIds, setLinkedExhibitionIds] = useState(new Set())
   const [qrCode, setQrCode] = useState(null)
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
@@ -57,12 +59,15 @@ export function ArtworkManagerPage() {
   const [showAiModal, setShowAiModal] = useState(false)
 
   const loadChoices = () =>
-    Promise.all([api.get('/artworks/categories/'), api.get('/artworks/tags/')]).then(
-      ([categoriesRes, tagsRes]) => {
-        setCategories(categoriesRes.data.results || categoriesRes.data || [])
-        setTags(tagsRes.data.results || tagsRes.data || [])
-      },
-    )
+    Promise.all([
+      api.get('/artworks/categories/'),
+      api.get('/artworks/tags/'),
+      api.get('/exhibitions/'),
+    ]).then(([categoriesRes, tagsRes, exhRes]) => {
+      setCategories(categoriesRes.data.results || categoriesRes.data || [])
+      setTags(tagsRes.data.results || tagsRes.data || [])
+      setExhibitions(exhRes.data.results || exhRes.data || [])
+    })
 
   const loadArtwork = async (slug) => {
     const { data } = await api.get(`/artworks/${slug}/`)
@@ -75,10 +80,55 @@ export function ArtworkManagerPage() {
       markdown_statement: data.current_version_detail?.markdown_statement || '',
       change_note: '',
     })
+
+    const exhLinksRes = await api.get('/exhibitions/artworks/', { params: { artwork: data.id } }).catch(() => ({ data: [] }))
+    const exhLinks = exhLinksRes.data.results || exhLinksRes.data || []
+    setLinkedExhibitionIds(new Set(exhLinks.map((link) => link.exhibition)))
+
     const qr = await api
       .get('/qr/codes/', { params: { entity_type: 'artwork', entity_id: data.id } })
       .catch(() => ({ data: [] }))
     setQrCode((qr.data.results || qr.data || [])[0] || null)
+  }
+
+  const toggleExhibitionLink = async (exhibitionId) => {
+    if (!artwork) return
+    try {
+      const existingRes = await api.get('/exhibitions/artworks/', { params: { artwork: artwork.id, exhibition: exhibitionId } })
+      const existing = (existingRes.data.results || existingRes.data || [])[0]
+      if (existing) {
+        await api.delete(`/exhibitions/artworks/${existing.id}/`)
+        setMessage('Artwork removed from exhibition.')
+      } else {
+        await api.post('/exhibitions/artworks/', { exhibition: exhibitionId, artwork: artwork.id })
+        setMessage('Artwork associated to exhibition!')
+      }
+      await loadArtwork(artwork.slug)
+    } catch (error) {
+      setMessage(errorText(error))
+    }
+  }
+
+  const deleteBanner = async () => {
+    if (!artwork) return
+    try {
+      await api.delete(`/artworks/${artwork.slug}/upload_banner/`)
+      await loadArtwork(artwork.slug)
+      setMessage('Banner image removed.')
+    } catch (error) {
+      setMessage(errorText(error))
+    }
+  }
+
+  const deleteGalleryImage = async (imageId) => {
+    if (!artwork) return
+    try {
+      await api.delete(`/artworks/images/${imageId}/`)
+      await loadArtwork(artwork.slug)
+      setMessage('Gallery image deleted.')
+    } catch (error) {
+      setMessage(errorText(error))
+    }
   }
 
   useEffect(() => {
@@ -335,6 +385,36 @@ export function ArtworkManagerPage() {
         </div>
       </form>
 
+      {/* Exhibition Associations Surface */}
+      {artwork && (
+        <div className="surface-card p-5 space-y-3">
+          <h3 className="text-sm font-semibold text-[#F4F4F5]">Associate to Exhibitions</h3>
+          <p className="text-xs text-[#71717A]">
+            Select one or multiple exhibitions to associate this artwork with. Associated artworks are featured in the digital exhibition catalogue.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2 pt-1">
+            {exhibitions.map((exh) => {
+              const isLinked = linkedExhibitionIds.has(exh.id)
+              return (
+                <div
+                  key={exh.id}
+                  onClick={() => toggleExhibitionLink(exh.id)}
+                  className={`p-3 rounded-[9px] border text-xs cursor-pointer flex items-center justify-between transition ${
+                    isLinked ? 'bg-indigo-600/20 border-indigo-400/50 text-[#F4F4F5]' : 'bg-[#0D0F14] border-white/[0.06] text-[#A1A1AA]'
+                  }`}
+                >
+                  <div className="min-w-0 pr-2">
+                    <p className="font-semibold truncate text-[#F4F4F5]">{exh.title}</p>
+                    <p className="text-[10px] text-[#71717A] truncate">{exh.location || 'Gallery'}</p>
+                  </div>
+                  <span className="text-[10px] font-bold shrink-0">{isLinked ? '✓ Associated' : '+ Associate'}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* QR Code & Images when Artwork is active */}
       {artwork && (
         <div className="grid gap-6 sm:grid-cols-2">
@@ -367,10 +447,71 @@ export function ArtworkManagerPage() {
 
           {/* Banner Upload */}
           <div className="surface-card p-5 space-y-3">
-            <h3 className="text-sm font-semibold text-[#F4F4F5]">Header Banner Image</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-[#F4F4F5]">Header Banner Graphic</h3>
+              {artwork.banner_image && (
+                <Button variant="secondary" onClick={deleteBanner} className="!py-1 !px-2.5 text-xs text-red-400 border-red-500/20 hover:bg-red-500/10">
+                  Remove Banner
+                </Button>
+              )}
+            </div>
+            <p className="text-[11px] text-[#71717A]">Main hero banner header for artwork page</p>
             <ImageUpload label="Upload Banner Graphic" onChange={(f) => upload(f, 'banner')} />
             {artwork.banner_image && (
               <img src={mediaUrl(artwork.banner_image)} alt="Banner" className="h-24 w-full object-cover rounded-[9px]" />
+            )}
+          </div>
+
+          {/* Gallery & Process Images Upload Section */}
+          <div className="surface-card p-5 space-y-4 sm:col-span-2">
+            <h3 className="text-sm font-semibold text-[#F4F4F5]">Gallery &amp; Process Images ({artwork.images?.length || 0})</h3>
+            <p className="text-xs text-[#71717A]">
+              Upload high-resolution artwork detail photos or work-in-progress process shots.
+            </p>
+
+            <div className="grid gap-3 sm:grid-cols-2 bg-[#0D0F14] p-4 rounded-[10px] border border-white/[0.06]">
+              <div className="space-y-2">
+                <input
+                  value={imageMeta.caption}
+                  onChange={(e) => setImageMeta({ ...imageMeta, caption: e.target.value })}
+                  placeholder="Image caption (e.g., Detail of texture)"
+                  className={inputClass}
+                />
+                <label className="flex items-center gap-2 text-xs text-[#A1A1AA] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={imageMeta.is_process_image}
+                    onChange={(e) => setImageMeta({ ...imageMeta, is_process_image: e.target.checked })}
+                    className="rounded border-white/[0.09] text-indigo-600"
+                  />
+                  <span>Mark as Process / Work-in-Progress Shot</span>
+                </label>
+              </div>
+
+              <div>
+                <ImageUpload label="Upload Gallery / Process Photo" onChange={(f) => upload(f, 'images')} />
+              </div>
+            </div>
+
+            {/* List of Previous Images with Deletion Control */}
+            {artwork.images?.length > 0 && (
+              <div className="grid gap-3 sm:grid-cols-3 pt-2">
+                {artwork.images.map((img) => (
+                  <div key={img.id} className="relative group surface-card p-2 space-y-2 overflow-hidden">
+                    <img src={mediaUrl(img.image_url)} alt={img.caption || 'Artwork photo'} className="h-32 w-full object-cover rounded-[7px]" />
+                    <div className="flex items-center justify-between text-[11px] text-[#A1A1AA]">
+                      <span className="truncate">{img.caption || (img.is_process_image ? 'Process Shot' : 'Gallery Image')}</span>
+                      <button
+                        type="button"
+                        onClick={() => deleteGalleryImage(img.id)}
+                        className="text-red-400 hover:text-red-300 font-semibold ml-2 shrink-0"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>

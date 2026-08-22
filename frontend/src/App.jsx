@@ -10,9 +10,12 @@ import { ExplorePage } from './pages/public/ExplorePage'
 import { HomePage } from './pages/public/HomePage'
 import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
+import { ProfilePage } from './pages/public/ProfilePage'
 import { ArtworkManagerPage } from './pages/dashboard/ArtworkManagerPage'
 import { ExhibitionManagerPage } from './pages/dashboard/ExhibitionManagerPage'
 import { QRLandingPage } from './pages/public/QRLandingPage'
+import { NotFoundPage } from './pages/public/NotFoundPage'
+import { TermsPage, PrivacyPage } from './pages/public/LegalPages'
 
 function App() {
   const session = useSession()
@@ -26,6 +29,8 @@ function App() {
         <Route path="artists/:artistId" element={<ArtistProfilePage />} />
         <Route path="exhibitions/:exhibitionSlug" element={<ExhibitionPage />} />
         <Route path="qr/:qrSlug" element={<QRLandingPage />} />
+        <Route path="terms" element={<TermsPage />} />
+        <Route path="privacy" element={<PrivacyPage />} />
         <Route path="login" element={<LoginPage session={session} />} />
         <Route path="register" element={<RegisterPage session={session} />} />
         <Route
@@ -36,6 +41,14 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="profile"
+          element={
+            <ProtectedRoute session={session}>
+              <ProfilePage session={session} />
+            </ProtectedRoute>
+          }
+        />
       </Route>
       <Route element={<AppLayout session={session} />}>
         <Route path="dashboard/artworks/new" element={<ProtectedRoute session={session}><ArtworkManagerPage /></ProtectedRoute>} />
@@ -43,7 +56,9 @@ function App() {
         <Route path="dashboard/exhibitions/new" element={<ProtectedRoute session={session}><ExhibitionManagerPage /></ProtectedRoute>} />
         <Route path="dashboard/exhibitions/:exhibitionSlug/edit" element={<ProtectedRoute session={session}><ExhibitionManagerPage /></ProtectedRoute>} />
       </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route element={<AppLayout session={session} />}>
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
     </Routes>
   )
 }
