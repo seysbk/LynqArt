@@ -16,3 +16,10 @@ export function setAuthToken(token) {
     delete api.defaults.headers.common.Authorization
   }
 }
+
+export function mediaUrl(url) {
+  if (!url) return ''
+  if (url.startsWith('http://') || url.startsWith('https://')) return url
+  const apiHost = import.meta.env.VITE_API_HOST || 'http://localhost:8000'
+  return `${apiHost}${url.startsWith('/') ? '' : '/'}${url}`
+}
