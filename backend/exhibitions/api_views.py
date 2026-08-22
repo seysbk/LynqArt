@@ -34,9 +34,14 @@ class ExhibitionViewSet(viewsets.ModelViewSet):
             return queryset.filter(organizer=self.request.user)
         return queryset
 
-    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    @action(detail=True, methods=['post', 'delete'], parser_classes=[MultiPartParser, FormParser])
     def upload_banner(self, request, slug=None):
         exhibition = self.get_object()
+        if request.method == 'DELETE':
+            exhibition.banner_image = ''
+            exhibition.save(update_fields=['banner_image', 'updated_at'])
+            return Response({'id': exhibition.id, 'banner_image': ''}, status=status.HTTP_200_OK)
+
         uploaded_file = request.FILES.get('banner')
         if not uploaded_file:
             return Response({'banner': 'This field is required.'}, status=status.HTTP_400_BAD_REQUEST)

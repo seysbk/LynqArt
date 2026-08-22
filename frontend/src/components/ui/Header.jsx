@@ -3,6 +3,7 @@ import { NavLink, Link } from 'react-router-dom'
 import { User, ShieldCheck } from 'lucide-react'
 import { Logo } from './Logo'
 import { PageContainer } from './PageContainer'
+import { NotificationsCenter } from './NotificationsCenter'
 
 export function Header({ session }) {
   const user = session?.user
@@ -12,6 +13,7 @@ export function Header({ session }) {
     { label: 'Exhibitions', path: '/explore?type=exhibitions' },
     { label: 'Artworks', path: '/explore' },
     { label: 'Dashboard', path: '/dashboard' },
+    { label: 'Profile', path: '/profile' },
   ]
 
   const userProfilePath = user ? '/profile' : '/login'
@@ -51,8 +53,9 @@ export function Header({ session }) {
               ))}
             </nav>
 
-            {/* Right: Profile Icon */}
+            {/* Right: Notifications & Profile Icon */}
             <div className="flex items-center gap-3">
+              <NotificationsCenter session={session} />
               <Link
                 to={userProfilePath}
                 className="h-10 w-10 rounded-full bg-slate-900 border border-white/[0.09] flex items-center justify-center text-slate-300 hover:text-white hover:border-white/20 transition-all"

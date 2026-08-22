@@ -46,9 +46,13 @@ export function ArtistProfilePage() {
       <div className="surface-card p-6 sm:p-8 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-full bg-[#191C27] border border-white/[0.09] flex items-center justify-center text-xl font-bold text-indigo-400">
-              {artistName.charAt(0).toUpperCase()}
-            </div>
+            {profile.avatar_url ? (
+              <img src={mediaUrl(profile.avatar_url)} alt={artistName} className="h-16 w-16 rounded-full object-cover border border-white/[0.09]" />
+            ) : (
+              <div className="h-16 w-16 rounded-full bg-[#191C27] border border-white/[0.09] flex items-center justify-center text-xl font-bold text-indigo-400">
+                {artistName.charAt(0).toUpperCase()}
+              </div>
+            )}
             <div>
               <h1 className="text-2xl sm:text-4xl font-extrabold text-[#F4F4F5]">{artistName}</h1>
               {profile.location && (
