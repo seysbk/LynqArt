@@ -41,7 +41,7 @@ class Artwork(models.Model):
     description = models.TextField(blank=True, default='')
     medium = models.CharField(max_length=255, blank=True, default='')
     current_version = models.ForeignKey('ArtworkVersion', on_delete=models.SET_NULL, null=True, blank=True, related_name='current_for_artwork')
-    banner_image = models.URLField(blank=True, default='')
+    banner_image = models.CharField(max_length=500, blank=True, default='')
     year_created = models.IntegerField(null=True, blank=True)
     dimensions = models.CharField(max_length=100, blank=True, default='')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_DRAFT)
@@ -75,7 +75,7 @@ class ArtworkVersion(models.Model):
 class ArtworkImage(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     artwork = models.ForeignKey(Artwork, on_delete=models.CASCADE, related_name='images')
-    image_url = models.URLField()
+    image_url = models.CharField(max_length=500, blank=True, default='')
     caption = models.CharField(max_length=255, blank=True, default='')
     display_order = models.IntegerField(default=0)
     is_process_image = models.BooleanField(default=False)

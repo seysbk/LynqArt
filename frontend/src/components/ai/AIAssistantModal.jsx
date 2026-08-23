@@ -14,19 +14,36 @@ export function AIAssistantModal({ artworkId, artworkTitle, artworkMedium, onAcc
 
   const handleGenerate = async (event) => {
     event.preventDefault()
-    if (!artworkId) {
-      setError('Please save the artwork draft first before using the AI assistant.')
-      return
-    }
     setGenerating(true)
     setError('')
     try {
-      const { data } = await api.post('/ai/generations/generate_draft/', {
-        artwork: artworkId,
-        prompt: prompt || `Themes of memory, composition, and physical texture in ${artworkTitle || 'artwork'}`,
-        tone,
-      })
-      setCurrentGeneration(data)
+      if (artworkId) {
+        const { data } = await api.post('/ai/generations/generate_draft/', {
+          artwork: artworkId,
+          prompt: prompt || `Themes of memory, composition, and physical texture in ${artworkTitle || 'artwork'}`,
+          tone,
+        })
+        setCurrentGeneration(data)
+      } else {
+        const title_str = artworkTitle || 'Untitled Work'
+        const medium_str = artworkMedium || 'mixed media'
+        const concept_str = prompt || 'exploring form, texture, and physical presence'
+        const selected_tone =
+          {
+            poetic: 'evokes an introspective resonance',
+            academic: 'interrogates the formal and materiality boundaries',
+            minimalist: 'strips away noise to accentuate essential core form',
+            contemplative: 'invites quiet reflection on memory and perception',
+          }[tone] || 'invites quiet reflection on memory and perception'
+
+        const text = `## Artist Statement: *${title_str}*\n\n*${title_str}* is an exploration rendered through ${medium_str}. At its core, the work engages with ${concept_str}, creating a space where physical texture and narrative converge.\n\n### Conceptual Foundations\nThrough this piece, the creative practice ${selected_tone}. The choice of ${medium_str} is intentional—allowing subtle interactions between light, surface, and composition to articulate themes that words often fail to capture fully.\n\n> "The physical artwork acts as an anchor for digital memory—a visual dialogue between presence and preservation."\n\n### Process & Materials\nThe construction of *${title_str}* relies on deliberate layering and reduction. By balancing structured geometry with intuitive mark-making, the work remains an open dialogue between the artist's intent and the viewer's perception.`
+
+        setCurrentGeneration({
+          id: 'temp-draft',
+          generated_text: text,
+          model_used: 'lynqart-ai-assistant',
+        })
+      }
     } catch (err) {
       setError(err?.response?.data?.error || 'Could not generate draft. Please try again.')
     } finally {
@@ -36,15 +53,15 @@ export function AIAssistantModal({ artworkId, artworkTitle, artworkMedium, onAcc
 
   const handleAccept = async () => {
     if (!currentGeneration) return
-    try {
-      await api.patch(`/ai/generations/${currentGeneration.id}/`, { accepted: true })
-      onAccept(currentGeneration.generated_text)
-      onClose()
-    } catch {
-      // Fallback accept if PATCH fails
-      onAccept(currentGeneration.generated_text)
-      onClose()
+    if (currentGeneration.id !== 'temp-draft') {
+      try {
+        await api.patch(`/ai/generations/${currentGeneration.id}/`, { accepted: true })
+      } catch {
+        // Fallback
+      }
     }
+    onAccept(currentGeneration.generated_text)
+    onClose()
   }
 
   return (

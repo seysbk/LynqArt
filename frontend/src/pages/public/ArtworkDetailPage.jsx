@@ -33,6 +33,8 @@ export function ArtworkDetailPage({ session }) {
   const [favorite, setFavorite] = useState(false)
   const [loading, setLoading] = useState(true)
   const [commentText, setCommentText] = useState('')
+  const [editingCommentId, setEditingCommentId] = useState(null)
+  const [editingText, setEditingText] = useState('')
   const [message, setMessage] = useState('')
 
   useEffect(() => {
@@ -67,6 +69,16 @@ export function ArtworkDetailPage({ session }) {
     [artwork],
   )
 
+  const galleryImages = useMemo(
+    () => images.filter((img) => !img.is_process_image),
+    [images],
+  )
+
+  const processImages = useMemo(
+    () => images.filter((img) => img.is_process_image),
+    [images],
+  )
+
   const submitComment = async (event) => {
     event.preventDefault()
     if (!commentText.trim()) return
@@ -77,6 +89,34 @@ export function ArtworkDetailPage({ session }) {
       setMessage('Comment posted.')
     } catch {
       setMessage('Could not post comment.')
+    }
+  }
+
+  const handleEditComment = (commentItem) => {
+    setEditingCommentId(commentItem.id)
+    setEditingText(commentItem.comment)
+  }
+
+  const saveEditedComment = async (commentId) => {
+    if (!editingText.trim()) return
+    try {
+      const { data } = await api.patch(`/comments/${commentId}/`, { comment: editingText })
+      setComments(comments.map((item) => (item.id === commentId ? { ...item, comment: data.comment } : item)))
+      setEditingCommentId(null)
+      setEditingText('')
+      setMessage('Comment updated.')
+    } catch {
+      setMessage('Could not update comment.')
+    }
+  }
+
+  const deleteComment = async (commentId) => {
+    try {
+      await api.delete(`/comments/${commentId}/`)
+      setComments(comments.filter((item) => item.id !== commentId))
+      setMessage('Comment deleted.')
+    } catch {
+      setMessage('Could not delete comment.')
     }
   }
 
@@ -112,7 +152,7 @@ export function ArtworkDetailPage({ session }) {
   if (!artwork) return <EmptyState title="Artwork Not Found" description="This artwork link does not exist or is not public." />
 
   const artistName = artwork.artist?.full_name || artwork.artist?.username || 'Artist'
-  const heroImage = mediaUrl(artwork.images?.[0]?.image_url || artwork.banner_image)
+  const heroImage = mediaUrl(galleryImages[0]?.image_url || artwork.banner_image || images[0]?.image_url)
 
   return (
     <div className="space-y-12 lg:space-y-16">
@@ -134,10 +174,10 @@ export function ArtworkDetailPage({ session }) {
             )}
           </div>
 
-          {/* Secondary Process Images */}
-          {images.length > 1 && (
+          {/* Secondary Gallery Images */}
+          {galleryImages.length > 1 && (
             <div className="grid grid-cols-3 gap-3 pt-2">
-              {images.slice(1).map((img) => (
+              {galleryImages.slice(1).map((img) => (
                 <div key={img.id} className="surface-card overflow-hidden aspect-square">
                   <img
                     src={mediaUrl(img.image_url)}
@@ -231,6 +271,36 @@ export function ArtworkDetailPage({ session }) {
         </div>
       </div>
 
+      {/* Process & Creation Steps Gallery Section */}
+      {processImages.length > 0 && (
+        <section className="space-y-4 pt-6 border-t border-white/[0.08]">
+          <div>
+            <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400">Creation Documentation</span>
+            <h2 className="text-xl font-bold text-[#F4F4F5]">Process &amp; Work-In-Progress ({processImages.length})</h2>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {processImages.map((img, idx) => (
+              <div key={img.id} className="surface-card overflow-hidden group space-y-2 p-3">
+                <div className="aspect-[4/3] overflow-hidden rounded-[8px] bg-[#0D0F14]">
+                  <img
+                    src={mediaUrl(img.image_url)}
+                    alt={img.caption || `Process step ${idx + 1}`}
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-[#F4F4F5]">Step {idx + 1}</span>
+                  <span className="text-[#71717A] text-[11px] truncate max-w-[180px]">
+                    {img.caption || 'Process Shot'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Expert Reviews Section */}
       <section className="space-y-4 pt-6 border-t border-white/[0.08]">
         <div className="flex items-center gap-2">
@@ -289,15 +359,81 @@ export function ArtworkDetailPage({ session }) {
 
         {comments.length ? (
           <div className="space-y-3 max-w-2xl">
-            {comments.map((item) => (
-              <div key={item.id} className="surface-card p-4 space-y-1 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-[#F4F4F5]">{item.user?.full_name || item.user?.username || 'Visitor'}</span>
-                  <span className="text-[#71717A] text-[10px]">{formatDate(item.created_at)}</span>
+            {comments.map((item) => {
+              const isOwner = session.user?.id === item.user?.id
+              const isExpert = item.user?.is_expert
+              const isEditing = editingCommentId === item.id
+
+              return (
+                <div key={item.id} className={`surface-card p-4 space-y-2 text-xs border ${isExpert ? 'border-amber-500/30 bg-amber-500/5' : 'border-white/[0.08]'}`}>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-[#F4F4F5]">
+                        {item.user?.full_name || item.user?.username || 'Visitor'}
+                      </span>
+                      {isExpert && (
+                        <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold text-[10px] flex items-center gap-1">
+                          <Award className="h-3 w-3 inline" /> Verified Expert Review
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[#71717A] text-[10px]">{formatDate(item.created_at)}</span>
+                      {isOwner && !isEditing && (
+                        <div className="flex items-center gap-1.5 text-[11px] ml-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEditComment(item)}
+                            className="text-indigo-400 hover:underline font-medium"
+                          >
+                            Edit
+                          </button>
+                          <span className="text-[#71717A]">·</span>
+                          <button
+                            type="button"
+                            onClick={() => deleteComment(item.id)}
+                            className="text-red-400 hover:underline font-medium"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {isEditing ? (
+                    <div className="space-y-2 pt-1">
+                      <textarea
+                        rows={2}
+                        value={editingText}
+                        onChange={(e) => setEditingText(e.target.value)}
+                        className="w-full rounded-[8px] bg-[#0D0F14] border border-white/[0.12] p-2 text-xs text-[#F4F4F5] outline-none"
+                      />
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => setEditingCommentId(null)}
+                          className="!py-1 !px-2.5 text-[11px]"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="primary"
+                          onClick={() => saveEditedComment(item.id)}
+                          className="!py-1 !px-2.5 text-[11px]"
+                        >
+                          Save Changes
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-[#A1A1AA] leading-relaxed">{item.comment}</p>
+                  )}
                 </div>
-                <p className="text-[#A1A1AA]">{item.comment}</p>
-              </div>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <p className="text-xs text-[#71717A]">No comments posted yet.</p>

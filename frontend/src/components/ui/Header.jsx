@@ -4,6 +4,7 @@ import { User, ShieldCheck } from 'lucide-react'
 import { Logo } from './Logo'
 import { PageContainer } from './PageContainer'
 import { NotificationsCenter } from './NotificationsCenter'
+import { mediaUrl } from '../../lib/media'
 
 export function Header({ session }) {
   const user = session?.user
@@ -16,7 +17,8 @@ export function Header({ session }) {
   ]
 
   const userProfilePath = user ? '/profile' : '/login'
-  const avatarUrl = user?.artist_profile?.avatar_url
+  const avatarRaw = user?.artist_profile?.avatar_url || user?.avatar_url
+  const avatarUrl = avatarRaw ? mediaUrl(avatarRaw) : ''
   const userInitials = (user?.full_name || user?.username || 'U')
     .split(' ')
     .map((n) => n[0])
@@ -34,6 +36,9 @@ export function Header({ session }) {
           src={avatarUrl}
           alt={user.full_name || user.username}
           className="h-full w-full rounded-full object-cover"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none'
+          }}
         />
       )
     }
