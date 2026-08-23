@@ -5,8 +5,9 @@ import { mediaUrl } from '../../lib/media'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { MarkdownTips } from '../../components/ui/MarkdownTips'
 import { Button } from '../../components/ui/Button'
-import { QrCode, Download, Eye, Plus, Check, ExternalLink, Sparkles, ArrowRight, ArrowLeft } from 'lucide-react'
+import { QrCode, Download, Eye, Plus, Check, ExternalLink, Sparkles, ArrowRight, ArrowLeft, Trash2 } from 'lucide-react'
 import { AIAssistantModal } from '../../components/ai/AIAssistantModal'
+import { Modal } from '../../components/ui/Modal'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -53,10 +54,10 @@ export function ArtworkManagerPage() {
   const [exhibitions, setExhibitions] = useState([])
   const [linkedExhibitionIds, setLinkedExhibitionIds] = useState(new Set())
   const [qrCode, setQrCode] = useState(null)
-  const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
   const [preview, setPreview] = useState(false)
   const [showAiModal, setShowAiModal] = useState(false)
+  const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null, confirmText: 'OK', cancelText: null })
 
   const loadChoices = () =>
     Promise.all([
@@ -109,10 +110,16 @@ export function ArtworkManagerPage() {
       await loadChoices()
       if (kind === 'categories') setForm({ ...form, category_id: data.id })
       clear('')
-      setMessage(`${kind === 'categories' ? 'Category' : 'Tag'} created.`)
+      setModalState({ isOpen: true, title: 'Success', message: `${kind === 'categories' ? 'Category' : 'Tag'} created.`, type: 'success' })
     } catch (error) {
-      setMessage(errorText(error))
+      setModalState({ isOpen: true, title: 'Error', message: errorText(error), type: 'error' })
     }
+  }
+
+  const toggleTag = (tagId) => {
+    const current = form.tag_ids || []
+    const updated = current.includes(tagId) ? current.filter((id) => id !== tagId) : [...current, tagId]
+    setForm({ ...form, tag_ids: updated })
   }
 
   const handleMarkdownInsert = (prefix, suffix, placeholder) => {
@@ -123,7 +130,6 @@ export function ArtworkManagerPage() {
 
   const saveArtworkData = async (nextStep = null) => {
     setSaving(true)
-    setMessage('')
     try {
       const payload = {
         ...form,
@@ -163,18 +169,26 @@ export function ArtworkManagerPage() {
       }
 
       await loadArtwork(data.slug)
-      setMessage('Artwork saved successfully!')
+
+      if (nextStep) {
+        setActiveStep(nextStep)
+      } else {
+        setModalState({
+          isOpen: true,
+          title: 'Artwork Saved Successfully!',
+          message: 'Your artwork has been saved. Click OK to view its public page.',
+          type: 'success',
+          onConfirm: () => navigate(`/artworks/${data.slug}`),
+        })
+      }
 
       if (!artworkSlug) {
         navigate(`/dashboard/artworks/${data.slug}/edit`, { replace: true })
       }
 
-      if (nextStep) {
-        setActiveStep(nextStep)
-      }
       return data
     } catch (error) {
-      setMessage(errorText(error))
+      setModalState({ isOpen: true, title: 'Error Saving Artwork', message: errorText(error), type: 'error' })
       return null
     } finally {
       setSaving(false)
@@ -193,14 +207,14 @@ export function ArtworkManagerPage() {
       const existing = (existingRes.data.results || existingRes.data || [])[0]
       if (existing) {
         await api.delete(`/exhibitions/artworks/${existing.id}/`)
-        setMessage('Artwork removed from exhibition.')
+        setModalState({ isOpen: true, title: 'Unlinked', message: 'Artwork removed from exhibition.', type: 'info' })
       } else {
         await api.post('/exhibitions/artworks/', { exhibition: exhibitionId, artwork: artwork.id })
-        setMessage('Artwork associated to exhibition!')
+        setModalState({ isOpen: true, title: 'Linked', message: 'Artwork associated to exhibition!', type: 'success' })
       }
       await loadArtwork(artwork.slug)
     } catch (error) {
-      setMessage(errorText(error))
+      setModalState({ isOpen: true, title: 'Error', message: errorText(error), type: 'error' })
     }
   }
 
@@ -209,9 +223,9 @@ export function ArtworkManagerPage() {
     try {
       await api.delete(`/artworks/${artwork.slug}/upload_banner/`)
       await loadArtwork(artwork.slug)
-      setMessage('Banner image removed.')
+      setModalState({ isOpen: true, title: 'Banner Removed', message: 'Banner image removed.', type: 'info' })
     } catch (error) {
-      setMessage(errorText(error))
+      setModalState({ isOpen: true, title: 'Error', message: errorText(error), type: 'error' })
     }
   }
 
@@ -220,9 +234,9 @@ export function ArtworkManagerPage() {
     try {
       await api.delete(`/artworks/images/${imageId}/`)
       await loadArtwork(artwork.slug)
-      setMessage('Gallery image deleted.')
+      setModalState({ isOpen: true, title: 'Image Deleted', message: 'Gallery image deleted.', type: 'info' })
     } catch (error) {
-      setMessage(errorText(error))
+      setModalState({ isOpen: true, title: 'Error', message: errorText(error), type: 'error' })
     }
   }
 
@@ -242,9 +256,9 @@ export function ArtworkManagerPage() {
         { headers: { 'Content-Type': 'multipart/form-data' } },
       )
       await loadArtwork(artwork.slug)
-      setMessage(`${kind === 'banner' ? 'Banner' : 'Image'} uploaded!`)
+      setModalState({ isOpen: true, title: 'Upload Successful', message: `${kind === 'banner' ? 'Banner' : 'Image'} uploaded!`, type: 'success' })
     } catch (error) {
-      setMessage(errorText(error))
+      setModalState({ isOpen: true, title: 'Error Uploading', message: errorText(error), type: 'error' })
     }
   }
 
@@ -253,14 +267,47 @@ export function ArtworkManagerPage() {
     try {
       const { data } = await api.post('/qr/codes/generate_qr/', { entity_type: 'artwork', entity_id: artwork.id })
       setQrCode(data)
-      setMessage('Physical QR code generated!')
+      setModalState({ isOpen: true, title: 'QR Generated', message: 'Physical QR code generated!', type: 'success' })
     } catch (error) {
-      setMessage(errorText(error))
+      setModalState({ isOpen: true, title: 'Error', message: errorText(error), type: 'error' })
+    }
+  }
+
+  const confirmDeleteArtwork = () => {
+    setModalState({
+      isOpen: true,
+      title: 'Delete Artwork Completely?',
+      message: `Are you sure you want to permanently delete "${artwork?.title}"? This action cannot be undone.`,
+      type: 'warning',
+      confirmText: 'Yes, Delete Artwork',
+      cancelText: 'Cancel',
+      onConfirm: executeDeleteArtwork,
+    })
+  }
+
+  const executeDeleteArtwork = async () => {
+    if (!artwork) return
+    try {
+      await api.delete(`/artworks/${artwork.slug}/`)
+      navigate('/dashboard', { replace: true })
+    } catch (error) {
+      setModalState({ isOpen: true, title: 'Deletion Failed', message: errorText(error), type: 'error' })
     }
   }
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
+      <Modal
+        isOpen={modalState.isOpen}
+        onClose={() => setModalState({ ...modalState, isOpen: false })}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        confirmText={modalState.confirmText || 'OK'}
+        cancelText={modalState.cancelText}
+        onConfirm={modalState.onConfirm}
+      />
+
       {/* Top Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.08] pb-4">
         <div>
@@ -271,20 +318,26 @@ export function ArtworkManagerPage() {
         </div>
 
         {artwork && (
-          <Link to={`/artworks/${artwork.slug}`} target="_blank">
-            <Button variant="secondary" className="!py-1.5 text-xs">
-              <ExternalLink className="h-3.5 w-3.5" />
-              <span>Public Page</span>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={confirmDeleteArtwork}
+              className="!py-1.5 text-xs text-red-400 border-red-500/20 hover:bg-red-500/10"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Delete Artwork</span>
             </Button>
-          </Link>
+            <Link to={`/artworks/${artwork.slug}`} target="_blank">
+              <Button variant="secondary" className="!py-1.5 text-xs">
+                <ExternalLink className="h-3.5 w-3.5" />
+                <span>Public Page</span>
+              </Button>
+            </Link>
+          </div>
         )}
       </div>
 
-      {message && (
-        <div className="rounded-[10px] bg-indigo-500/10 border border-indigo-500/30 p-3 text-xs text-indigo-300">
-          {message}
-        </div>
-      )}
 
       {/* Multi-Part Stepper Navigation */}
       <div className="grid grid-cols-3 gap-2 p-1.5 bg-[#0D0F14] rounded-[12px] border border-white/[0.08] text-xs font-semibold">
@@ -387,6 +440,30 @@ export function ArtworkManagerPage() {
                 <option value="published">Published (Public)</option>
                 <option value="archived">Archived</option>
               </select>
+            </div>
+          </div>
+
+          {/* Tag Selection Multi-Input */}
+          <div className="space-y-2 pt-2">
+            <label className="text-xs font-medium text-[#A1A1AA]">Artwork Tags</label>
+            <div className="flex flex-wrap gap-2">
+              {tags.map((tag) => {
+                const isSelected = form.tag_ids?.includes(tag.id)
+                return (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    onClick={() => toggleTag(tag.id)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition ${
+                      isSelected
+                        ? 'bg-indigo-600 text-white border-indigo-500'
+                        : 'bg-[#0D0F14] text-[#A1A1AA] border-white/[0.09] hover:border-white/[0.2]'
+                    }`}
+                  >
+                    {isSelected ? `✓ ${tag.name}` : `+ ${tag.name}`}
+                  </button>
+                )
+              })}
             </div>
           </div>
 
@@ -521,17 +598,17 @@ export function ArtworkManagerPage() {
 
             {/* Header Banner Upload */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold text-[#F4F4F5]">Header Banner Graphic</h3>
-                {artwork?.banner_image && (
+              <h3 className="text-xs font-semibold text-[#F4F4F5]">Header Banner Graphic</h3>
+              {artwork?.banner_image ? (
+                <div className="space-y-2">
+                  <img src={mediaUrl(artwork.banner_image)} alt="Banner" className="h-32 w-full object-cover rounded-[9px] border border-white/[0.09]" />
                   <Button type="button" variant="secondary" onClick={deleteBanner} className="!py-1 !px-2.5 text-xs text-red-400 border-red-500/20 hover:bg-red-500/10">
-                    Remove Banner
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Remove / Change Banner</span>
                   </Button>
-                )}
-              </div>
-              <ImageUpload label="Upload Banner Graphic" onChange={(f) => upload(f, 'banner')} />
-              {artwork?.banner_image && (
-                <img src={mediaUrl(artwork.banner_image)} alt="Banner" className="h-28 w-full object-cover rounded-[9px]" />
+                </div>
+              ) : (
+                <ImageUpload label="Upload Banner Graphic" onChange={(f) => upload(f, 'banner')} />
               )}
             </div>
 

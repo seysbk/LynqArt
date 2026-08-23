@@ -4,12 +4,15 @@ import { api } from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
 import { Button } from '../../components/ui/Button'
 import { LoadingState } from '../../components/ui/LoadingState'
-import { User, ShieldCheck, Check, Sparkles, ImagePlus, Trash2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Modal } from '../../components/ui/Modal'
+import { User, ShieldCheck, Check, Sparkles, ImagePlus, Trash2, AlertTriangle } from 'lucide-react'
 
 const inputClass =
   'w-full rounded-[9px] border border-white/[0.09] bg-[#0D0F14] px-3.5 py-2.5 text-xs text-[#F4F4F5] outline-none transition focus:border-indigo-400 placeholder:text-[#71717A]'
 
 export function ProfilePage({ session }) {
+  const navigate = useNavigate()
   const [userProfile, setUserProfile] = useState(null)
   const [artistProfile, setArtistProfile] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -17,8 +20,7 @@ export function ProfilePage({ session }) {
   const [savingArtist, setSavingArtist] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [avatarDragging, setAvatarDragging] = useState(false)
-  const [userMessage, setUserMessage] = useState('')
-  const [artistMessage, setArtistMessage] = useState('')
+  const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null, confirmText: 'OK', cancelText: null })
 
   const [userForm, setUserForm] = useState({
     first_name: '',
@@ -33,6 +35,11 @@ export function ProfilePage({ session }) {
     website: '',
     instagram: '',
     twitter: '',
+    linkedin: '',
+    youtube: '',
+    facebook: '',
+    tiktok: '',
+    pinterest: '',
   })
 
   useEffect(() => {
@@ -59,13 +66,18 @@ export function ProfilePage({ session }) {
             website: aRes.data.website || '',
             instagram: aRes.data.instagram || '',
             twitter: aRes.data.twitter || '',
+            linkedin: aRes.data.linkedin || '',
+            youtube: aRes.data.youtube || '',
+            facebook: aRes.data.facebook || '',
+            tiktok: aRes.data.tiktok || '',
+            pinterest: aRes.data.pinterest || '',
           })
         }
         setLoading(false)
       })
       .catch(() => {
         if (!alive) return
-        setUserMessage('Could not load profile details.')
+        setModalState({ isOpen: true, title: 'Error', message: 'Could not load profile details.', type: 'error' })
         setLoading(false)
       })
 
@@ -79,11 +91,10 @@ export function ProfilePage({ session }) {
   const uploadAvatar = async (file) => {
     if (!file) return
     if (!file.type.startsWith('image/')) {
-      setArtistMessage('Please choose a valid image file (PNG, JPG or WEBP).')
+      setModalState({ isOpen: true, title: 'Invalid File', message: 'Please choose a valid image file (PNG, JPG or WEBP).', type: 'error' })
       return
     }
     setUploadingAvatar(true)
-    setArtistMessage('')
     try {
       const payload = new FormData()
       payload.append('avatar', file)
@@ -91,9 +102,9 @@ export function ProfilePage({ session }) {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       setArtistProfile(data)
-      setArtistMessage('Profile picture updated successfully.')
+      setModalState({ isOpen: true, title: 'Success', message: 'Profile picture updated successfully.', type: 'success' })
     } catch (err) {
-      setArtistMessage(err?.response?.data?.detail || 'Could not upload profile picture.')
+      setModalState({ isOpen: true, title: 'Upload Failed', message: err?.response?.data?.detail || 'Could not upload profile picture.', type: 'error' })
     } finally {
       setUploadingAvatar(false)
     }
@@ -116,23 +127,22 @@ export function ProfilePage({ session }) {
     try {
       const { data } = await api.delete('/accounts/artist-profile/')
       setArtistProfile(data)
-      setArtistMessage('Profile picture removed.')
+      setModalState({ isOpen: true, title: 'Removed', message: 'Profile picture removed.', type: 'info' })
     } catch {
-      setArtistMessage('Could not remove profile picture.')
+      setModalState({ isOpen: true, title: 'Error', message: 'Could not remove profile picture.', type: 'error' })
     }
   }
 
   const saveUserAccount = async (event) => {
     event.preventDefault()
     setSavingUser(true)
-    setUserMessage('')
     try {
       const { data } = await api.patch('/accounts/profile/', userForm)
       setUserProfile(data)
-      setUserMessage('Account details updated successfully.')
+      setModalState({ isOpen: true, title: 'Success', message: 'Account details updated successfully.', type: 'success' })
       if (session?.refresh) session.refresh()
     } catch (err) {
-      setUserMessage(err?.response?.data?.detail || 'Could not update user details.')
+      setModalState({ isOpen: true, title: 'Error', message: err?.response?.data?.detail || 'Could not update user details.', type: 'error' })
     } finally {
       setSavingUser(false)
     }
@@ -141,14 +151,40 @@ export function ProfilePage({ session }) {
   const saveArtistDetails = async (event) => {
     event.preventDefault()
     setSavingArtist(true)
-    setArtistMessage('')
     try {
       await api.patch('/accounts/artist-profile/', artistForm)
-      setArtistMessage('Artist profile details updated successfully.')
+      setModalState({ isOpen: true, title: 'Success', message: 'Artist profile details updated successfully.', type: 'success' })
     } catch (err) {
-      setArtistMessage(err?.response?.data?.detail || 'Could not update artist details.')
+      setModalState({ isOpen: true, title: 'Error', message: err?.response?.data?.detail || 'Could not update artist details.', type: 'error' })
     } finally {
       setSavingArtist(false)
+    }
+  }
+
+  const confirmAccountDeletion = () => {
+    setModalState({
+      isOpen: true,
+      title: 'Permanently Delete Account?',
+      message: 'Warning: This action is permanent. All your uploaded artworks, statements, exhibitions, and profile data will be permanently deleted and cannot be recovered.',
+      type: 'warning',
+      confirmText: 'Yes, Delete My Account Completely',
+      cancelText: 'Cancel',
+      onConfirm: executeAccountDeletion,
+    })
+  }
+
+  const executeAccountDeletion = async () => {
+    try {
+      await api.delete('/accounts/profile/')
+      if (session?.logout) session.logout()
+      navigate('/', { replace: true })
+    } catch (err) {
+      setModalState({
+        isOpen: true,
+        title: 'Deletion Failed',
+        message: err?.response?.data?.detail || 'Could not delete account. Please try again.',
+        type: 'error',
+      })
     }
   }
 
@@ -156,6 +192,17 @@ export function ProfilePage({ session }) {
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
+      <Modal
+        isOpen={modalState.isOpen}
+        onClose={() => setModalState({ ...modalState, isOpen: false })}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        confirmText={modalState.confirmText || 'OK'}
+        cancelText={modalState.cancelText}
+        onConfirm={modalState.onConfirm}
+      />
+
       {/* Header */}
       <div className="border-b border-white/[0.08] pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -269,7 +316,7 @@ export function ProfilePage({ session }) {
           <div className="space-y-2">
             <span className="block text-xs font-medium text-[#A1A1AA]">Profile Picture</span>
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <div className="h-14 w-14 rounded-full bg-[#191C27] border border-white/[0.09] flex items-center justify-center text-indigo-400 overflow-hidden shrink-0">
+              <div className="h-16 w-16 rounded-full bg-[#191C27] border border-white/[0.09] flex items-center justify-center text-indigo-400 overflow-hidden shrink-0">
                 {currentAvatarUrl ? (
                   <img src={currentAvatarUrl} alt="Current profile picture" className="h-full w-full object-cover" />
                 ) : (
@@ -277,47 +324,50 @@ export function ProfilePage({ session }) {
                 )}
               </div>
 
-              <label
-                className={`flex-1 flex items-center gap-3 rounded-[9px] border border-dashed px-4 py-3 cursor-pointer transition ${
-                  avatarDragging
-                    ? 'border-indigo-400 bg-indigo-500/10'
-                    : 'border-white/[0.12] bg-[#0D0F14] hover:border-indigo-400/60 hover:bg-white/[0.02]'
-                }`}
-                onDragOver={(event) => {
-                  event.preventDefault()
-                  setAvatarDragging(true)
-                }}
-                onDragLeave={() => setAvatarDragging(false)}
-                onDrop={handleAvatarDrop}
-              >
-                <input
-                  type="file"
-                  accept="image/*"
-                  disabled={uploadingAvatar}
-                  className="hidden"
-                  onChange={handleAvatarSelected}
-                />
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 shrink-0">
-                  <ImagePlus className="h-4 w-4" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-xs font-semibold text-[#F4F4F5]">
-                    {uploadingAvatar ? 'Uploading...' : 'Click to upload or drag & drop'}
-                  </span>
-                  <span className="block text-[11px] text-[#71717A]">PNG, JPG or WEBP image</span>
-                </span>
-              </label>
-
-              {currentAvatarUrl && (
-                <Button
-                  variant="secondary"
-                  onClick={handleRemoveAvatar}
-                  disabled={uploadingAvatar}
-                  className="!py-1.5 !px-3 text-xs text-red-400 border-red-500/20 hover:bg-red-500/10 shrink-0"
+              {currentAvatarUrl ? (
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleRemoveAvatar}
+                    disabled={uploadingAvatar}
+                    className="!py-1.5 !px-3 text-xs text-red-400 border-red-500/20 hover:bg-red-500/10 shrink-0"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span>Remove Profile Picture</span>
+                  </Button>
+                </div>
+              ) : (
+                <label
+                  className={`flex-1 flex items-center gap-3 rounded-[9px] border border-dashed px-4 py-3 cursor-pointer transition ${
+                    avatarDragging
+                      ? 'border-indigo-400 bg-indigo-500/10'
+                      : 'border-white/[0.12] bg-[#0D0F14] hover:border-indigo-400/60 hover:bg-white/[0.02]'
+                  }`}
+                  onDragOver={(event) => {
+                    event.preventDefault()
+                    setAvatarDragging(true)
+                  }}
+                  onDragLeave={() => setAvatarDragging(false)}
+                  onDrop={handleAvatarDrop}
                 >
-                  <Trash2 className="h-4 w-4" />
-                  <span>Remove</span>
-                </Button>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={uploadingAvatar}
+                    className="hidden"
+                    onChange={handleAvatarSelected}
+                  />
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 shrink-0">
+                    <ImagePlus className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-xs font-semibold text-[#F4F4F5]">
+                      {uploadingAvatar ? 'Uploading...' : 'Click to upload or drag & drop'}
+                    </span>
+                    <span className="block text-[11px] text-[#71717A]">PNG, JPG or WEBP image</span>
+                  </span>
+                </label>
               )}
             </div>
           </div>
@@ -388,6 +438,61 @@ export function ProfilePage({ session }) {
                 className={inputClass}
               />
             </label>
+
+            <label className="space-y-1 text-xs font-medium text-[#A1A1AA]">
+              LinkedIn Profile
+              <input
+                type="url"
+                value={artistForm.linkedin}
+                onChange={(e) => setArtistForm({ ...artistForm, linkedin: e.target.value })}
+                placeholder="https://linkedin.com/in/username"
+                className={inputClass}
+              />
+            </label>
+
+            <label className="space-y-1 text-xs font-medium text-[#A1A1AA]">
+              YouTube Channel
+              <input
+                type="url"
+                value={artistForm.youtube}
+                onChange={(e) => setArtistForm({ ...artistForm, youtube: e.target.value })}
+                placeholder="https://youtube.com/@channel"
+                className={inputClass}
+              />
+            </label>
+
+            <label className="space-y-1 text-xs font-medium text-[#A1A1AA]">
+              Facebook Profile
+              <input
+                type="url"
+                value={artistForm.facebook}
+                onChange={(e) => setArtistForm({ ...artistForm, facebook: e.target.value })}
+                placeholder="https://facebook.com/username"
+                className={inputClass}
+              />
+            </label>
+
+            <label className="space-y-1 text-xs font-medium text-[#A1A1AA]">
+              TikTok Profile
+              <input
+                type="url"
+                value={artistForm.tiktok}
+                onChange={(e) => setArtistForm({ ...artistForm, tiktok: e.target.value })}
+                placeholder="https://tiktok.com/@username"
+                className={inputClass}
+              />
+            </label>
+
+            <label className="space-y-1 text-xs font-medium text-[#A1A1AA]">
+              Pinterest Profile
+              <input
+                type="url"
+                value={artistForm.pinterest}
+                onChange={(e) => setArtistForm({ ...artistForm, pinterest: e.target.value })}
+                placeholder="https://pinterest.com/username"
+                className={inputClass}
+              />
+            </label>
           </div>
 
           <div className="pt-2 flex items-center justify-between">
@@ -420,6 +525,28 @@ export function ProfilePage({ session }) {
           </Link>
         </div>
       )}
+
+      {/* Danger Zone: Account Deletion */}
+      <div className="surface-card p-6 space-y-3 border-red-500/30 bg-red-500/5">
+        <h2 className="text-sm font-bold text-red-400 flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4" />
+          <span>Danger Zone: Permanent Account Deletion</span>
+        </h2>
+        <p className="text-xs text-[#A1A1AA]">
+          Deleting your account is a permanent action. All your profile information, artist statements, uploaded artworks, gallery media, and exhibition links will be deleted permanently.
+        </p>
+        <div className="pt-2">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={confirmAccountDeletion}
+            className="!py-1.5 text-xs text-red-400 border-red-500/30 hover:bg-red-500/20"
+          >
+            <Trash2 className="h-4 w-4" />
+            <span>Delete My Account</span>
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

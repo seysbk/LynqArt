@@ -110,14 +110,21 @@ export function HomePage({ session }) {
                     className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#0D0F14]/90 via-transparent to-transparent opacity-80" />
-                  <div className="absolute bottom-4 left-4 right-4">
-                    <span className="text-[11px] font-medium uppercase tracking-wider text-indigo-300">
-                      Featured Artwork
-                    </span>
-                    <h3 className="text-lg font-bold text-[#F4F4F5] truncate">{heroArtwork.title}</h3>
-                    <p className="text-xs text-[#A1A1AA]">
-                      by {heroArtwork.artist?.full_name || heroArtwork.artist?.username || 'Artist'}
-                    </p>
+                  <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="text-[11px] font-medium uppercase tracking-wider text-indigo-300">
+                        Featured Artwork
+                      </span>
+                      <h3 className="text-lg font-bold text-[#F4F4F5] truncate">{heroArtwork.title}</h3>
+                      <p className="text-xs text-[#A1A1AA]">
+                        by {heroArtwork.artist?.full_name || heroArtwork.artist?.username || 'Artist'}
+                      </p>
+                    </div>
+                    <Link to={`/artworks/${heroArtwork.slug}`}>
+                      <Button variant="primary" className="!py-1 !px-3 text-xs shrink-0">
+                        See More
+                      </Button>
+                    </Link>
                   </div>
                 </div>
               </div>

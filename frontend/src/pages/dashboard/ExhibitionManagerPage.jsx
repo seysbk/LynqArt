@@ -5,7 +5,8 @@ import { mediaUrl } from '../../lib/media'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { MarkdownTips } from '../../components/ui/MarkdownTips'
 import { Button } from '../../components/ui/Button'
-import { QrCode, Download, Eye, Check, ExternalLink, ArrowRight, ArrowLeft } from 'lucide-react'
+import { QrCode, Download, Eye, Check, ExternalLink, ArrowRight, ArrowLeft, Trash2 } from 'lucide-react'
+import { Modal } from '../../components/ui/Modal'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -37,9 +38,9 @@ export function ExhibitionManagerPage() {
   const [item, setItem] = useState(null)
   const [allArtworks, setAllArtworks] = useState([])
   const [qrCode, setQrCode] = useState(null)
-  const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
   const [preview, setPreview] = useState(false)
+  const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null, confirmText: 'OK', cancelText: null })
 
   const loadAllArtworks = () =>
     api
@@ -76,7 +77,6 @@ export function ExhibitionManagerPage() {
 
   const saveExhibitionData = async (nextStep = null) => {
     setSaving(true)
-    setMessage('')
     try {
       const payload = {
         ...form,
@@ -100,18 +100,26 @@ export function ExhibitionManagerPage() {
       }
 
       await refresh(data.slug)
-      setMessage('Exhibition saved successfully!')
+
+      if (nextStep) {
+        setActiveStep(nextStep)
+      } else {
+        setModalState({
+          isOpen: true,
+          title: 'Exhibition Saved!',
+          message: 'Your exhibition catalogue has been saved. Click OK to view its public page.',
+          type: 'success',
+          onConfirm: () => navigate(`/exhibitions/${data.slug}`),
+        })
+      }
 
       if (!exhibitionSlug) {
         navigate(`/dashboard/exhibitions/${data.slug}/edit`, { replace: true })
       }
 
-      if (nextStep) {
-        setActiveStep(nextStep)
-      }
       return data
     } catch (error) {
-      setMessage(errorText(error))
+      setModalState({ isOpen: true, title: 'Error Saving Exhibition', message: errorText(error), type: 'error' })
       return null
     } finally {
       setSaving(false)
@@ -132,9 +140,9 @@ export function ExhibitionManagerPage() {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       await refresh(item.slug)
-      setMessage('Banner image uploaded!')
+      setModalState({ isOpen: true, title: 'Upload Successful', message: 'Banner image uploaded!', type: 'success' })
     } catch (error) {
-      setMessage(errorText(error))
+      setModalState({ isOpen: true, title: 'Error', message: errorText(error), type: 'error' })
     }
   }
 
@@ -143,9 +151,9 @@ export function ExhibitionManagerPage() {
     try {
       await api.delete(`/exhibitions/${item.slug}/upload_banner/`)
       await refresh(item.slug)
-      setMessage('Banner image removed.')
+      setModalState({ isOpen: true, title: 'Banner Removed', message: 'Banner image removed.', type: 'info' })
     } catch (error) {
-      setMessage(errorText(error))
+      setModalState({ isOpen: true, title: 'Error', message: errorText(error), type: 'error' })
     }
   }
 
@@ -154,9 +162,31 @@ export function ExhibitionManagerPage() {
     try {
       const { data } = await api.post('/qr/codes/generate_qr/', { entity_type: 'exhibition', entity_id: item.id })
       setQrCode(data)
-      setMessage('Exhibition QR generated!')
+      setModalState({ isOpen: true, title: 'QR Generated', message: 'Exhibition QR code generated!', type: 'success' })
     } catch (error) {
-      setMessage(errorText(error))
+      setModalState({ isOpen: true, title: 'Error', message: errorText(error), type: 'error' })
+    }
+  }
+
+  const confirmDeleteExhibition = () => {
+    setModalState({
+      isOpen: true,
+      title: 'Delete Exhibition Completely?',
+      message: `Are you sure you want to permanently delete "${item?.title}"? This action cannot be undone.`,
+      type: 'warning',
+      confirmText: 'Yes, Delete Exhibition',
+      cancelText: 'Cancel',
+      onConfirm: executeDeleteExhibition,
+    })
+  }
+
+  const executeDeleteExhibition = async () => {
+    if (!item) return
+    try {
+      await api.delete(`/exhibitions/${item.slug}/`)
+      navigate('/dashboard', { replace: true })
+    } catch (error) {
+      setModalState({ isOpen: true, title: 'Deletion Failed', message: errorText(error), type: 'error' })
     }
   }
 
@@ -170,19 +200,30 @@ export function ExhibitionManagerPage() {
       )
       if (existingLink) {
         await api.delete(`/exhibitions/artworks/${existingLink.id}/`)
-        setMessage('Artwork unlinked.')
+        setModalState({ isOpen: true, title: 'Unlinked', message: 'Artwork unlinked from exhibition.', type: 'info' })
       } else {
         await api.post('/exhibitions/artworks/', { exhibition: item.id, artwork: artworkId })
-        setMessage('Artwork linked!')
+        setModalState({ isOpen: true, title: 'Linked', message: 'Artwork linked to exhibition!', type: 'success' })
       }
       await refresh(item.slug)
     } catch (error) {
-      setMessage(errorText(error))
+      setModalState({ isOpen: true, title: 'Error', message: errorText(error), type: 'error' })
     }
   }
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
+      <Modal
+        isOpen={modalState.isOpen}
+        onClose={() => setModalState({ ...modalState, isOpen: false })}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        confirmText={modalState.confirmText || 'OK'}
+        cancelText={modalState.cancelText}
+        onConfirm={modalState.onConfirm}
+      />
+
       {/* Top Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.08] pb-4">
         <div>
@@ -193,20 +234,26 @@ export function ExhibitionManagerPage() {
         </div>
 
         {item && (
-          <Link to={`/exhibitions/${item.slug}`} target="_blank">
-            <Button variant="secondary" className="!py-1.5 text-xs">
-              <ExternalLink className="h-3.5 w-3.5" />
-              <span>Public Catalogue</span>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={confirmDeleteExhibition}
+              className="!py-1.5 text-xs text-red-400 border-red-500/20 hover:bg-red-500/10"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Delete Exhibition</span>
             </Button>
-          </Link>
+            <Link to={`/exhibitions/${item.slug}`} target="_blank">
+              <Button variant="secondary" className="!py-1.5 text-xs">
+                <ExternalLink className="h-3.5 w-3.5" />
+                <span>Public Catalogue</span>
+              </Button>
+            </Link>
+          </div>
         )}
       </div>
 
-      {message && (
-        <div className="rounded-[10px] bg-indigo-500/10 border border-indigo-500/30 p-3 text-xs text-indigo-300">
-          {message}
-        </div>
-      )}
 
       {/* Multi-Part Stepper Navigation */}
       <div className="grid grid-cols-3 gap-2 p-1.5 bg-[#0D0F14] rounded-[12px] border border-white/[0.08] text-xs font-semibold">
@@ -376,17 +423,17 @@ export function ExhibitionManagerPage() {
 
           {/* Banner Graphic Upload */}
           <div className="space-y-3 pt-4 border-t border-white/[0.06]">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold text-[#F4F4F5]">Exhibition Banner Image</h3>
-              {item?.banner_image && (
+            <h3 className="text-xs font-semibold text-[#F4F4F5]">Exhibition Banner Image</h3>
+            {item?.banner_image ? (
+              <div className="space-y-2">
+                <img src={mediaUrl(item.banner_image)} alt="Banner" className="h-32 w-full object-cover rounded-[9px] border border-white/[0.09]" />
                 <Button type="button" variant="secondary" onClick={deleteBanner} className="!py-1 !px-2.5 text-xs text-red-400 border-red-500/20 hover:bg-red-500/10">
-                  Remove Banner
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Remove / Change Banner</span>
                 </Button>
-              )}
-            </div>
-            <ImageUpload label="Upload Banner Graphic" onChange={uploadBanner} />
-            {item?.banner_image && (
-              <img src={mediaUrl(item.banner_image)} alt="Banner" className="h-28 w-full object-cover rounded-[9px]" />
+              </div>
+            ) : (
+              <ImageUpload label="Upload Banner Graphic" onChange={uploadBanner} />
             )}
           </div>
 
@@ -394,10 +441,6 @@ export function ExhibitionManagerPage() {
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" name="show_on_homepage" checked={form.show_on_homepage} onChange={change} className="rounded border-white/[0.09] text-indigo-600" />
               <span>Show on Homepage</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" name="is_featured" checked={form.is_featured} onChange={change} className="rounded border-white/[0.09] text-indigo-600" />
-              <span>Featured Exhibition Badge</span>
             </label>
           </div>
 

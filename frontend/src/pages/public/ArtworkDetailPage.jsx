@@ -301,143 +301,150 @@ export function ArtworkDetailPage({ session }) {
         </section>
       )}
 
-      {/* Expert Reviews Section */}
-      <section className="space-y-4 pt-6 border-t border-white/[0.08]">
-        <div className="flex items-center gap-2">
-          <Award className="h-5 w-5 text-indigo-400" />
-          <h2 className="text-xl font-bold text-[#F4F4F5]">Expert &amp; Peer Reviews ({reviews.length})</h2>
-        </div>
-
-        {reviews.length ? (
-          <div className="grid gap-4 sm:grid-cols-2">
-            {reviews.map((review) => (
-              <div key={review.id} className="surface-card p-5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-[#F4F4F5]">{review.title}</span>
-                  <span className="text-xs text-indigo-400 font-semibold">★ {review.rating}/5</span>
-                </div>
-                <p className="text-xs text-[#A1A1AA]">
-                  By {review.reviewer?.full_name || review.reviewer?.username || 'Verified Lecturer'}
-                </p>
-                <div className="prose prose-invert text-xs text-[#F4F4F5] pt-2">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{review.markdown_review}</ReactMarkdown>
-                </div>
-              </div>
-            ))}
+      {/* Blended Discussions & Expert Reviews Section */}
+      <section className="space-y-6 pt-6 border-t border-white/[0.08]">
+        <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-indigo-400" />
+            <h2 className="text-xl font-bold text-[#F4F4F5]">Discussions &amp; Peer Reviews ({reviews.length + comments.length})</h2>
           </div>
-        ) : (
-          <p className="text-xs text-[#71717A]">No peer lecturer reviews posted yet.</p>
-        )}
-      </section>
-
-      {/* Visitor Discussion Comments */}
-      <section className="space-y-4 pt-6 border-t border-white/[0.08]">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="h-5 w-5 text-indigo-400" />
-          <h2 className="text-xl font-bold text-[#F4F4F5]">Visitor Discussion ({comments.length})</h2>
         </div>
 
-        {session.user ? (
-          <form onSubmit={submitComment} className="space-y-3 max-w-xl">
-            <textarea
-              required
-              rows={2}
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              placeholder="Leave a response..."
-              className="w-full rounded-[10px] bg-[#141720] border border-white/[0.09] p-3 text-xs text-[#F4F4F5] outline-none focus:border-indigo-400"
-            />
-            <Button type="submit" variant="primary" className="!py-1.5 !px-3 text-xs">
-              Post Comment
-            </Button>
-          </form>
-        ) : (
-          <p className="text-xs text-[#71717A]">
-            <Link to="/login" className="text-indigo-400 hover:underline">Sign in</Link> to participate in discussions.
-          </p>
+        {/* Dedicated Verified Expert Reviews Banner/Feed if Present */}
+        {reviews.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+              <Award className="h-4 w-4" />
+              <span>Academic &amp; Lecturer Reviews ({reviews.length})</span>
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {reviews.map((review) => (
+                <div key={review.id} className="surface-card p-5 space-y-2 border-amber-500/30 bg-amber-500/5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-[#F4F4F5]">{review.title}</span>
+                    <span className="text-xs text-amber-400 font-bold">★ {review.rating}/5</span>
+                  </div>
+                  <p className="text-xs text-[#A1A1AA] flex items-center gap-1.5">
+                    <span>By {review.reviewer?.full_name || review.reviewer?.username || 'Verified Lecturer'}</span>
+                    <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold text-[9px] inline-flex items-center gap-1">
+                      <Award className="h-2.5 w-2.5" /> Verified Expert
+                    </span>
+                  </p>
+                  <div className="prose prose-invert text-xs text-[#F4F4F5] pt-1">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{review.markdown_review}</ReactMarkdown>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
-        {comments.length ? (
-          <div className="space-y-3 max-w-2xl">
-            {comments.map((item) => {
-              const isOwner = session.user?.id === item.user?.id
-              const isExpert = item.user?.is_expert
-              const isEditing = editingCommentId === item.id
+        {/* Visitor Discussions */}
+        <div className="space-y-4">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-[#A1A1AA]">Community Feedback &amp; Visitor Responses</h3>
 
-              return (
-                <div key={item.id} className={`surface-card p-4 space-y-2 text-xs border ${isExpert ? 'border-amber-500/30 bg-amber-500/5' : 'border-white/[0.08]'}`}>
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-[#F4F4F5]">
-                        {item.user?.full_name || item.user?.username || 'Visitor'}
-                      </span>
-                      {isExpert && (
-                        <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold text-[10px] flex items-center gap-1">
-                          <Award className="h-3 w-3 inline" /> Verified Expert Review
+          {session.user ? (
+            <form onSubmit={submitComment} className="space-y-3 max-w-xl">
+              <textarea
+                required
+                rows={2}
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                placeholder="Leave a response or question..."
+                className="w-full rounded-[10px] bg-[#141720] border border-white/[0.09] p-3 text-xs text-[#F4F4F5] outline-none focus:border-indigo-400"
+              />
+              <Button type="submit" variant="primary" className="!py-1.5 !px-3 text-xs">
+                Post Response
+              </Button>
+            </form>
+          ) : (
+            <p className="text-xs text-[#71717A]">
+              <Link to="/login" className="text-indigo-400 hover:underline">Sign in</Link> to participate in discussions.
+            </p>
+          )}
+
+          {comments.length ? (
+            <div className="space-y-3 max-w-2xl">
+              {comments.map((item) => {
+                const isOwner = session.user?.id === item.user?.id
+                const isExpert = item.user?.is_expert
+                const isEditing = editingCommentId === item.id
+
+                return (
+                  <div key={item.id} className={`surface-card p-4 space-y-2 text-xs border ${isExpert ? 'border-amber-500/30 bg-amber-500/5' : 'border-white/[0.08]'}`}>
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-[#F4F4F5]">
+                          {item.user?.full_name || item.user?.username || 'Visitor'}
                         </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[#71717A] text-[10px]">{formatDate(item.created_at)}</span>
-                      {isOwner && !isEditing && (
-                        <div className="flex items-center gap-1.5 text-[11px] ml-2">
-                          <button
-                            type="button"
-                            onClick={() => handleEditComment(item)}
-                            className="text-indigo-400 hover:underline font-medium"
-                          >
-                            Edit
-                          </button>
-                          <span className="text-[#71717A]">·</span>
-                          <button
-                            type="button"
-                            onClick={() => deleteComment(item.id)}
-                            className="text-red-400 hover:underline font-medium"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {isEditing ? (
-                    <div className="space-y-2 pt-1">
-                      <textarea
-                        rows={2}
-                        value={editingText}
-                        onChange={(e) => setEditingText(e.target.value)}
-                        className="w-full rounded-[8px] bg-[#0D0F14] border border-white/[0.12] p-2 text-xs text-[#F4F4F5] outline-none"
-                      />
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          onClick={() => setEditingCommentId(null)}
-                          className="!py-1 !px-2.5 text-[11px]"
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="primary"
-                          onClick={() => saveEditedComment(item.id)}
-                          className="!py-1 !px-2.5 text-[11px]"
-                        >
-                          Save Changes
-                        </Button>
+                        {isExpert && (
+                          <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold text-[10px] flex items-center gap-1">
+                            <Award className="h-3 w-3 inline" /> Verified Expert Review
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[#71717A] text-[10px]">{formatDate(item.created_at)}</span>
+                        {isOwner && !isEditing && (
+                          <div className="flex items-center gap-1.5 text-[11px] ml-2">
+                            <button
+                              type="button"
+                              onClick={() => handleEditComment(item)}
+                              className="text-indigo-400 hover:underline font-medium"
+                            >
+                              Edit
+                            </button>
+                            <span className="text-[#71717A]">·</span>
+                            <button
+                              type="button"
+                              onClick={() => deleteComment(item.id)}
+                              className="text-red-400 hover:underline font-medium"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  ) : (
-                    <p className="text-[#A1A1AA] leading-relaxed">{item.comment}</p>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        ) : (
-          <p className="text-xs text-[#71717A]">No comments posted yet.</p>
-        )}
+
+                    {isEditing ? (
+                      <div className="space-y-2 pt-1">
+                        <textarea
+                          rows={2}
+                          value={editingText}
+                          onChange={(e) => setEditingText(e.target.value)}
+                          className="w-full rounded-[8px] bg-[#0D0F14] border border-white/[0.12] p-2 text-xs text-[#F4F4F5] outline-none"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setEditingCommentId(null)}
+                            className="!py-1 !px-2.5 text-[11px]"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="primary"
+                            onClick={() => saveEditedComment(item.id)}
+                            className="!py-1 !px-2.5 text-[11px]"
+                          >
+                            Save Changes
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-[#A1A1AA] leading-relaxed">{item.comment}</p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-xs text-[#71717A]">No discussion comments posted yet.</p>
+          )}
+        </div>
       </section>
     </div>
   )
