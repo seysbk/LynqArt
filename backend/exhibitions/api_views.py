@@ -25,6 +25,12 @@ class ExhibitionViewSet(viewsets.ModelViewSet):
     filterset_fields = ('status', 'show_on_homepage', 'is_featured')
     ordering_fields = ('created_at', 'updated_at', 'start_date', 'end_date', 'title')
 
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        if request.method == 'GET' and response.status_code == 200:
+            response['Cache-Control'] = 'public, max-age=60, s-maxage=300'
+        return response
+
     def perform_create(self, serializer):
         serializer.save(organizer=self.request.user)
 

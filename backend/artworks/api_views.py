@@ -50,6 +50,12 @@ class ArtworkViewSet(viewsets.ModelViewSet):
     filterset_fields = ('status', 'is_featured', 'allow_comments', 'category')
     ordering_fields = ('created_at', 'updated_at', 'published_at', 'title')
 
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        if request.method == 'GET' and response.status_code == 200:
+            response['Cache-Control'] = 'public, max-age=60, s-maxage=300'
+        return response
+
     def perform_create(self, serializer):
         serializer.save(artist=self.request.user)
 

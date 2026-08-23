@@ -9,6 +9,19 @@ export const api = axios.create({
   },
 })
 
+// Axios response interceptor: If a request fails with 401 Unauthorized, clear stored tokens and auth header
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('lynqart_access_token')
+      localStorage.removeItem('lynqart_refresh_token')
+      delete api.defaults.headers.common.Authorization
+    }
+    return Promise.reject(error)
+  }
+)
+
 export function setAuthToken(token) {
   if (token) {
     api.defaults.headers.common.Authorization = `Bearer ${token}`

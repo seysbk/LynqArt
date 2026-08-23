@@ -27,6 +27,7 @@ export function useSession() {
 
     if (!accessToken) {
       setAuthToken('')
+      setSession({ ...EMPTY_SESSION, loading: false })
       return
     }
 
