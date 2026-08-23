@@ -190,15 +190,29 @@ export function DashboardPage({ session }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-medium text-[#A1A1AA]">
-          <span>Role:</span>
-          {profile?.is_artist ? (
-            <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold">Artist</span>
-          ) : (
-            <span className="px-2 py-0.5 rounded bg-slate-800 text-[#A1A1AA]">Regular User</span>
+        <div className="flex items-center gap-3 flex-wrap">
+          {profile?.is_artist && profile?.id && (
+            <Link
+              to={`/artists/${profile.id}/${encodeURIComponent((profile.full_name || profile.username || '').toLowerCase().replace(/\s+/g, '-'))}`}
+              target="_blank"
+            >
+              <Button variant="secondary" className="!py-1 !px-2.5 text-xs">
+                <Globe className="h-3.5 w-3.5 text-indigo-400" />
+                <span>Public Profile</span>
+              </Button>
+            </Link>
           )}
-          {user.is_expert && <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">Lecturer</span>}
-          {user.can_manage_exhibitions && <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Organizer</span>}
+
+          <div className="flex items-center gap-2 text-xs font-medium text-[#A1A1AA]">
+            <span>Role:</span>
+            {profile?.is_artist ? (
+              <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold">Artist</span>
+            ) : (
+              <span className="px-2 py-0.5 rounded bg-slate-800 text-[#A1A1AA]">Regular User</span>
+            )}
+            {user.is_expert && <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">Lecturer</span>}
+            {user.can_manage_exhibitions && <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Organizer</span>}
+          </div>
         </div>
       </div>
 
@@ -369,9 +383,13 @@ export function DashboardPage({ session }) {
             <div>
               <h2 className="text-base font-bold text-[#F4F4F5] flex items-center gap-2">
                 <BarChart2 className="h-5 w-5 text-indigo-400" />
-                <span>Artwork Deep Analytics</span>
+                <span>Artwork Analytics</span>
               </h2>
-              <p className="text-xs text-[#71717A] mt-0.5">Select an artwork to view detailed performance metrics</p>
+              {selectedArtwork && (
+                <p className="text-xs text-indigo-300 mt-1 font-medium bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-[6px] inline-block">
+                  Currently viewing analytics for: <span className="font-bold text-white">{selectedArtwork.title}</span>. Select another artwork to change project.
+                </p>
+              )}
             </div>
 
             <select

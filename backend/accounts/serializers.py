@@ -53,6 +53,11 @@ class ArtistProfileSerializer(serializers.ModelSerializer):
     website = serializers.CharField(allow_blank=True, required=False, default='')
     instagram = serializers.CharField(allow_blank=True, required=False, default='')
     twitter = serializers.CharField(allow_blank=True, required=False, default='')
+    linkedin = serializers.CharField(allow_blank=True, required=False, default='')
+    youtube = serializers.CharField(allow_blank=True, required=False, default='')
+    facebook = serializers.CharField(allow_blank=True, required=False, default='')
+    tiktok = serializers.CharField(allow_blank=True, required=False, default='')
+    pinterest = serializers.CharField(allow_blank=True, required=False, default='')
 
     class Meta:
         model = ArtistProfile
@@ -65,6 +70,11 @@ class ArtistProfileSerializer(serializers.ModelSerializer):
             'website',
             'instagram',
             'twitter',
+            'linkedin',
+            'youtube',
+            'facebook',
+            'tiktok',
+            'pinterest',
             'phone',
             'location',
             'created_at',
@@ -123,10 +133,28 @@ class BecomeArtistSerializer(serializers.ModelSerializer):
     website = serializers.CharField(allow_blank=True, required=False, default='')
     instagram = serializers.CharField(allow_blank=True, required=False, default='')
     twitter = serializers.CharField(allow_blank=True, required=False, default='')
+    linkedin = serializers.CharField(allow_blank=True, required=False, default='')
+    youtube = serializers.CharField(allow_blank=True, required=False, default='')
+    facebook = serializers.CharField(allow_blank=True, required=False, default='')
+    tiktok = serializers.CharField(allow_blank=True, required=False, default='')
+    pinterest = serializers.CharField(allow_blank=True, required=False, default='')
 
     class Meta:
         model = ArtistProfile
-        fields = ('bio', 'avatar_url', 'website', 'instagram', 'twitter', 'phone', 'location')
+        fields = (
+            'bio',
+            'avatar_url',
+            'website',
+            'instagram',
+            'twitter',
+            'linkedin',
+            'youtube',
+            'facebook',
+            'tiktok',
+            'pinterest',
+            'phone',
+            'location',
+        )
 
     def validate(self, attrs):
         forbidden = self.protected_fields.intersection(self.initial_data.keys())

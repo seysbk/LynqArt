@@ -141,10 +141,11 @@ class ArtworkSerializer(serializers.ModelSerializer):
         return artwork
 
     def validate(self, attrs):
+        from django.utils import timezone
         status = attrs.get('status', getattr(self.instance, 'status', Artwork.STATUS_DRAFT))
         published_at = attrs.get('published_at', getattr(self.instance, 'published_at', None))
         if status == Artwork.STATUS_PUBLISHED and published_at is None:
-            attrs['published_at'] = getattr(self.instance, 'published_at', None)
+            attrs['published_at'] = timezone.now()
         return attrs
 
 

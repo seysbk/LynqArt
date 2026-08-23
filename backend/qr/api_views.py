@@ -57,14 +57,57 @@ class QRCodeViewSet(viewsets.ModelViewSet):
                 'QR generation requires the qrcode package. Install backend requirements to enable this endpoint.'
             ) from exc
 
-        qr = qrcode.QRCode(border=2, box_size=10)
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+        except ImportError:
+            Image = None
+
+        qr = qrcode.QRCode(border=1, box_size=8)
         frontend_url = getattr(settings, 'FRONTEND_BASE_URL', 'http://localhost:5173').rstrip('/')
         qr.add_data(f'{frontend_url}/qr/{qr_code.qr_slug}')
         qr.make(fit=True)
-        image = qr.make_image(fill_color='black', back_color='white')
+        qr_img = qr.make_image(fill_color='#0F172A', back_color='white').convert('RGB')
 
-        buffer = io.BytesIO()
-        image.save(buffer, format='PNG')
+        # Fetch entity title for inscription
+        entity_title = qr_code.qr_slug
+        try:
+            from artworks.models import Artwork
+            from exhibitions.models import Exhibition
+            if qr_code.entity_type == QRCode.ENTITY_ARTWORK:
+                target = Artwork.objects.filter(pk=qr_code.entity_id).first()
+            else:
+                target = Exhibition.objects.filter(pk=qr_code.entity_id).first()
+            if target and getattr(target, 'title', None):
+                entity_title = target.title
+        except Exception:
+            pass
+
+        if Image:
+            qr_w, qr_h = qr_img.size
+            padding = 20
+            header_h = 28
+            footer_h = 32
+            card_w = qr_w + (padding * 2)
+            card_h = qr_h + header_h + footer_h + (padding * 2)
+
+            card = Image.new('RGB', (card_w, card_h), '#0D0F14')
+            draw = ImageDraw.Draw(card)
+
+            # Draw top inscription (Entity Title)
+            display_title = entity_title if len(entity_title) <= 24 else f'{entity_title[:21]}...'
+            draw.text((padding, padding), display_title, fill='#F4F4F5')
+
+            # Paste QR code in center
+            card.paste(qr_img, (padding, padding + header_h))
+
+            # Draw bottom branding "LynqArt"
+            draw.text((padding, padding + header_h + qr_h + 8), 'LynqArt', fill='#818CF8')
+
+            buffer = io.BytesIO()
+            card.save(buffer, format='PNG')
+        else:
+            buffer = io.BytesIO()
+            qr_img.save(buffer, format='PNG')
         qr_code.qr_image_path, qr_code.qr_image_url = self._store_qr_image(qr_code.qr_slug, buffer.getvalue())
         qr_code.save(update_fields=['qr_image_path', 'qr_image_url'])
 

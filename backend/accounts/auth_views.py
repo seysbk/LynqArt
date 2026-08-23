@@ -37,6 +37,11 @@ class CurrentUserView(APIView):
         serializer.save()
         return Response(CurrentUserSerializer(request.user).data)
 
+    def delete(self, request):
+        user = request.user
+        user.delete()
+        return Response({'detail': 'Account permanently deleted.'}, status=status.HTTP_204_NO_CONTENT)
+
 
 class BecomeArtistView(APIView):
     permission_classes = [permissions.IsAuthenticated]
