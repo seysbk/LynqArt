@@ -244,12 +244,6 @@ export function ProfilePage({ session }) {
           <span>Personal Account Information</span>
         </h2>
 
-        {userMessage && (
-          <div className="rounded-[9px] bg-indigo-500/10 border border-indigo-500/30 p-2.5 text-xs text-indigo-300">
-            {userMessage}
-          </div>
-        )}
-
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="space-y-1 text-xs font-medium text-[#A1A1AA]">
             First Name
@@ -305,12 +299,6 @@ export function ProfilePage({ session }) {
           <p className="text-xs text-[#A1A1AA]">
             Edit the public bio, location, contact, and portfolio links you filled out when becoming an artist.
           </p>
-
-          {artistMessage && (
-            <div className="rounded-[9px] bg-indigo-500/10 border border-indigo-500/30 p-2.5 text-xs text-indigo-300">
-              {artistMessage}
-            </div>
-          )}
 
           {/* Profile Picture Upload */}
           <div className="space-y-2">
