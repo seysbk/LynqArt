@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { Analytics } from '@vercel/analytics/react'
 import { AppLayout } from './components/layout/AppLayout'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { useSession } from './hooks/useSession'
@@ -21,7 +22,9 @@ function App() {
   const session = useSession()
 
   return (
-    <Routes>
+    <>
+      <Analytics />
+      <Routes>
       <Route element={<AppLayout session={session} />}>
         <Route index element={<HomePage session={session} />} />
         <Route path="explore" element={<ExplorePage />} />
@@ -60,6 +63,7 @@ function App() {
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
+    </>
   )
 }
 

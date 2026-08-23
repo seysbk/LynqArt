@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button'
 import { LoadingState } from '../../components/ui/LoadingState'
 import { useNavigate } from 'react-router-dom'
 import { Modal } from '../../components/ui/Modal'
-import { User, ShieldCheck, Check, Sparkles, ImagePlus, Trash2, AlertTriangle } from 'lucide-react'
+import { User, ShieldCheck, Check, Sparkles, ImagePlus, Trash2, AlertTriangle, LogOut } from 'lucide-react'
 
 const inputClass =
   'w-full rounded-[9px] border border-white/[0.09] bg-[#0D0F14] px-3.5 py-2.5 text-xs text-[#F4F4F5] outline-none transition focus:border-indigo-400 placeholder:text-[#71717A]'
@@ -210,11 +210,24 @@ export function ProfilePage({ session }) {
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[#F4F4F5]">Account &amp; Artist Settings</h1>
         </div>
 
-        <Link to="/dashboard">
-          <Button variant="secondary" className="!py-1.5 text-xs">
-            Back to Dashboard
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              session?.signOut?.()
+              navigate('/')
+            }}
+            className="!py-1.5 text-xs text-red-400 border-red-500/30 hover:bg-red-500/10"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span>Sign Out</span>
           </Button>
-        </Link>
+          <Link to="/dashboard">
+            <Button variant="secondary" className="!py-1.5 text-xs">
+              Back to Dashboard
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* User Info Overview Banner */}
