@@ -6,6 +6,7 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.http import FileResponse
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -19,7 +20,7 @@ class QRCodeViewSet(viewsets.ModelViewSet):
     queryset = QRCode.objects.all().order_by('-created_at')
     serializer_class = QRCodeSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ('qr_slug', 'entity_type')
     filterset_fields = ('entity_type', 'entity_id')
     ordering_fields = ('created_at', 'scans')
