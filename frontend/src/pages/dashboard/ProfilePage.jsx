@@ -1,18 +1,22 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
+import { mediaUrl } from '../../lib/media'
 import { Button } from '../../components/ui/Button'
 import { LoadingState } from '../../components/ui/LoadingState'
-import { User, ShieldCheck, Check, Sparkles } from 'lucide-react'
+import { User, ShieldCheck, Check, Sparkles, ImagePlus, Trash2 } from 'lucide-react'
 
 const inputClass =
   'w-full rounded-[9px] border border-white/[0.09] bg-[#0D0F14] px-3.5 py-2.5 text-xs text-[#F4F4F5] outline-none transition focus:border-indigo-400 placeholder:text-[#71717A]'
 
 export function ProfilePage({ session }) {
   const [userProfile, setUserProfile] = useState(null)
+  const [artistProfile, setArtistProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [savingUser, setSavingUser] = useState(false)
   const [savingArtist, setSavingArtist] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [avatarDragging, setAvatarDragging] = useState(false)
   const [userMessage, setUserMessage] = useState('')
   const [artistMessage, setArtistMessage] = useState('')
 
@@ -24,7 +28,6 @@ export function ProfilePage({ session }) {
 
   const [artistForm, setArtistForm] = useState({
     bio: '',
-    avatar_url: '',
     location: '',
     phone: '',
     website: '',
@@ -32,40 +35,92 @@ export function ProfilePage({ session }) {
     twitter: '',
   })
 
-  const loadProfile = async () => {
-    try {
-      const [uRes, aRes] = await Promise.all([
-        api.get('/accounts/profile/'),
-        api.get('/accounts/artist-profile/').catch(() => ({ data: null })),
-      ])
-      setUserProfile(uRes.data)
-      setUserForm({
-        first_name: uRes.data.first_name || '',
-        last_name: uRes.data.last_name || '',
-        email: uRes.data.email || '',
+  useEffect(() => {
+    let alive = true
+    Promise.all([
+      api.get('/accounts/profile/'),
+      api.get('/accounts/artist-profile/').catch(() => ({ data: null })),
+    ])
+      .then(([uRes, aRes]) => {
+        if (!alive) return
+        setUserProfile(uRes.data)
+        setUserForm({
+          first_name: uRes.data.first_name || '',
+          last_name: uRes.data.last_name || '',
+          email: uRes.data.email || '',
+        })
+
+        if (aRes.data) {
+          setArtistProfile(aRes.data)
+          setArtistForm({
+            bio: aRes.data.bio || '',
+            location: aRes.data.location || '',
+            phone: aRes.data.phone || '',
+            website: aRes.data.website || '',
+            instagram: aRes.data.instagram || '',
+            twitter: aRes.data.twitter || '',
+          })
+        }
+        setLoading(false)
+      })
+      .catch(() => {
+        if (!alive) return
+        setUserMessage('Could not load profile details.')
+        setLoading(false)
       })
 
-      if (aRes.data) {
-        setArtistForm({
-          bio: aRes.data.bio || '',
-          avatar_url: aRes.data.avatar_url || '',
-          location: aRes.data.location || '',
-          phone: aRes.data.phone || '',
-          website: aRes.data.website || '',
-          instagram: aRes.data.instagram || '',
-          twitter: aRes.data.twitter || '',
-        })
-      }
-    } catch {
-      setUserMessage('Could not load profile details.')
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  const currentAvatarUrl = artistProfile?.avatar_url ? mediaUrl(artistProfile.avatar_url) : ''
+
+  const uploadAvatar = async (file) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setArtistMessage('Please choose a valid image file (PNG, JPG or WEBP).')
+      return
+    }
+    setUploadingAvatar(true)
+    setArtistMessage('')
+    try {
+      const payload = new FormData()
+      payload.append('avatar', file)
+      const { data } = await api.patch('/accounts/artist-profile/', payload, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      setArtistProfile(data)
+      setArtistMessage('Profile picture updated successfully.')
+    } catch (err) {
+      setArtistMessage(err?.response?.data?.detail || 'Could not upload profile picture.')
     } finally {
-      setLoading(false)
+      setUploadingAvatar(false)
     }
   }
 
-  useEffect(() => {
-    loadProfile()
-  }, [])
+  const handleAvatarSelected = (event) => {
+    const file = event.target.files?.[0]
+    if (file) uploadAvatar(file)
+    event.target.value = ''
+  }
+
+  const handleAvatarDrop = (event) => {
+    event.preventDefault()
+    setAvatarDragging(false)
+    const file = event.dataTransfer.files?.[0]
+    if (file) uploadAvatar(file)
+  }
+
+  const handleRemoveAvatar = async () => {
+    try {
+      const { data } = await api.delete('/accounts/artist-profile/')
+      setArtistProfile(data)
+      setArtistMessage('Profile picture removed.')
+    } catch {
+      setArtistMessage('Could not remove profile picture.')
+    }
+  }
 
   const saveUserAccount = async (event) => {
     event.preventDefault()
@@ -210,30 +265,61 @@ export function ProfilePage({ session }) {
             </div>
           )}
 
-          {/* Profile Picture / Avatar URL with preview */}
+          {/* Profile Picture Upload */}
           <div className="space-y-2">
-            <label className="block space-y-1 text-xs font-medium text-[#A1A1AA]">
-              Profile Picture / Avatar URL
-              <input
-                type="url"
-                value={artistForm.avatar_url}
-                onChange={(e) => setArtistForm({ ...artistForm, avatar_url: e.target.value })}
-                placeholder="https://example.com/avatar.jpg"
-                className={inputClass}
-              />
-            </label>
-
-            {artistForm.avatar_url && (
-              <div className="flex items-center gap-3 pt-1">
-                <img
-                  src={artistForm.avatar_url}
-                  alt="Avatar Preview"
-                  className="h-10 w-10 rounded-full object-cover border border-white/[0.09]"
-                  onError={(e) => { e.currentTarget.style.display = 'none' }}
-                />
-                <span className="text-[11px] text-[#A1A1AA]">Avatar preview</span>
+            <span className="block text-xs font-medium text-[#A1A1AA]">Profile Picture</span>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="h-14 w-14 rounded-full bg-[#191C27] border border-white/[0.09] flex items-center justify-center text-indigo-400 overflow-hidden shrink-0">
+                {currentAvatarUrl ? (
+                  <img src={currentAvatarUrl} alt="Current profile picture" className="h-full w-full object-cover" />
+                ) : (
+                  <ShieldCheck className="h-6 w-6" />
+                )}
               </div>
-            )}
+
+              <label
+                className={`flex-1 flex items-center gap-3 rounded-[9px] border border-dashed px-4 py-3 cursor-pointer transition ${
+                  avatarDragging
+                    ? 'border-indigo-400 bg-indigo-500/10'
+                    : 'border-white/[0.12] bg-[#0D0F14] hover:border-indigo-400/60 hover:bg-white/[0.02]'
+                }`}
+                onDragOver={(event) => {
+                  event.preventDefault()
+                  setAvatarDragging(true)
+                }}
+                onDragLeave={() => setAvatarDragging(false)}
+                onDrop={handleAvatarDrop}
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={uploadingAvatar}
+                  className="hidden"
+                  onChange={handleAvatarSelected}
+                />
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 shrink-0">
+                  <ImagePlus className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-xs font-semibold text-[#F4F4F5]">
+                    {uploadingAvatar ? 'Uploading...' : 'Click to upload or drag & drop'}
+                  </span>
+                  <span className="block text-[11px] text-[#71717A]">PNG, JPG or WEBP image</span>
+                </span>
+              </label>
+
+              {currentAvatarUrl && (
+                <Button
+                  variant="secondary"
+                  onClick={handleRemoveAvatar}
+                  disabled={uploadingAvatar}
+                  className="!py-1.5 !px-3 text-xs text-red-400 border-red-500/20 hover:bg-red-500/10 shrink-0"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span>Remove</span>
+                </Button>
+              )}
+            </div>
           </div>
 
           <label className="block space-y-1 text-xs font-medium text-[#A1A1AA]">
