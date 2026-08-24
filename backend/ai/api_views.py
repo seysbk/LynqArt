@@ -1,20 +1,20 @@
-import os
-import urllib.request
-import json
+import logging
 from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from accounts.permissions import IsArtistOrReadOnly
 from artworks.models import Artwork
 
 from .models import AIGeneration
 from .serializers import AIGenerationSerializer
+from .services import AIService, AIServiceError
+
+logger = logging.getLogger(__name__)
 
 
 def synthesize_artist_statement(title, medium, concept, tone='contemplative'):
     """
-    Structured artistic statement generator fallback when OpenAI API key is not configured.
+    Structured artistic statement generator fallback when OpenAI/OpenRouter API key is not configured.
     Generates rich, professional Markdown statements for artists.
     """
     tones = {
@@ -68,6 +68,12 @@ class AIGenerationViewSet(viewsets.ModelViewSet):
         Custom endpoint to generate a draft artist statement or exhibition summary.
         Saves the generation instance for audit and review.
         """
+        if not getattr(request.user, 'is_artist', False):
+            return Response(
+                {'error': 'Artist permission is required to generate AI artist statements.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         artwork_id = request.data.get('artwork')
         prompt = request.data.get('prompt', '')
         tone = request.data.get('tone', 'contemplative')
@@ -78,45 +84,32 @@ class AIGenerationViewSet(viewsets.ModelViewSet):
 
         try:
             artwork = Artwork.objects.get(id=artwork_id)
-        except Artwork.DoesNotExist:
+        except (Artwork.DoesNotExist, ValueError):
             return Response({'error': 'Artwork not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        api_key = os.environ.get('OPENAI_API_KEY')
-        generated_text = ""
-        model_used = "gpt-4o-mini"
+        if artwork.artist != request.user:
+            return Response(
+                {'error': 'You do not have permission to generate AI statements for this artwork.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
-        if api_key:
-            try:
-                # Direct HTTP request to OpenAI Chat Completions API
-                url = "https://api.openai.com/v1/chat/completions"
-                payload = json.dumps({
-                    "model": "gpt-4o-mini",
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are a professional contemporary art curator and artist statement writing assistant. Write compelling, well-structured GitHub Flavored Markdown artist statements."
-                        },
-                        {
-                            "role": "user",
-                            "content": f"Write an artist statement for artwork '{artwork.title}' ({artwork.medium}). Additional notes: {prompt}. Tone: {tone}."
-                        }
-                    ],
-                    "temperature": 0.7
-                }).encode('utf-8')
-                
-                req = urllib.request.Request(url, data=payload, headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {api_key}"
-                })
-                with urllib.request.urlopen(req) as response:
-                    res_data = json.loads(response.read().decode('utf-8'))
-                    generated_text = res_data['choices'][0]['message']['content']
-            except Exception:
-                generated_text = synthesize_artist_statement(artwork.title, artwork.medium, prompt, tone)
-                model_used = "lynqart-ai-assistant"
-        else:
-            generated_text = synthesize_artist_statement(artwork.title, artwork.medium, prompt, tone)
-            model_used = "lynqart-ai-assistant"
+        try:
+            generated_text, model_used = AIService.generate_statement(
+                artwork_title=artwork.title,
+                artwork_medium=artwork.medium,
+                prompt=prompt,
+                tone=tone,
+                mode=mode,
+            )
+        except AIServiceError as e:
+            logger.error(f"AI Generation failed for user {request.user.id}, artwork {artwork.id}: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except Exception as e:
+            logger.exception(f"Unexpected error during AI statement generation: {e}")
+            return Response(
+                {'error': 'An unexpected error occurred while generating the AI statement.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
         generation = AIGeneration.objects.create(
             artwork=artwork,
