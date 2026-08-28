@@ -78,7 +78,6 @@ class ArtworkImage(models.Model):
     image_url = models.CharField(max_length=500, blank=True, default='')
     caption = models.CharField(max_length=255, blank=True, default='')
     display_order = models.IntegerField(default=0)
-    is_process_image = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

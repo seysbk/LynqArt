@@ -5,23 +5,34 @@ import { Sparkles, Check, RefreshCw, X, AlertCircle } from 'lucide-react'
 import { api } from '../../lib/api'
 import { Button } from '../ui/Button'
 
-export function AIAssistantModal({ artworkId, artworkTitle, artworkMedium, onAccept, onClose }) {
+export function AIAssistantModal({ artworkId, artworkTitle, artworkMedium, mode = 'statement', onAccept, onClose, onEditManually }) {
   const [prompt, setPrompt] = useState('')
   const [tone, setTone] = useState('contemplative')
   const [generating, setGenerating] = useState(false)
   const [currentGeneration, setCurrentGeneration] = useState(null)
-  const [error, setError] = useState('')
+  const [aiUnavailable, setAiUnavailable] = useState(false)
+  const [userErrorMessage, setUserErrorMessage] = useState('')
+
+  const handleEditManuallyClick = () => {
+    if (onEditManually) {
+      onEditManually()
+    } else {
+      onClose()
+    }
+  }
 
   const handleGenerate = async (event) => {
     event.preventDefault()
     setGenerating(true)
-    setError('')
+    setAiUnavailable(false)
+    setUserErrorMessage('')
     try {
       if (artworkId) {
         const { data } = await api.post('/ai/generations/generate_draft/', {
           artwork: artworkId,
           prompt: prompt || `Themes of memory, composition, and physical texture in ${artworkTitle || 'artwork'}`,
           tone,
+          mode,
         })
         setCurrentGeneration(data)
       } else {
@@ -36,7 +47,9 @@ export function AIAssistantModal({ artworkId, artworkTitle, artworkMedium, onAcc
             contemplative: 'invites quiet reflection on memory and perception',
           }[tone] || 'invites quiet reflection on memory and perception'
 
-        const text = `## Artist Statement: *${title_str}*\n\n*${title_str}* is an exploration rendered through ${medium_str}. At its core, the work engages with ${concept_str}, creating a space where physical texture and narrative converge.\n\n### Conceptual Foundations\nThrough this piece, the creative practice ${selected_tone}. The choice of ${medium_str} is intentional—allowing subtle interactions between light, surface, and composition to articulate themes that words often fail to capture fully.\n\n> "The physical artwork acts as an anchor for digital memory—a visual dialogue between presence and preservation."\n\n### Process & Materials\nThe construction of *${title_str}* relies on deliberate layering and reduction. By balancing structured geometry with intuitive mark-making, the work remains an open dialogue between the artist's intent and the viewer's perception.`
+        const text = mode === 'curator'
+          ? `## Curator Introduction: *${title_str}*\n\nThis exhibition presents *${title_str}*, bringing together works that engage with ${concept_str}.\n\n### Overview\n${selected_tone.toUpperCase()}.\n\n> "Artworks serve as visual anchors, fostering dialogue between physical space and digital audience."`
+          : `## Artist Statement: *${title_str}*\n\n*${title_str}* is an exploration rendered through ${medium_str}. At its core, the work engages with ${concept_str}, creating a space where physical texture and narrative converge.\n\n### Conceptual Foundations\nThrough this piece, the creative practice ${selected_tone}. The choice of ${medium_str} is intentional—allowing subtle interactions between light, surface, and composition to articulate themes that words often fail to capture fully.\n\n> "The physical artwork acts as an anchor for digital memory—a visual dialogue between presence and preservation."\n\n### Process & Materials\nThe construction of *${title_str}* relies on deliberate layering and reduction. By balancing structured geometry with intuitive mark-making, the work remains an open dialogue between the artist's intent and the viewer's perception.`
 
         setCurrentGeneration({
           id: 'temp-draft',
@@ -45,7 +58,9 @@ export function AIAssistantModal({ artworkId, artworkTitle, artworkMedium, onAcc
         })
       }
     } catch (err) {
-      setError(err?.response?.data?.error || 'Could not generate draft. Please try again.')
+      console.error('AI Generation Error (detailed technical reason):', err)
+      setAiUnavailable(true)
+      setUserErrorMessage('The AI writing assistant is currently unavailable or experiencing network issues. You can write and edit your statement manually in the editor.')
     } finally {
       setGenerating(false)
     }
@@ -82,15 +97,27 @@ export function AIAssistantModal({ artworkId, artworkTitle, artworkMedium, onAcc
           </button>
         </div>
 
-        {error && (
-          <div className="rounded-[9px] bg-rose-500/10 border border-rose-500/30 p-3 text-xs text-rose-300 flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
+        {/* AI Unavailable Modal State */}
+        {aiUnavailable ? (
+          <div className="space-y-6 py-2">
+            <div className="rounded-[12px] bg-rose-500/10 border border-rose-500/30 p-4 space-y-3">
+              <div className="flex items-center gap-3 text-rose-400 font-semibold text-sm">
+                <AlertCircle className="h-5 w-5 shrink-0" />
+                <span>AI Writing Assistant Unavailable</span>
+              </div>
+              <p className="text-xs text-[#F4F4F5] leading-relaxed">
+                {userErrorMessage}
+              </p>
+            </div>
 
-        {/* Input Form */}
-        {!currentGeneration ? (
+            <div className="pt-2 flex justify-end gap-3 border-t border-white/[0.06]">
+              <Button type="button" variant="primary" onClick={handleEditManuallyClick} className="!py-2 text-xs">
+                <span>Go Back &amp; Edit Manually</span>
+              </Button>
+            </div>
+          </div>
+        ) : !currentGeneration ? (
+          /* Input Form */
           <form onSubmit={handleGenerate} className="space-y-4">
             <p className="text-xs text-[#A1A1AA] leading-relaxed">
               Describe key themes, materials, inspirations, or concepts for <strong className="text-[#F4F4F5]">{artworkTitle || 'this artwork'}</strong>. The AI assistant will draft a structured Markdown statement for your review.

@@ -1,13 +1,17 @@
 import React, { useRef, useState } from 'react'
 import { Icon } from './Icons'
 
-export function ImageUpload({ label, value, onChange, accept = 'image/*', hint }) {
+export function ImageUpload({ label, value, onChange, accept = 'image/*', hint, multiple = false }) {
   const inputRef = useRef(null)
   const [dragging, setDragging] = useState(false)
 
   const handleFiles = (files) => {
-    const file = files?.[0]
-    if (file) onChange(file)
+    if (!files || !files.length) return
+    if (multiple) {
+      onChange(Array.from(files))
+    } else {
+      onChange(files[0])
+    }
   }
 
   const handleDrop = (event) => {
@@ -43,6 +47,7 @@ export function ImageUpload({ label, value, onChange, accept = 'image/*', hint }
         ref={inputRef}
         type="file"
         accept={accept}
+        multiple={multiple}
         className="hidden"
         onChange={(event) => handleFiles(event.target.files)}
       />

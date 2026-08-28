@@ -6,7 +6,7 @@ from .models import Artwork, ArtworkImage, ArtworkTag, ArtworkVersion, Category,
 class ArtworkImageInline(admin.TabularInline):
     model = ArtworkImage
     extra = 0
-    fields = ('image_url', 'caption', 'display_order', 'is_process_image')
+    fields = ('image_url', 'caption', 'display_order')
     ordering = ('display_order',)
 
 
@@ -74,8 +74,8 @@ class ArtworkVersionAdmin(admin.ModelAdmin):
 
 @admin.register(ArtworkImage)
 class ArtworkImageAdmin(admin.ModelAdmin):
-    list_display = ('artwork', 'display_order', 'is_process_image', 'caption', 'created_at')
-    list_filter = ('is_process_image', 'created_at')
+    list_display = ('artwork', 'display_order', 'caption', 'created_at')
+    list_filter = ('created_at',)
     search_fields = ('artwork__title', 'caption', 'image_url')
     autocomplete_fields = ('artwork',)
     ordering = ('artwork', 'display_order')
