@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { MarkdownTips } from '../../components/ui/MarkdownTips'
 import { Button } from '../../components/ui/Button'
-import { QrCode, Download, Eye, Check, ExternalLink, ArrowRight, ArrowLeft, Trash2 } from 'lucide-react'
+import { QrCode, Download, Eye, Check, ExternalLink, ArrowRight, ArrowLeft, Trash2, Sparkles } from 'lucide-react'
+import { AIAssistantModal } from '../../components/ai/AIAssistantModal'
 import { Modal } from '../../components/ui/Modal'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -33,13 +34,17 @@ const errorText = (error) =>
 export function ExhibitionManagerPage() {
   const { exhibitionSlug } = useParams()
   const navigate = useNavigate()
-  const [activeStep, setActiveStep] = useState(1)
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
+  const initialStep = parseInt(searchParams.get('step') || location.state?.step || 1, 10)
+  const [activeStep, setActiveStep] = useState(initialStep)
   const [form, setForm] = useState(empty)
   const [item, setItem] = useState(null)
   const [allArtworks, setAllArtworks] = useState([])
   const [qrCode, setQrCode] = useState(null)
   const [saving, setSaving] = useState(false)
   const [preview, setPreview] = useState(false)
+  const [showAiModal, setShowAiModal] = useState(false)
   const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null, confirmText: 'OK', cancelText: null })
 
   const loadAllArtworks = () =>
@@ -60,8 +65,16 @@ export function ExhibitionManagerPage() {
 
   useEffect(() => {
     loadAllArtworks()
-    if (exhibitionSlug) refresh(exhibitionSlug).catch(() => setMessage('Could not load exhibition.'))
-  }, [exhibitionSlug])
+    if (exhibitionSlug) {
+      refresh(exhibitionSlug).catch(() => {})
+      const stepFromQuery = searchParams.get('step')
+      if (stepFromQuery) {
+        setActiveStep(parseInt(stepFromQuery, 10))
+      } else if (location.state?.step) {
+        setActiveStep(location.state.step)
+      }
+    }
+  }, [exhibitionSlug, searchParams, location.state])
 
   const change = (event) =>
     setForm({
@@ -114,7 +127,7 @@ export function ExhibitionManagerPage() {
       }
 
       if (!exhibitionSlug) {
-        navigate(`/dashboard/exhibitions/${data.slug}/edit`, { replace: true })
+        navigate(`/dashboard/exhibitions/${data.slug}/edit${nextStep ? `?step=${nextStep}` : ''}`, { replace: true })
       }
 
       return data
@@ -394,15 +407,44 @@ export function ExhibitionManagerPage() {
             <div>
               <h2 className="text-base font-bold text-[#F4F4F5]">Part 2: Curator Description &amp; Banner</h2>
               <p className="text-xs text-[#71717A] mt-0.5">
-                Write a detailed curator introduction in Markdown and upload a banner graphic.
+                Write a detailed curator introduction in Markdown and upload a banner graphic. Preserves artist and curator voice.
               </p>
             </div>
 
-            <Button type="button" variant="secondary" onClick={() => setPreview(!preview)} className="!py-1.5 !px-3 text-xs">
-              <Eye className="h-4 w-4" />
-              <span>{preview ? 'Editor' : 'Preview'}</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => setShowAiModal(true)}
+                className="!py-1.5 !px-3 text-xs"
+              >
+                <Sparkles className="h-4 w-4" />
+                <span>AI Writing Assistant</span>
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => setPreview(!preview)} className="!py-1.5 !px-3 text-xs">
+                <Eye className="h-4 w-4" />
+                <span>{preview ? 'Editor' : 'Preview'}</span>
+              </Button>
+            </div>
           </div>
+
+          {showAiModal && (
+            <AIAssistantModal
+              artworkTitle={form.title}
+              mode="curator"
+              onAccept={(text) => {
+                setForm((prev) => ({ ...prev, markdown_description: text }))
+                setActiveStep(2)
+                setPreview(false)
+              }}
+              onClose={() => setShowAiModal(false)}
+              onEditManually={() => {
+                setShowAiModal(false)
+                setActiveStep(2)
+                setPreview(false)
+              }}
+            />
+          )}
 
           {!preview && <MarkdownTips onInsert={handleMarkdownInsert} value={form.markdown_description} />}
 

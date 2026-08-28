@@ -27,13 +27,27 @@ class ArtworkUploadTests(APITestCase):
         self.client.force_authenticate(user=self.artist)
         response = self.client.post(
             reverse('artwork-upload-images', args=[self.artwork.slug]),
-            {'image': self._image_file(), 'caption': 'Main image', 'display_order': 1, 'is_process_image': False},
+            {'image': self._image_file(), 'caption': 'Main image', 'display_order': 1},
             format='multipart',
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIn('image_url', response.data)
         self.assertIn('artworks/', response.data['image_url'])
+
+    @override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+    def test_artist_can_upload_multiple_progress_images(self):
+        self.client.force_authenticate(user=self.artist)
+        img1 = self._image_file(name='step1.png')
+        img2 = self._image_file(name='step2.png')
+        response = self.client.post(
+            reverse('artwork-upload-images', args=[self.artwork.slug]),
+            {'images': [img1, img2], 'caption': 'Layering process'},
+            format='multipart',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(len(response.data), 2)
 
     @override_settings(MEDIA_ROOT=tempfile.mkdtemp())
     def test_artist_can_upload_banner(self):

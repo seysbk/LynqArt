@@ -50,7 +50,6 @@ class ArtworkImageSerializer(serializers.ModelSerializer):
             'image_url',
             'caption',
             'display_order',
-            'is_process_image',
             'created_at',
         )
         read_only_fields = ('id', 'created_at')

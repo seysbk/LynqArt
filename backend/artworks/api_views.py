@@ -79,18 +79,31 @@ class ArtworkViewSet(viewsets.ModelViewSet):
     )
     def upload_images(self, request, slug=None):
         artwork = self.get_object()
-        uploaded_file = request.FILES.get('image')
-        if not uploaded_file:
+        uploaded_files = request.FILES.getlist('images') or request.FILES.getlist('image')
+        if not uploaded_files:
+            uploaded_file = request.FILES.get('image') or request.FILES.get('images')
+            if uploaded_file:
+                uploaded_files = [uploaded_file]
+
+        if not uploaded_files:
             return Response({'image': 'This field is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        image = ArtworkImage.objects.create(
-            artwork=artwork,
-            image_url=self._store_upload(uploaded_file, 'artworks'),
-            caption=request.data.get('caption', ''),
-            display_order=int(request.data.get('display_order') or 0),
-            is_process_image=str(request.data.get('is_process_image', '')).lower() in {'1', 'true', 'yes', 'on'},
-        )
-        return Response(ArtworkImageSerializer(image, context={'request': request}).data, status=status.HTTP_201_CREATED)
+        caption = request.data.get('caption', '')
+        display_order = int(request.data.get('display_order') or 0)
+
+        created_images = []
+        for idx, uploaded_file in enumerate(uploaded_files):
+            image = ArtworkImage.objects.create(
+                artwork=artwork,
+                image_url=self._store_upload(uploaded_file, 'artworks'),
+                caption=caption,
+                display_order=display_order + idx,
+            )
+            created_images.append(image)
+
+        if len(created_images) == 1:
+            return Response(ArtworkImageSerializer(created_images[0], context={'request': request}).data, status=status.HTTP_201_CREATED)
+        return Response(ArtworkImageSerializer(created_images, many=True, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
     @action(
         detail=True,
@@ -133,7 +146,7 @@ class ArtworkImageViewSet(viewsets.ModelViewSet):
     permission_classes = [IsArtistOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ('artwork__title', 'caption', 'image_url')
-    filterset_fields = ('is_process_image', 'artwork')
+    filterset_fields = ('artwork',)
     ordering_fields = ('display_order', 'created_at')
 
     def perform_create(self, serializer):

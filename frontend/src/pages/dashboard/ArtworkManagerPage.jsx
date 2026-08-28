@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
 import { ImageUpload } from '../../components/ui/ImageUpload'
@@ -44,13 +44,16 @@ const errorText = (error) =>
 export function ArtworkManagerPage() {
   const { artworkSlug } = useParams()
   const navigate = useNavigate()
-  const [activeStep, setActiveStep] = useState(1)
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
+  const initialStep = parseInt(searchParams.get('step') || location.state?.step || 1, 10)
+  const [activeStep, setActiveStep] = useState(initialStep)
   const [form, setForm] = useState(empty)
   const [artwork, setArtwork] = useState(null)
   const [categories, setCategories] = useState([])
   const [tags, setTags] = useState([])
   const [newCategory, setNewCategory] = useState('')
-  const [imageMeta, setImageMeta] = useState({ caption: '', display_order: 0, is_process_image: false })
+  const [imageMeta, setImageMeta] = useState({ caption: '', display_order: 0 })
   const [exhibitions, setExhibitions] = useState([])
   const [linkedExhibitionIds, setLinkedExhibitionIds] = useState(new Set())
   const [qrCode, setQrCode] = useState(null)
@@ -94,8 +97,16 @@ export function ArtworkManagerPage() {
 
   useEffect(() => {
     loadChoices()
-    if (artworkSlug) loadArtwork(artworkSlug).catch(() => setMessage('Could not load artwork.'))
-  }, [artworkSlug])
+    if (artworkSlug) {
+      loadArtwork(artworkSlug).catch(() => {})
+      const stepFromQuery = searchParams.get('step')
+      if (stepFromQuery) {
+        setActiveStep(parseInt(stepFromQuery, 10))
+      } else if (location.state?.step) {
+        setActiveStep(location.state.step)
+      }
+    }
+  }, [artworkSlug, searchParams, location.state])
 
   const change = (event) =>
     setForm({
@@ -183,7 +194,7 @@ export function ArtworkManagerPage() {
       }
 
       if (!artworkSlug) {
-        navigate(`/dashboard/artworks/${data.slug}/edit`, { replace: true })
+        navigate(`/dashboard/artworks/${data.slug}/edit${nextStep ? `?step=${nextStep}` : ''}`, { replace: true })
       }
 
       return data
@@ -240,14 +251,18 @@ export function ArtworkManagerPage() {
     }
   }
 
-  const upload = async (file, kind) => {
-    if (!file || !artwork) return
+  const upload = async (files, kind) => {
+    if (!files || !artwork) return
+    const fileList = Array.isArray(files) ? files : [files]
+    if (fileList.length === 0) return
+
     const payload = new FormData()
-    payload.append(kind === 'banner' ? 'banner' : 'image', file)
-    if (kind === 'images') {
+    if (kind === 'banner') {
+      payload.append('banner', fileList[0])
+    } else {
+      fileList.forEach((f) => payload.append('images', f))
       payload.append('caption', imageMeta.caption)
       payload.append('display_order', imageMeta.display_order)
-      payload.append('is_process_image', imageMeta.is_process_image)
     }
     try {
       await api.post(
@@ -256,7 +271,8 @@ export function ArtworkManagerPage() {
         { headers: { 'Content-Type': 'multipart/form-data' } },
       )
       await loadArtwork(artwork.slug)
-      setModalState({ isOpen: true, title: 'Upload Successful', message: `${kind === 'banner' ? 'Banner' : 'Image'} uploaded!`, type: 'success' })
+      if (kind === 'images') setImageMeta({ ...imageMeta, caption: '' })
+      setModalState({ isOpen: true, title: 'Upload Successful', message: `${kind === 'banner' ? 'Banner' : 'Progress image(s)'} uploaded!`, type: 'success' })
     } catch (error) {
       setModalState({ isOpen: true, title: 'Error Uploading', message: errorText(error), type: 'error' })
     }
@@ -543,8 +559,18 @@ export function ArtworkManagerPage() {
               artworkId={artwork?.id}
               artworkTitle={form.title}
               artworkMedium={form.medium}
-              onAccept={(text) => setForm({ ...form, markdown_statement: text })}
+              mode="statement"
+              onAccept={(text) => {
+                setForm((prev) => ({ ...prev, markdown_statement: text }))
+                setActiveStep(2)
+                setPreview(false)
+              }}
               onClose={() => setShowAiModal(false)}
+              onEditManually={() => {
+                setShowAiModal(false)
+                setActiveStep(2)
+                setPreview(false)
+              }}
             />
           )}
 
@@ -612,33 +638,38 @@ export function ArtworkManagerPage() {
               )}
             </div>
 
-            {/* Gallery & Process Images Upload */}
+            {/* Progress Images Upload */}
             <div className="space-y-4 pt-4 border-t border-white/[0.06]">
-              <h3 className="text-xs font-semibold text-[#F4F4F5]">
-                Gallery &amp; Process Photos ({artwork?.images?.length || 0})
-              </h3>
+              <div>
+                <h3 className="text-xs font-semibold text-[#F4F4F5]">
+                  Progress Images ({artwork?.images?.length || 0})
+                </h3>
+                <p className="text-xs text-[#71717A] mt-0.5">
+                  Add a description to your progress image and upload it to document your artwork's creation process.
+                </p>
+              </div>
 
               <div className="grid gap-3 sm:grid-cols-2 bg-[#0D0F14] p-4 rounded-[10px] border border-white/[0.06]">
                 <div className="space-y-2">
-                  <input
-                    value={imageMeta.caption}
-                    onChange={(e) => setImageMeta({ ...imageMeta, caption: e.target.value })}
-                    placeholder="Image caption (e.g., Close-up texture)"
-                    className={inputClass}
-                  />
-                  <label className="flex items-center gap-2 text-xs text-[#A1A1AA] cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={imageMeta.is_process_image}
-                      onChange={(e) => setImageMeta({ ...imageMeta, is_process_image: e.target.checked })}
-                      className="rounded border-white/[0.09] text-indigo-600"
+                  <label className="text-xs font-medium text-[#A1A1AA]">
+                    Progress Description / Caption
+                    <textarea
+                      rows={3}
+                      value={imageMeta.caption}
+                      onChange={(e) => setImageMeta({ ...imageMeta, caption: e.target.value })}
+                      placeholder="Add a description for this progress stage (e.g., Initial underpainting layer on canvas)..."
+                      className={`${inputClass} mt-1`}
                     />
-                    <span>Mark as Process / Work-in-Progress Shot</span>
                   </label>
                 </div>
 
                 <div>
-                  <ImageUpload label="Upload Photo" onChange={(f) => upload(f, 'images')} />
+                  <ImageUpload
+                    label="Upload Progress Image(s)"
+                    hint="Drag & drop or select single/multiple progress images"
+                    multiple={true}
+                    onChange={(files) => upload(files, 'images')}
+                  />
                 </div>
               </div>
 
@@ -646,16 +677,18 @@ export function ArtworkManagerPage() {
                 <div className="grid gap-3 sm:grid-cols-3 pt-2">
                   {artwork.images.map((img) => (
                     <div key={img.id} className="surface-card p-2 space-y-2 overflow-hidden">
-                      <img src={mediaUrl(img.image_url)} alt={img.caption || 'Artwork photo'} className="h-28 w-full object-cover rounded-[7px]" />
-                      <div className="flex items-center justify-between text-[11px] text-[#A1A1AA]">
-                        <span className="truncate">{img.caption || (img.is_process_image ? 'Process Shot' : 'Gallery Image')}</span>
-                        <button
-                          type="button"
-                          onClick={() => deleteGalleryImage(img.id)}
-                          className="text-red-400 hover:text-red-300 font-semibold ml-2 shrink-0"
-                        >
-                          Delete
-                        </button>
+                      <img src={mediaUrl(img.image_url)} alt={img.caption || 'Progress image'} className="h-28 w-full object-cover rounded-[7px]" />
+                      <div className="space-y-1 text-[11px] text-[#A1A1AA]">
+                        <p className="text-[#F4F4F5] font-medium line-clamp-2">{img.caption || 'Progress Image'}</p>
+                        <div className="flex items-center justify-end">
+                          <button
+                            type="button"
+                            onClick={() => deleteGalleryImage(img.id)}
+                            className="text-red-400 hover:text-red-300 font-semibold shrink-0"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}

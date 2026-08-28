@@ -69,16 +69,6 @@ export function ArtworkDetailPage({ session }) {
     [artwork],
   )
 
-  const galleryImages = useMemo(
-    () => images.filter((img) => !img.is_process_image),
-    [images],
-  )
-
-  const processImages = useMemo(
-    () => images.filter((img) => img.is_process_image),
-    [images],
-  )
-
   const submitComment = async (event) => {
     event.preventDefault()
     if (!commentText.trim()) return
@@ -152,13 +142,13 @@ export function ArtworkDetailPage({ session }) {
   if (!artwork) return <EmptyState title="Artwork Not Found" description="This artwork link does not exist or is not public." />
 
   const artistName = artwork.artist?.full_name || artwork.artist?.username || 'Artist'
-  const heroImage = mediaUrl(galleryImages[0]?.image_url || artwork.banner_image || images[0]?.image_url)
+  const heroImage = mediaUrl(artwork.banner_image || images[0]?.image_url)
 
   return (
     <div className="space-y-12 lg:space-y-16">
-      {/* Artwork Section (Section 36 Layout) */}
+      {/* Artwork Section */}
       <div className="grid gap-8 lg:grid-cols-12 lg:items-start">
-        {/* Left: Artwork Image */}
+        {/* Left: Artwork Banner / Main Image */}
         <div className="space-y-4 lg:col-span-6">
           <div className="surface-card overflow-hidden">
             {heroImage ? (
@@ -169,25 +159,10 @@ export function ArtworkDetailPage({ session }) {
               />
             ) : (
               <div className="aspect-[4/3] flex items-center justify-center text-xs text-[#71717A]">
-                No image available
+                No banner image uploaded
               </div>
             )}
           </div>
-
-          {/* Secondary Gallery Images */}
-          {galleryImages.length > 1 && (
-            <div className="grid grid-cols-3 gap-3 pt-2">
-              {galleryImages.slice(1).map((img) => (
-                <div key={img.id} className="surface-card overflow-hidden aspect-square">
-                  <img
-                    src={mediaUrl(img.image_url)}
-                    alt={img.caption || artwork.title}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Right: Artwork Metadata & Artist Statement (Section 36 Layout) */}
@@ -271,29 +246,31 @@ export function ArtworkDetailPage({ session }) {
         </div>
       </div>
 
-      {/* Process & Creation Steps Gallery Section */}
-      {processImages.length > 0 && (
+      {/* Creation Documentation & Progress Images Section */}
+      {images.length > 0 && (
         <section className="space-y-4 pt-6 border-t border-white/[0.08]">
           <div>
             <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400">Creation Documentation</span>
-            <h2 className="text-xl font-bold text-[#F4F4F5]">Process &amp; Work-In-Progress ({processImages.length})</h2>
+            <h2 className="text-xl font-bold text-[#F4F4F5]">Progress Images &amp; Work-In-Progress ({images.length})</h2>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {processImages.map((img, idx) => (
-              <div key={img.id} className="surface-card overflow-hidden group space-y-2 p-3">
+            {images.map((img, idx) => (
+              <div key={img.id} className="surface-card overflow-hidden group space-y-3 p-3.5">
                 <div className="aspect-[4/3] overflow-hidden rounded-[8px] bg-[#0D0F14]">
                   <img
                     src={mediaUrl(img.image_url)}
-                    alt={img.caption || `Process step ${idx + 1}`}
+                    alt={img.caption || `Progress step ${idx + 1}`}
                     className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                 </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-[#F4F4F5]">Step {idx + 1}</span>
-                  <span className="text-[#71717A] text-[11px] truncate max-w-[180px]">
-                    {img.caption || 'Process Shot'}
-                  </span>
+                <div className="space-y-1 text-xs">
+                  <span className="font-semibold text-indigo-400 text-[11px] uppercase tracking-wider">Progress Stage {idx + 1}</span>
+                  {img.caption ? (
+                    <p className="text-[#F4F4F5] text-xs leading-relaxed">{img.caption}</p>
+                  ) : (
+                    <p className="text-[#71717A] text-xs italic">No description provided</p>
+                  )}
                 </div>
               </div>
             ))}
