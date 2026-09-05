@@ -67,6 +67,7 @@ class ArtworkVersion(models.Model):
 
     class Meta:
         unique_together = ('artwork', 'version_number')
+        ordering = ['-version_number']
 
     def __str__(self):
         return f'{self.artwork.title} v{self.version_number}'

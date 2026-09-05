@@ -34,6 +34,7 @@ Implemented a modern, dark-themed, gallery-focused UI design system:
 - **Interactive AI Assistant**: Allows artists to generate draft statements, rewrite for clarity, or select tones (*Contemplative*, *Poetic*, *Academic*, *Minimalist*).
 - **Artist Review & Approval**: Side-by-side draft review panel. Clicking *"Accept & Insert"* updates the statement field and patches `accepted=True` in the backend database.
 - **AI Philosophy Enforcement**: AI assists writing but never automatically publishes content. The artist retains full creative control.
+- **Artwork and Exhibition Targets**: Drafts are generated for saved artwork or exhibition records and are inserted into the corresponding statement editor; unavailable AI always offers manual editing.
 
 ### 5. Public Browsing & Engagement Pages
 - **Homepage (`HomePage.jsx`)**: 100dvh hero section + bento grid for `Recently Uploaded Exhibitions` and `Recently Uploaded Artworks`.

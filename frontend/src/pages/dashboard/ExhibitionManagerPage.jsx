@@ -430,7 +430,10 @@ export function ExhibitionManagerPage() {
 
           {showAiModal && (
             <AIAssistantModal
+              targetId={item?.id}
+              targetType="exhibition"
               artworkTitle={form.title}
+              sourceDescription={`${form.short_description || ''}\n${form.markdown_description || ''}`.trim()}
               mode="curator"
               onAccept={(text) => {
                 setForm((prev) => ({ ...prev, markdown_description: text }))

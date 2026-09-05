@@ -17,7 +17,10 @@ class AIConfigError(AIServiceError):
 
 class AIProviderError(AIServiceError):
     """Raised when the AI provider request fails."""
-    pass
+
+    def __init__(self, message, provider_status=None):
+        super().__init__(message)
+        self.provider_status = provider_status
 
 
 SYSTEM_PROMPT = """You are a respectful writing assistant for artists on LynqArt, a digital exhibition and artist statement platform.
@@ -44,9 +47,15 @@ class AIService:
 
     @classmethod
     def get_config(cls):
-        provider = os.environ.get("AI_PROVIDER", "openrouter").lower()
-        model = os.environ.get("AI_MODEL", "openai/gpt-4o-mini")
-        api_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+        provider = os.environ.get("AI_PROVIDER", "openrouter").lower().strip()
+        configured_model = os.environ.get("AI_MODEL", "openai/gpt-4o-mini").strip().strip("'\"")
+        # .env values are sometimes wrapped in quotes; strip them so the
+        # Authorization header is a valid bearer token.
+        api_key = os.environ.get("OPENROUTER_API_KEY", "").strip().strip("'\"")
+
+        # OpenRouter routers are passed as the request model. This supports
+        # AI_PROVIDER=openrouter/free while retaining direct model selection.
+        model = provider if provider.startswith("openrouter/") else configured_model
         return provider, model, api_key
 
     @classmethod
@@ -57,8 +66,8 @@ class AIService:
             logger.error("AI Service Error: OPENROUTER_API_KEY environment variable is not set.")
             raise AIConfigError("AI generation service is not configured (missing API key).")
 
-        if provider != "openrouter":
-            logger.warning(f"Unsupported AI_PROVIDER '{provider}'. Defaulting to OpenRouter API handling.")
+        if provider not in {"openrouter", "openrouter/free"}:
+            logger.warning("Unexpected AI_PROVIDER '%s'; using configured model '%s'.", provider, model)
 
         user_content = (
             f"Artwork Title: {artwork_title or 'Untitled Work'}\n"
@@ -66,7 +75,7 @@ class AIService:
             f"Artist Notes & Concepts: {prompt or 'None provided'}\n"
             f"Desired Tone: {tone}\n"
             f"Mode: {mode}\n\n"
-            f"Please draft an artist statement in GitHub Flavored Markdown based strictly on the above information."
+            f"Please draft a {'curator introduction' if mode == 'curator' else 'artist statement'} in GitHub Flavored Markdown based strictly on the above information."
         )
 
         headers = {
@@ -95,8 +104,30 @@ class AIService:
             raise AIProviderError("Could not connect to AI service. Please try again later.")
 
         if response.status_code != 200:
-            logger.error(f"OpenRouter API error status {response.status_code}: {response.text}")
-            raise AIProviderError(f"AI provider returned error status {response.status_code}.")
+            message_by_status = {
+                401: "Invalid OpenRouter API key.",
+                402: "OpenRouter credits or usage are unavailable. Check your account limits and model access.",
+                429: "OpenRouter rate limit exceeded. Please wait and try again.",
+            }
+            if response.status_code in message_by_status:
+                error_message = message_by_status[response.status_code]
+            elif 500 <= response.status_code <= 599:
+                error_message = "OpenRouter/provider is temporarily unavailable. Please try again later."
+            else:
+                error_message = f"OpenRouter rejected the request (HTTP {response.status_code})."
+
+            try:
+                provider_error = response.json().get('error', {})
+                provider_detail = provider_error.get('message') if isinstance(provider_error, dict) else None
+            except (TypeError, ValueError):
+                provider_detail = None
+
+            logger.error(
+                "OpenRouter API error status %s: %s",
+                response.status_code,
+                provider_detail or "no provider detail",
+            )
+            raise AIProviderError(error_message, provider_status=response.status_code)
 
         try:
             res_data = response.json()

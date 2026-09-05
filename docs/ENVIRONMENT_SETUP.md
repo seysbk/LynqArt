@@ -155,17 +155,24 @@ CLOUDINARY_API_KEY=your-api-key
 CLOUDINARY_API_SECRET=your-api-secret
 ```
 
-### AI Services (OpenAI)
+### AI Services (OpenRouter)
 
 | Variable | Default | Purpose | Example |
 |----------|---------|---------|---------|
-| `OPENAI_API_KEY` | `` | OpenAI API key for AI writing assistance | Get from OpenAI account |
-| `OPENAI_MODEL` | `gpt-3.5-turbo` | Model to use | `gpt-4`, `gpt-3.5-turbo` |
+| `OPENROUTER_API_KEY` | `` | OpenRouter API key for AI writing assistance | Get from OpenRouter |
+| `AI_PROVIDER` | `openrouter` | OpenRouter model or router | `openrouter/free` |
+| `AI_MODEL` | `openai/gpt-4o-mini` | Direct model used when `AI_PROVIDER=openrouter` | `minimax/minimax-m3` |
 
 ```bash
-OPENAI_API_KEY=sk-your-actual-key-here
-OPENAI_MODEL=gpt-3.5-turbo
+OPENROUTER_API_KEY=sk-or-v1-your-actual-key-here
+AI_PROVIDER=openrouter/free
+AI_MODEL=minimax/minimax-m3
 ```
+
+For the free models router, OpenRouter expects `openrouter/free` in the request's
+`model` field. LynqArt therefore uses the `AI_PROVIDER` value as the model when
+it starts with `openrouter/`; `AI_MODEL` is retained as a fallback for direct
+model selection.
 
 ---
 

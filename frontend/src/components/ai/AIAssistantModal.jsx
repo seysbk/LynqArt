@@ -1,11 +1,11 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Sparkles, Check, RefreshCw, X, AlertCircle } from 'lucide-react'
 import { api } from '../../lib/api'
 import { Button } from '../ui/Button'
 
-export function AIAssistantModal({ artworkId, artworkTitle, artworkMedium, mode = 'statement', onAccept, onClose, onEditManually }) {
+export function AIAssistantModal({ targetId, targetType = 'artwork', artworkTitle, sourceDescription = '', mode = 'statement', onAccept, onClose, onEditManually }) {
   const [prompt, setPrompt] = useState('')
   const [tone, setTone] = useState('contemplative')
   const [generating, setGenerating] = useState(false)
@@ -27,40 +27,26 @@ export function AIAssistantModal({ artworkId, artworkTitle, artworkMedium, mode 
     setAiUnavailable(false)
     setUserErrorMessage('')
     try {
-      if (artworkId) {
+      if (!targetId) {
+        throw new Error('Save the work details before using the AI writing assistant.')
+      }
+      {
         const { data } = await api.post('/ai/generations/generate_draft/', {
-          artwork: artworkId,
-          prompt: prompt || `Themes of memory, composition, and physical texture in ${artworkTitle || 'artwork'}`,
+          [targetType]: targetId,
+          prompt: prompt || sourceDescription || `Notes about ${artworkTitle || 'this work'}`,
           tone,
           mode,
         })
         setCurrentGeneration(data)
-      } else {
-        const title_str = artworkTitle || 'Untitled Work'
-        const medium_str = artworkMedium || 'mixed media'
-        const concept_str = prompt || 'exploring form, texture, and physical presence'
-        const selected_tone =
-          {
-            poetic: 'evokes an introspective resonance',
-            academic: 'interrogates the formal and materiality boundaries',
-            minimalist: 'strips away noise to accentuate essential core form',
-            contemplative: 'invites quiet reflection on memory and perception',
-          }[tone] || 'invites quiet reflection on memory and perception'
-
-        const text = mode === 'curator'
-          ? `## Curator Introduction: *${title_str}*\n\nThis exhibition presents *${title_str}*, bringing together works that engage with ${concept_str}.\n\n### Overview\n${selected_tone.toUpperCase()}.\n\n> "Artworks serve as visual anchors, fostering dialogue between physical space and digital audience."`
-          : `## Artist Statement: *${title_str}*\n\n*${title_str}* is an exploration rendered through ${medium_str}. At its core, the work engages with ${concept_str}, creating a space where physical texture and narrative converge.\n\n### Conceptual Foundations\nThrough this piece, the creative practice ${selected_tone}. The choice of ${medium_str} is intentional—allowing subtle interactions between light, surface, and composition to articulate themes that words often fail to capture fully.\n\n> "The physical artwork acts as an anchor for digital memory—a visual dialogue between presence and preservation."\n\n### Process & Materials\nThe construction of *${title_str}* relies on deliberate layering and reduction. By balancing structured geometry with intuitive mark-making, the work remains an open dialogue between the artist's intent and the viewer's perception.`
-
-        setCurrentGeneration({
-          id: 'temp-draft',
-          generated_text: text,
-          model_used: 'lynqart-ai-assistant',
-        })
       }
     } catch (err) {
       console.error('AI Generation Error (detailed technical reason):', err)
       setAiUnavailable(true)
-      setUserErrorMessage('The AI writing assistant is currently unavailable or experiencing network issues. You can write and edit your statement manually in the editor.')
+      setUserErrorMessage(
+        err.response?.data?.error ||
+        err.message ||
+        'The AI writing assistant is currently unavailable or experiencing network issues. You can write and edit your statement manually in the editor.',
+      )
     } finally {
       setGenerating(false)
     }
@@ -68,15 +54,15 @@ export function AIAssistantModal({ artworkId, artworkTitle, artworkMedium, mode 
 
   const handleAccept = async () => {
     if (!currentGeneration) return
-    if (currentGeneration.id !== 'temp-draft') {
-      try {
-        await api.patch(`/ai/generations/${currentGeneration.id}/`, { accepted: true })
-      } catch {
-        // Fallback
-      }
+    try {
+      await api.patch(`/ai/generations/${currentGeneration.id}/`, { accepted: true })
+      onAccept(currentGeneration.generated_text, currentGeneration)
+      onClose()
+    } catch (err) {
+      console.error('AI Draft Acceptance Error:', err)
+      setAiUnavailable(true)
+      setUserErrorMessage('The draft could not be saved for review. You can still return to the editor and write the statement manually.')
     }
-    onAccept(currentGeneration.generated_text)
-    onClose()
   }
 
   return (
@@ -118,7 +104,7 @@ export function AIAssistantModal({ artworkId, artworkTitle, artworkMedium, mode 
           </div>
         ) : !currentGeneration ? (
           /* Input Form */
-          <form onSubmit={handleGenerate} className="space-y-4">
+          <div className="space-y-4">
             <p className="text-xs text-[#A1A1AA] leading-relaxed">
               Describe key themes, materials, inspirations, or concepts for <strong className="text-[#F4F4F5]">{artworkTitle || 'this artwork'}</strong>. The AI assistant will draft a structured Markdown statement for your review.
             </p>
@@ -152,7 +138,7 @@ export function AIAssistantModal({ artworkId, artworkTitle, artworkMedium, mode 
               <Button type="button" variant="secondary" onClick={onClose} className="!py-1.5 text-xs">
                 Cancel
               </Button>
-              <Button type="submit" variant="primary" disabled={generating} className="!py-1.5 text-xs">
+              <Button type="button" variant="primary" onClick={handleGenerate} disabled={generating} className="!py-1.5 text-xs">
                 {generating ? (
                   <RefreshCw className="h-4 w-4 animate-spin" />
                 ) : (
@@ -161,7 +147,7 @@ export function AIAssistantModal({ artworkId, artworkTitle, artworkMedium, mode 
                 <span>{generating ? 'Drafting Statement...' : 'Generate Draft'}</span>
               </Button>
             </div>
-          </form>
+          </div>
         ) : (
           /* Draft Review & Approval Panel */
           <div className="space-y-4">

@@ -54,12 +54,15 @@ export function ArtworkManagerPage() {
   const [tags, setTags] = useState([])
   const [newCategory, setNewCategory] = useState('')
   const [imageMeta, setImageMeta] = useState({ caption: '', display_order: 0 })
+  const [pendingProcessImages, setPendingProcessImages] = useState([])
+  const [processImageInputKey, setProcessImageInputKey] = useState(0)
   const [exhibitions, setExhibitions] = useState([])
   const [linkedExhibitionIds, setLinkedExhibitionIds] = useState(new Set())
   const [qrCode, setQrCode] = useState(null)
   const [saving, setSaving] = useState(false)
   const [preview, setPreview] = useState(false)
   const [showAiModal, setShowAiModal] = useState(false)
+  const [aiStatementAccepted, setAiStatementAccepted] = useState(false)
   const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null, confirmText: 'OK', cancelText: null })
 
   const loadChoices = () =>
@@ -163,6 +166,7 @@ export function ArtworkManagerPage() {
           artwork: data.id,
           version_number: nextVersion,
           markdown_statement: form.markdown_statement,
+          ai_generated: aiStatementAccepted,
           change_note: form.change_note || `Version ${nextVersion} statement update`,
         })
       }
@@ -271,11 +275,26 @@ export function ArtworkManagerPage() {
         { headers: { 'Content-Type': 'multipart/form-data' } },
       )
       await loadArtwork(artwork.slug)
-      if (kind === 'images') setImageMeta({ ...imageMeta, caption: '' })
+      if (kind === 'images') {
+        setImageMeta({ caption: '', display_order: 0 })
+        setPendingProcessImages([])
+        setProcessImageInputKey((current) => current + 1)
+      }
       setModalState({ isOpen: true, title: 'Upload Successful', message: `${kind === 'banner' ? 'Banner' : 'Progress image(s)'} uploaded!`, type: 'success' })
     } catch (error) {
       setModalState({ isOpen: true, title: 'Error Uploading', message: errorText(error), type: 'error' })
     }
+  }
+
+  const clearPendingProcessImage = () => {
+    setImageMeta({ caption: '', display_order: 0 })
+    setPendingProcessImages([])
+    setProcessImageInputKey((current) => current + 1)
+  }
+
+  const addProcessImages = () => {
+    if (!artwork || pendingProcessImages.length === 0) return
+    upload(pendingProcessImages, 'images')
   }
 
   const generateQr = async () => {
@@ -556,12 +575,13 @@ export function ArtworkManagerPage() {
 
           {showAiModal && (
             <AIAssistantModal
-              artworkId={artwork?.id}
+              targetId={artwork?.id}
               artworkTitle={form.title}
-              artworkMedium={form.medium}
+              sourceDescription={form.description}
               mode="statement"
               onAccept={(text) => {
                 setForm((prev) => ({ ...prev, markdown_statement: text }))
+                setAiStatementAccepted(true)
                 setActiveStep(2)
                 setPreview(false)
               }}
@@ -665,11 +685,40 @@ export function ArtworkManagerPage() {
 
                 <div>
                   <ImageUpload
+                    key={processImageInputKey}
                     label="Upload Progress Image(s)"
                     hint="Drag & drop or select single/multiple progress images"
                     multiple={true}
-                    onChange={(files) => upload(files, 'images')}
+                    onChange={(files) => setPendingProcessImages(files)}
                   />
+                </div>
+
+                <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.06] pt-3">
+                  <p className="text-[11px] text-[#71717A]">
+                    {pendingProcessImages.length > 0
+                      ? `${pendingProcessImages.length} image${pendingProcessImages.length === 1 ? '' : 's'} ready to add`
+                      : 'Choose an image, add its description, then add it to the artwork.'}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={clearPendingProcessImage}
+                      disabled={!pendingProcessImages.length && !imageMeta.caption}
+                      className="!py-1.5 text-xs"
+                    >
+                      Clear
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      onClick={addProcessImages}
+                      disabled={!pendingProcessImages.length || !artwork}
+                      className="!py-1.5 text-xs"
+                    >
+                      Add Process Image
+                    </Button>
+                  </div>
                 </div>
               </div>
 

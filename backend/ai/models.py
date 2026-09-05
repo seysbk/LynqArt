@@ -6,7 +6,8 @@ from django.db import models
 
 class AIGeneration(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    artwork = models.ForeignKey('artworks.Artwork', on_delete=models.CASCADE, related_name='ai_generations')
+    artwork = models.ForeignKey('artworks.Artwork', on_delete=models.CASCADE, related_name='ai_generations', null=True, blank=True)
+    exhibition = models.ForeignKey('exhibitions.Exhibition', on_delete=models.CASCADE, related_name='ai_generations', null=True, blank=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='ai_generations')
     prompt = models.TextField()
     generated_text = models.TextField(blank=True, default='')

@@ -6,6 +6,7 @@ from django.core.files.storage import default_storage
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
@@ -137,7 +138,15 @@ class ArtworkVersionViewSet(viewsets.ModelViewSet):
     ordering_fields = ('created_at', 'version_number')
 
     def perform_create(self, serializer):
-        serializer.save()
+        artwork = serializer.validated_data['artwork']
+        user = self.request.user
+        if not getattr(user, 'is_staff', False) and artwork.artist_id != user.id:
+            raise PermissionDenied('You do not have permission to update this artwork statement.')
+
+        version = serializer.save()
+        if artwork.current_version_id != version.id:
+            artwork.current_version = version
+            artwork.save(update_fields=['current_version', 'updated_at'])
 
 
 class ArtworkImageViewSet(viewsets.ModelViewSet):

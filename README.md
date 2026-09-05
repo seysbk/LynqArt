@@ -162,7 +162,7 @@ Admin interface at `http://localhost:8000/admin`
 
 ### Storage & Services
 - Cloudinary (optional, for production image/QR storage)
-- OpenAI API (optional, for AI writing assistance)
+- OpenRouter API (optional, for AI writing assistance; configure `OPENROUTER_API_KEY`, `AI_MODEL`, and `AI_PROVIDER`)
 
 ### Deployment
 - Frontend: Vercel

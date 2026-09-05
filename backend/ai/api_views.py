@@ -4,10 +4,11 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from artworks.models import Artwork
+from exhibitions.models import Exhibition
 
 from .models import AIGeneration
 from .serializers import AIGenerationSerializer
-from .services import AIService, AIServiceError
+from .services import AIProviderError, AIService, AIServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -68,42 +69,54 @@ class AIGenerationViewSet(viewsets.ModelViewSet):
         Custom endpoint to generate a draft artist statement or exhibition summary.
         Saves the generation instance for audit and review.
         """
-        if not getattr(request.user, 'is_artist', False):
-            return Response(
-                {'error': 'Artist permission is required to generate AI artist statements.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
         artwork_id = request.data.get('artwork')
+        exhibition_id = request.data.get('exhibition')
         prompt = request.data.get('prompt', '')
         tone = request.data.get('tone', 'contemplative')
         mode = request.data.get('mode', 'statement')
 
-        if not artwork_id:
-            return Response({'error': 'Artwork ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+        if bool(artwork_id) == bool(exhibition_id):
+            return Response({'error': 'Provide exactly one artwork or exhibition target.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        artwork = None
+        exhibition = None
         try:
-            artwork = Artwork.objects.get(id=artwork_id)
-        except (Artwork.DoesNotExist, ValueError):
-            return Response({'error': 'Artwork not found'}, status=status.HTTP_404_NOT_FOUND)
-
-        if artwork.artist != request.user:
-            return Response(
-                {'error': 'You do not have permission to generate AI statements for this artwork.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            if artwork_id:
+                artwork = Artwork.objects.get(id=artwork_id)
+                if not getattr(request.user, 'is_artist', False):
+                    return Response({'error': 'Artist permission is required to generate AI artist statements.'}, status=status.HTTP_403_FORBIDDEN)
+                if artwork.artist != request.user:
+                    return Response({'error': 'You do not have permission to generate AI statements for this artwork.'}, status=status.HTTP_403_FORBIDDEN)
+            else:
+                exhibition = Exhibition.objects.get(id=exhibition_id)
+                if not getattr(request.user, 'can_manage_exhibitions', False) or exhibition.organizer != request.user:
+                    return Response({'error': 'You do not have permission to generate AI summaries for this exhibition.'}, status=status.HTTP_403_FORBIDDEN)
+        except (Artwork.DoesNotExist, Exhibition.DoesNotExist, ValueError):
+            return Response({'error': 'The selected artwork or exhibition was not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         try:
             generated_text, model_used = AIService.generate_statement(
-                artwork_title=artwork.title,
-                artwork_medium=artwork.medium,
+                artwork_title=artwork.title if artwork else exhibition.title,
+                artwork_medium=artwork.medium if artwork else '',
                 prompt=prompt,
                 tone=tone,
                 mode=mode,
             )
+        except AIProviderError as e:
+            target = f'artwork {artwork.id}' if artwork else f'exhibition {exhibition.id}'
+            logger.error(f"AI Generation failed for user {request.user.id}, {target}: {e}")
+            response_status = e.provider_status if e.provider_status in {401, 402, 429} else status.HTTP_503_SERVICE_UNAVAILABLE
+            return Response(
+                {
+                    'error': str(e),
+                    'provider_status': e.provider_status,
+                },
+                status=response_status,
+            )
         except AIServiceError as e:
-            logger.error(f"AI Generation failed for user {request.user.id}, artwork {artwork.id}: {e}")
-            return Response({'error': str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            target = f'artwork {artwork.id}' if artwork else f'exhibition {exhibition.id}'
+            logger.error(f"AI Generation failed for user {request.user.id}, {target}: {e}")
+            return Response({'error': str(e), 'provider_status': None}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except Exception as e:
             logger.exception(f"Unexpected error during AI statement generation: {e}")
             return Response(
@@ -113,6 +126,7 @@ class AIGenerationViewSet(viewsets.ModelViewSet):
 
         generation = AIGeneration.objects.create(
             artwork=artwork,
+            exhibition=exhibition,
             user=request.user,
             prompt=prompt,
             generated_text=generated_text,

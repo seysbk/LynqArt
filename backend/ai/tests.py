@@ -160,6 +160,7 @@ class AIServiceUnitTests(APITestCase):
     @patch('requests.post')
     @patch.dict('os.environ', {
         'OPENROUTER_API_KEY': 'sk-or-v1-my-key',
+        'AI_PROVIDER': 'openrouter',
         'AI_MODEL': 'anthropic/claude-3.5-sonnet',
     })
     def test_ai_service_sends_correct_payload(self, mock_post):
@@ -182,3 +183,42 @@ class AIServiceUnitTests(APITestCase):
         self.assertEqual(kwargs['headers']['Authorization'], 'Bearer sk-or-v1-my-key')
         self.assertEqual(kwargs['json']['model'], 'anthropic/claude-3.5-sonnet')
         self.assertIn('My Art', kwargs['json']['messages'][1]['content'])
+
+    @patch('requests.post')
+    @patch.dict('os.environ', {
+        'OPENROUTER_API_KEY': 'sk-or-v1-test-key',
+        'AI_PROVIDER': 'openrouter/free',
+        'AI_MODEL': 'minimax/minimax-m3',
+    })
+    def test_free_router_provider_sets_openrouter_free_model(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'choices': [{'message': {'content': 'Generated text'}}],
+            'model': 'minimax/minimax-m3:free',
+        }
+        mock_post.return_value = mock_response
+
+        AIService.generate_statement('My Art', 'Canvas')
+
+        self.assertEqual(mock_post.call_args.kwargs['json']['model'], 'openrouter/free')
+
+    @patch('requests.post')
+    @patch.dict('os.environ', {'OPENROUTER_API_KEY': 'sk-or-v1-test-key'})
+    def test_provider_status_messages(self, mock_post):
+        expected_messages = {
+            401: 'Invalid OpenRouter API key.',
+            402: 'OpenRouter credits or usage are unavailable. Check your account limits and model access.',
+            429: 'OpenRouter rate limit exceeded. Please wait and try again.',
+            503: 'OpenRouter/provider is temporarily unavailable. Please try again later.',
+        }
+
+        for response_status, expected_message in expected_messages.items():
+            mock_response = MagicMock()
+            mock_response.status_code = response_status
+            mock_response.json.return_value = {'error': {'message': 'provider detail'}}
+            mock_post.return_value = mock_response
+
+            with self.subTest(response_status=response_status):
+                with self.assertRaisesRegex(AIProviderError, expected_message):
+                    AIService.generate_statement('My Art', 'Canvas')
