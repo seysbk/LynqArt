@@ -54,6 +54,10 @@ class AIGenerationViewSet(viewsets.ModelViewSet):
     filterset_fields = ('accepted', 'model_used', 'artwork', 'user')
     ordering_fields = ('created_at',)
 
+    def get_throttles(self):
+        self.throttle_scope = 'ai_generation' if self.action == 'generate_draft' else None
+        return super().get_throttles()
+
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 

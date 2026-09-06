@@ -10,7 +10,8 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
-from accounts.permissions import IsArtistOrReadOnly
+from accounts.permissions import IsArtistOrReadOnly, IsOwnerOrReadOnly
+from config.security import validate_and_store_upload
 
 from .models import Artwork, ArtworkImage, ArtworkTag, ArtworkVersion, Category, Tag
 from .serializers import (
@@ -45,10 +46,10 @@ class ArtworkViewSet(viewsets.ModelViewSet):
     queryset = Artwork.objects.select_related('artist', 'category', 'current_version').prefetch_related('versions', 'images', 'artwork_tags__tag').all().order_by('-created_at')
     serializer_class = ArtworkSerializer
     lookup_field = 'slug'
-    permission_classes = [IsArtistOrReadOnly]
+    permission_classes = [IsArtistOrReadOnly, IsOwnerOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ('title', 'slug', 'description', 'medium', 'artist__username', 'artist__email', 'category__name')
-    filterset_fields = ('status', 'is_featured', 'allow_comments', 'category')
+    filterset_fields = ('status', 'is_featured', 'allow_comments', 'category', 'artist')
     ordering_fields = ('created_at', 'updated_at', 'published_at', 'title')
 
     def finalize_response(self, request, response, *args, **kwargs):
@@ -62,15 +63,17 @@ class ArtworkViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        artist_id = self.request.query_params.get('artist_id') or self.request.query_params.get('artist')
+        if artist_id:
+            queryset = queryset.filter(artist_id=artist_id)
         if self.action in {'update', 'partial_update', 'destroy'} and self.request.user.is_authenticated:
-            return queryset.filter(artist=self.request.user)
+            if not (getattr(self.request.user, 'is_staff', False) or getattr(self.request.user, 'is_superuser', False)):
+                return queryset.filter(artist=self.request.user)
         return queryset
 
     def _store_upload(self, uploaded_file, folder):
-        _, extension = os.path.splitext(uploaded_file.name)
-        storage_name = f'{folder}/{uuid4().hex}{extension.lower()}'
-        saved_path = default_storage.save(storage_name, ContentFile(uploaded_file.read()))
-        return default_storage.url(saved_path)
+        _, url = validate_and_store_upload(uploaded_file, folder, max_size_mb=10)
+        return url
 
     @action(
         detail=True,
@@ -80,6 +83,9 @@ class ArtworkViewSet(viewsets.ModelViewSet):
     )
     def upload_images(self, request, slug=None):
         artwork = self.get_object()
+        if artwork.artist != request.user and not (getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False)):
+            raise PermissionDenied('You do not have permission to upload images for this artwork.')
+
         uploaded_files = request.FILES.getlist('images') or request.FILES.getlist('image')
         if not uploaded_files:
             uploaded_file = request.FILES.get('image') or request.FILES.get('images')
@@ -114,6 +120,9 @@ class ArtworkViewSet(viewsets.ModelViewSet):
     )
     def upload_banner(self, request, slug=None):
         artwork = self.get_object()
+        if artwork.artist != request.user and not (getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False)):
+            raise PermissionDenied('You do not have permission to modify this artwork banner.')
+
         if request.method == 'DELETE':
             artwork.banner_image = ''
             artwork.save(update_fields=['banner_image', 'updated_at'])
@@ -131,7 +140,7 @@ class ArtworkViewSet(viewsets.ModelViewSet):
 class ArtworkVersionViewSet(viewsets.ModelViewSet):
     queryset = ArtworkVersion.objects.select_related('artwork').all().order_by('-created_at')
     serializer_class = ArtworkVersionSerializer
-    permission_classes = [IsArtistOrReadOnly]
+    permission_classes = [IsArtistOrReadOnly, IsOwnerOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ('artwork__title', 'change_note', 'markdown_statement')
     filterset_fields = ('ai_generated', 'artwork')
@@ -140,7 +149,7 @@ class ArtworkVersionViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         artwork = serializer.validated_data['artwork']
         user = self.request.user
-        if not getattr(user, 'is_staff', False) and artwork.artist_id != user.id:
+        if not getattr(user, 'is_staff', False) and not getattr(user, 'is_superuser', False) and artwork.artist_id != user.id:
             raise PermissionDenied('You do not have permission to update this artwork statement.')
 
         version = serializer.save()
@@ -152,20 +161,28 @@ class ArtworkVersionViewSet(viewsets.ModelViewSet):
 class ArtworkImageViewSet(viewsets.ModelViewSet):
     queryset = ArtworkImage.objects.select_related('artwork').all().order_by('artwork', 'display_order')
     serializer_class = ArtworkImageSerializer
-    permission_classes = [IsArtistOrReadOnly]
+    permission_classes = [IsArtistOrReadOnly, IsOwnerOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ('artwork__title', 'caption', 'image_url')
     filterset_fields = ('artwork',)
     ordering_fields = ('display_order', 'created_at')
 
     def perform_create(self, serializer):
+        artwork = serializer.validated_data.get('artwork')
+        user = self.request.user
+        if artwork and artwork.artist_id != user.id and not (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)):
+            raise PermissionDenied('You do not have permission to add images to this artwork.')
         serializer.save()
 
 
 class ArtworkTagViewSet(viewsets.ModelViewSet):
     queryset = ArtworkTag.objects.select_related('artwork', 'tag').all()
     serializer_class = ArtworkTagSerializer
-    permission_classes = [IsArtistOrReadOnly]
+    permission_classes = [IsArtistOrReadOnly, IsOwnerOrReadOnly]
 
     def perform_create(self, serializer):
+        artwork = serializer.validated_data.get('artwork')
+        user = self.request.user
+        if artwork and artwork.artist_id != user.id and not (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)):
+            raise PermissionDenied('You do not have permission to tag this artwork.')
         serializer.save()

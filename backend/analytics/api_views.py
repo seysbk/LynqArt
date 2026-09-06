@@ -8,6 +8,8 @@ from rest_framework import filters, permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from config.security import get_client_ip
+
 from .models import ArtworkView
 from .serializers import ArtworkViewSerializer
 
@@ -30,7 +32,7 @@ class ArtworkViewViewSet(viewsets.ModelViewSet):
         if not artwork:
             return Response({'artwork': 'Published artwork not found.'}, status=status.HTTP_404_NOT_FOUND)
         visitor_hash = hashlib.sha256(
-            f"{request.META.get('REMOTE_ADDR', '')}:{request.META.get('HTTP_USER_AGENT', '')}".encode()
+            f"{get_client_ip(request)}:{request.META.get('HTTP_USER_AGENT', '')}".encode()
         ).hexdigest()
         if ArtworkView.objects.filter(
             artwork=artwork,

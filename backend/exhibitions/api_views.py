@@ -6,10 +6,12 @@ from django.core.files.storage import default_storage
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
 from accounts.permissions import IsCanManageExhibitionsOrReadOnly, IsOwnerOrReadOnly
+from config.security import validate_and_store_upload
 
 from .models import Exhibition, ExhibitionArtwork
 from .serializers import ExhibitionArtworkSerializer, ExhibitionSerializer
@@ -19,7 +21,7 @@ class ExhibitionViewSet(viewsets.ModelViewSet):
     queryset = Exhibition.objects.select_related('organizer').prefetch_related('exhibitionartwork_set__artwork').all().order_by('-created_at')
     serializer_class = ExhibitionSerializer
     lookup_field = 'slug'
-    permission_classes = [IsCanManageExhibitionsOrReadOnly]
+    permission_classes = [IsCanManageExhibitionsOrReadOnly, IsOwnerOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ('title', 'slug', 'location', 'short_description', 'markdown_description', 'organizer__username')
     filterset_fields = ('status', 'show_on_homepage', 'is_featured', 'organizer')
@@ -37,12 +39,16 @@ class ExhibitionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         if self.action in {'update', 'partial_update', 'destroy'} and self.request.user.is_authenticated:
-            return queryset.filter(organizer=self.request.user)
+            if not (getattr(self.request.user, 'is_staff', False) or getattr(self.request.user, 'is_superuser', False)):
+                return queryset.filter(organizer=self.request.user)
         return queryset
 
     @action(detail=True, methods=['post', 'delete'], parser_classes=[MultiPartParser, FormParser])
     def upload_banner(self, request, slug=None):
         exhibition = self.get_object()
+        if exhibition.organizer != request.user and not (getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False)):
+            raise PermissionDenied('You do not have permission to modify this exhibition banner.')
+
         if request.method == 'DELETE':
             exhibition.banner_image = ''
             exhibition.save(update_fields=['banner_image', 'updated_at'])
@@ -51,9 +57,9 @@ class ExhibitionViewSet(viewsets.ModelViewSet):
         uploaded_file = request.FILES.get('banner')
         if not uploaded_file:
             return Response({'banner': 'This field is required.'}, status=status.HTTP_400_BAD_REQUEST)
-        _, extension = os.path.splitext(uploaded_file.name)
-        path = default_storage.save(f'exhibition-banners/{uuid4().hex}{extension.lower()}', ContentFile(uploaded_file.read()))
-        exhibition.banner_image = default_storage.url(path)
+
+        _, banner_url = validate_and_store_upload(uploaded_file, 'exhibition-banners', max_size_mb=10)
+        exhibition.banner_image = banner_url
         exhibition.save(update_fields=['banner_image', 'updated_at'])
         return Response({'id': exhibition.id, 'banner_image': exhibition.banner_image})
 
@@ -61,10 +67,17 @@ class ExhibitionViewSet(viewsets.ModelViewSet):
 class ExhibitionArtworkViewSet(viewsets.ModelViewSet):
     queryset = ExhibitionArtwork.objects.select_related('exhibition', 'artwork').all().order_by('display_order')
     serializer_class = ExhibitionArtworkSerializer
-    permission_classes = [IsCanManageExhibitionsOrReadOnly]
+    permission_classes = [IsCanManageExhibitionsOrReadOnly, IsOwnerOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ('exhibition', 'artwork', 'is_featured')
     ordering_fields = ('display_order', 'created_at')
+
+    def perform_create(self, serializer):
+        exhibition = serializer.validated_data.get('exhibition')
+        user = self.request.user
+        if exhibition and exhibition.organizer_id != user.id and not (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)):
+            raise PermissionDenied('You do not have permission to add artworks to this exhibition.')
+        serializer.save()
 
     def get_queryset(self):
         queryset = super().get_queryset()

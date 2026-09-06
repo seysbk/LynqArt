@@ -31,8 +31,16 @@ class IsOwnerOrReadOnly(BasePermission):
     def has_object_permission(self, request, view, obj):
         if request.method in SAFE_METHODS:
             return True
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False):
+            return True
         owner = getattr(obj, 'user', None) or getattr(obj, 'artist', None) or getattr(obj, 'organizer', None)
-        return bool(request.user and request.user.is_authenticated and owner == request.user)
+        if owner is None and hasattr(obj, 'artwork'):
+            owner = getattr(obj.artwork, 'artist', None)
+        if owner is None and hasattr(obj, 'exhibition'):
+            owner = getattr(obj.exhibition, 'organizer', None)
+        return owner == request.user
 
 
 class IsCanManageExhibitions(BasePermission):

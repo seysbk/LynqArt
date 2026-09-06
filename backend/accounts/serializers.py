@@ -1,4 +1,6 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -46,8 +48,17 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'date_joined', 'created_at', 'updated_at')
 
 
+class UserBriefSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(source='get_full_name', read_only=True)
+
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'full_name', 'is_artist', 'is_expert')
+        read_only_fields = fields
+
+
 class ArtistProfileSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
+    user = UserBriefSerializer(read_only=True)
     user_id = serializers.PrimaryKeyRelatedField(source='user', queryset=User.objects.all(), write_only=True)
     avatar_url = serializers.CharField(allow_blank=True, required=False, default='')
     website = serializers.CharField(allow_blank=True, required=False, default='')
@@ -90,15 +101,6 @@ class CurrentUserSerializer(UserSerializer):
         fields = UserSerializer.Meta.fields + ('artist_profile',)
 
 
-class UserBriefSerializer(serializers.ModelSerializer):
-    full_name = serializers.CharField(source='get_full_name', read_only=True)
-
-    class Meta:
-        model = User
-        fields = ('id', 'username', 'full_name', 'email', 'is_artist', 'is_expert')
-        read_only_fields = fields
-
-
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
     password_confirm = serializers.CharField(write_only=True, min_length=8)
@@ -115,6 +117,19 @@ class RegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({field: 'This field cannot be set during registration.' for field in sorted(forbidden)})
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError({'password_confirm': 'Passwords do not match.'})
+
+        # Enforce password complexity against AUTH_PASSWORD_VALIDATORS
+        temp_user = User(
+            username=attrs.get('username'),
+            email=attrs.get('email'),
+            first_name=attrs.get('first_name', ''),
+            last_name=attrs.get('last_name', ''),
+        )
+        try:
+            validate_password(attrs['password'], user=temp_user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({'password': list(exc.messages)})
+
         return attrs
 
     @transaction.atomic

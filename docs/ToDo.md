@@ -1,308 +1,210 @@
-# TODO.md - LynqArt Build Plan
+# TODO.md - LynqArt Build Plan & Engineering Roadmap
 
-> Digital exhibition and artist statement platform
+> **Platform**: Digital exhibition management and artist statement platform bridging physical art exhibitions and digital experiences via branded QR codes.
 >
-> Stack:
->
-> * Frontend: React + Vite
-> * Backend: Django + Django REST Framework
-> * Database: PostgreSQL (Neon) / SQLite (dev)
-> * Storage: Local in development, Cloudinary in production
-> * Auth: JWT
-> * Markdown: react-markdown + remark-gfm
-> * QR codes: Python `qrcode`
->
-> Goal:
-> Build a complete, maintainable exhibition platform with permanent artwork and exhibition pages.
+> **Tech Stack**:
+> * **Frontend**: React 19 + Vite, Tailwind CSS, React Router v7, Axios, Lucide Icons, React Markdown (remark-gfm)
+> * **Backend**: Django 5 + Django REST Framework, SimpleJWT, Pillow, Python `qrcode`
+> * **Database**: SQLite (dev) / PostgreSQL (Neon in prod)
+> * **Storage**: Local filesystem (`MEDIA_ROOT`) in dev / Cloudinary in prod
+> * **AI Service**: OpenRouter API (`AI_PROVIDER`, `AI_MODEL`, `OPENROUTER_API_KEY`)
 
 ---
 
-# Project Status
+## 1. Condensed Completed Features (Phases 1 - 3)
 
-## Completed Foundations
+### 1.1. Core Foundations & Data Layer (Phase 1 Complete)
+- [x] Django project structure established across 9 modular apps (`accounts`, `artworks`, `exhibitions`, `comments`, `reviews`, `ai`, `analytics`, `qr`, `notifications`).
+- [x] Custom User model with capability-based permission flags (`is_artist`, `is_expert`, `can_manage_exhibitions`, `is_verified`).
+- [x] Database models defined for core domain entities per `db.Structure.txt`.
+- [x] JWT authentication framework configured with token pair generation and refresh routes.
+- [x] CORS configuration and externalized environment settings structure.
+- [x] Initial database migrations applied.
 
-* [x] `ProjectContext.md` updated with the exhibition-first product direction
-* [x] `db.Structure.txt` exists and defines the target data model
-* [x] Backend Django project initialized
-* [x] Core apps created and registered
-* [x] Custom user model configured with capability flags
-* [x] Initial database migrations created and applied
-* [x] JWT authentication configured
-* [x] CORS and environment-driven settings configured
-* [x] Documentation set up for backend and environment workflow
+### 1.2. REST API & Serializer Layer (Phase 2 Complete)
+- [x] Model serializers with nested relationships across all 9 apps.
+- [x] Account endpoints (`/register/`, `/token/`, `/profile/`, `/become-artist/`, `/artist-profile/`).
+- [x] ModelViewSets for artworks, categories, tags, versions, exhibitions, comments, favorites, reviews, QR codes, and analytics.
+- [x] Custom capability permission classes (`IsArtistOrReadOnly`, `IsExpertOrReadOnly`, `IsCanManageExhibitionsOrReadOnly`, `IsOwnerOrReadOnly`).
+- [x] Dynamic QR code generation engine using PIL with custom LynqArt card branding (title, QR code, and logo inscription).
+- [x] Media upload endpoints for artwork banners, process images, and exhibition banners.
+- [x] QR slug resolver endpoint (`/api/qr/codes/resolve/?slug=...`) with scan deduplication.
+- [x] Backend test suite covering authentication, base permissions, upload handling, and QR generation.
 
-## Phase 1 Completed
-
-* [x] Django project structure established
-* [x] Database models created for all core entities
-* [x] Authentication and security infrastructure added
-* [x] Configuration management externalized to environment variables
-* [x] Core documentation completed
-* [x] Security defaults and production-ready settings added
-
-## Phase 2 Completed
-
-### 2a. Serializers & ViewSets
-* [x] `accounts/serializers.py`
-  * [x] `UserSerializer`
-  * [x] `ArtistProfileSerializer`
-  * [x] `CurrentUserSerializer`
-  * [x] `UserBriefSerializer`
-  * [x] `RegisterSerializer`
-  * [x] `BecomeArtistSerializer`
-  * [x] `ProfileUpdateSerializer`
-* [x] `artworks/serializers.py`
-  * [x] `CategorySerializer`
-  * [x] `TagSerializer`
-  * [x] `ArtworkVersionSerializer`
-  * [x] `ArtworkImageSerializer`
-  * [x] `ArtworkTagSerializer`
-  * [x] `ArtworkSerializer`
-  * [x] nested and related-object serialization
-* [x] `exhibitions/serializers.py`
-  * [x] `ExhibitionArtworkSerializer`
-  * [x] `ExhibitionSerializer`
-  * [x] `ExhibitionDetailSerializer`
-* [x] `comments/serializers.py`
-  * [x] `CommentSerializer`
-  * [x] `FavoriteSerializer`
-* [x] `reviews/serializers.py`
-  * [x] `ExpertReviewSerializer`
-* [x] `ai/serializers.py`
-  * [x] `AIGenerationSerializer`
-* [x] `analytics/serializers.py`
-  * [x] `ArtworkViewSerializer`
-* [x] `qr/serializers.py`
-  * [x] `QRCodeSerializer`
-  * [x] `QRScanSerializer`
-* [x] `notifications/serializers.py`
-  * [x] `NotificationSerializer`
-* [x] CRUD viewsets created across the backend
-* [x] Search and ordering support added where relevant
-
-### 2b. Authentication Endpoints
-* [x] `POST /api/accounts/register/`
-* [x] `POST /api/accounts/token/`
-* [x] `POST /api/accounts/token/refresh/`
-* [x] `POST /api/accounts/token/verify/`
-* [x] `GET /api/accounts/profile/`
-* [x] `PATCH /api/accounts/profile/`
-* [x] `POST /api/accounts/become-artist/`
-* [x] `GET /api/accounts/artist-profile/`
-
-### 2c. Basic CRUD ViewSets
-* [x] `accounts`
-  * [x] `UserViewSet`
-  * [x] `ArtistProfileViewSet`
-* [x] `artworks`
-  * [x] `CategoryViewSet`
-  * [x] `TagViewSet`
-  * [x] `ArtworkViewSet`
-  * [x] `ArtworkVersionViewSet`
-  * [x] `ArtworkImageViewSet`
-  * [x] `ArtworkTagViewSet`
-* [x] `exhibitions`
-  * [x] `ExhibitionViewSet`
-  * [x] `ExhibitionArtworkViewSet`
-* [x] `comments`
-  * [x] `CommentViewSet`
-  * [x] `FavoriteViewSet`
-* [x] `reviews`
-  * [x] `ExpertReviewViewSet`
-* [x] `analytics`
-  * [x] `ArtworkViewViewSet`
-* [x] `ai`
-  * [x] `AIGenerationViewSet`
-* [x] `qr`
-  * [x] `QRCodeViewSet`
-  * [x] `QRScanViewSet`
-* [x] `notifications`
-  * [x] `NotificationViewSet`
-
-### 2d. Permission Classes
-* [x] `IsArtistOrReadOnly`
-* [x] `IsExpertOrReadOnly`
-* [x] `IsOwnerOrReadOnly`
-* [x] `IsCanManageExhibitions`
-* [x] `IsAdminOrReadOnly`
-* [x] `IsSelfOrAdmin`
-* [x] `IsArtistProfileOwnerOrAdmin`
-* [x] ownership checks applied to artist profiles and core content views
-
-### 2e. File Upload Handling
-* [x] Artwork image upload endpoint
-  * [x] `POST /api/artworks/{id}/upload_images/`
-* [x] Artwork banner upload endpoint
-  * [x] `POST /api/artworks/{id}/upload_banner/`
-* [x] QR generation endpoint
-  * [x] `POST /api/qr/codes/generate_qr/`
-* [x] QR download endpoint
-* [x] Local dev storage works through `MEDIA_ROOT`
-* [x] Production storage works through Cloudinary
-* [x] `qrcode` dependency added to backend requirements
-
-### 2f. Testing
-* [x] Authentication security tests
-* [x] Permission enforcement tests
-* [x] Artwork upload tests
-* [x] QR generation and download tests
-* [x] Search/filter smoke tests
-* [x] Django system checks pass
-* [x] Full backend test suite passes
+### 1.3. Frontend Application & Workflows (Phase 3 Complete)
+- [x] Responsive dark-theme gallery design system (`#0D0F14` palette, modern cards, buttons, badges).
+- [x] Responsive header with desktop horizontal layout and mobile navigation row.
+- [x] Public discovery pages:
+  - Homepage with bento grids for recently uploaded artworks and exhibitions.
+  - Explore page with tabbed search, category/status filters, and ordering controls.
+  - Artwork detail page with statement rendering, process image gallery, and expert critique badges.
+  - Exhibition catalogue page with linked artwork selector and curator introduction.
+  - Artist editorial profile page with social links and biography.
+  - QR resolver landing page (`/q/:slug` and `/qr/:slug`).
+- [x] Creator & Management Dashboards:
+  - Multi-step Artwork Manager (Metadata, Statement Editor, Media Uploads, QR Tag).
+  - Multi-step Exhibition Manager (Details, Curator Statement, Artwork Linker, Banner, QR Tag).
+  - Rich Markdown Statement Editor with live side-by-side preview and syntax tips toolbar.
+  - Interactive AI Writing Assistant modal with tone selection (*Contemplative*, *Poetic*, *Academic*, *Minimalist*) and side-by-side draft acceptance panel.
+- [x] Public Engagement UI:
+  - Threaded comment composer and reply view.
+  - Favorite / bookmark artwork toggle.
+  - Expert review submission form (star rating + markdown critique) with pinned display priority.
 
 ---
 
-## Phase 3 Completed (Frontend & Workflows)
+## 2. Phase 4: Critical Security & Authorization Vulnerabilities (Immediate Priority)
 
-### 3. Frontend Foundation
-* [x] Create the React + Vite application structure
-* [x] Define route layout for public and authenticated sections
-* [x] Build a public layout with consistent navigation and footer
-* [x] Build an auth layout for login/register flows
-* [x] Set up a responsive design system for desktop and mobile
-* [x] Add a shared loading state pattern and error boundary strategy
-* [x] Create a reusable API client layer for backend requests
-* [x] Add JWT token storage and session restoration
+- [x] **4.1. Patch Broken Object-Level Authorization (IDOR) on Media Endpoints**
+  - [x] Artwork and exhibition upload actions enforce object ownership.
+  - [x] `IsOwnerOrReadOnly` is enforced on related artwork and exhibition mutation viewsets.
 
-### 4. Authentication UI
-* [x] Login page
-* [x] Register page
-* [x] Logout flow
-* [x] Current user session loading on app startup
-* [x] Protected routes for authenticated areas
-* [x] Become-an-artist flow in the UI
-* [x] Basic account/profile editing entry points
+- [x] **4.2. Implement Strict File Upload Validation (RCE & XSS Defense)**
+  - [x] Shared upload validation verifies Pillow image magic bytes and rejects unsupported formats.
+  - [x] Uploads whitelist `.jpg`, `.jpeg`, `.png`, and `.webp`, excluding SVG and executable extensions.
+  - [x] Artwork/exhibition uploads are limited to 10 MB and avatars to 5 MB before reading.
 
-### 5. Public Browsing Pages
-* [x] Home page
-* [x] Explore artworks page
-* [x] Artwork detail page
-* [x] Artist profile page
-* [x] Exhibition catalogue page
-* [x] QR landing behavior for artwork pages
-* [x] QR landing behavior for exhibition catalogues
-* [x] Empty-state and loading-state handling for public pages
+- [x] **4.3. Eliminate Public PII Exposure (Artist Email Leakage)**
+  - [x] Public `UserBriefSerializer` omits email and internal account dates.
+  - [x] Public artist profiles use the sanitized brief serializer.
 
-### 6. Artwork Management UI
-* [x] Artist dashboard entry point for artworks
-* [x] Create artwork form
-* [x] Edit artwork form
-* [x] Artwork image upload UI
-* [x] Banner upload UI
-* [x] Artwork publish/draft/archive controls
-* [x] Category and tag selection UI
-* [x] Artwork version history UI
+- [x] **4.4. Enforce Password Complexity Validation**
+  - [x] `RegisterSerializer.validate` invokes Django's configured password validators before account creation.
 
-### 7. Artist Statements UI
-* [x] Markdown statement editor
-* [x] Live preview panel
-* [x] Version save flow
-* [x] Version history list
-* [x] Safe markdown rendering on the public artwork page
-* [x] Markdown Tips toolbar and formatting guide
+- [x] **4.5. Implement DRF API Rate Limiting & Abuse Throttling**
+  - [x] Global anonymous and authenticated limits are configured at 100/day and 1000/day.
+  - [x] Login and AI draft generation use 10/minute scoped throttles.
 
-### 8. QR Code Workflow UI
-* [x] Backend QR generation is complete
-* [x] Show generated artwork QR codes in the artist dashboard
-* [x] Show generated exhibition QR codes in the organizer dashboard
-* [x] Add QR download buttons in the frontend
-* [x] Make artwork QR links land on artwork detail pages
-* [x] Make exhibition QR links land on exhibition catalogue pages
-
-### 9. Exhibition Management UI
-* [x] Create exhibition form
-* [x] Edit exhibition form
-* [x] Exhibition artwork linking UI
-* [x] Exhibition visibility controls
-* [x] Exhibition QR code display/download
-* [x] Public exhibition catalogue page
-* [x] Featured exhibitions on homepage
-* [x] Exhibition slug routing
-
-### 10. Public Engagement UI
-* [x] Comment composer
-* [x] Threaded comment reply UI
-* [x] Favorite artwork toggle
-* [x] Expert review display priority above comments
-* [x] Guest-friendly read-only engagement views
-
-### 11. Analytics Dashboard UI
-* [x] Comment and favorite counts
-* [x] Artist dashboard summary cards
-* [x] QR scan summary metrics
-
-### 12. AI Writing Assistant UI
-* [x] Draft artist statement generation panel
-* [x] Grammar and clarity rewrite panel
-* [x] Exhibition summary draft panel
-* [x] Curator intro draft panel
-* [x] Save AI output for review before publishing (`POST /api/ai/generations/generate_draft/`)
-* [x] Keep AI output separate from final published content (Artist review & approval panel)
-
-### 13. Search and Discovery UI
-* [x] Search artworks by title, category, tag, medium, and year
-* [x] Search artists by name
-* [x] Search exhibitions by title and location
-* [x] Add filter and sort controls
-* [x] Preserve search state in the URL
+- [x] **4.6. Fix Reverse Proxy IP Collisions in Visitor Analytics & QR Tracking**
+  - [x] Analytics and QR tracking use the shared proxy-aware client IP resolver.
+  - [x] Visitor hashes now distinguish clients behind common reverse proxies.
 
 ---
 
-# Remaining Work
+## 3. Phase 5: High-Priority Functional Bug Fixes & Architectural Integrity
 
-## 14. Notifications UI & Fine Polish
+- [ ] **5.1. Fix Artist Profile Page Artwork Query Bug**
+  - [ ] In `backend/artworks/api_views.py`, add `artist` and `artist_id` to `ArtworkViewSet.filterset_fields`.
+  - [ ] Currently, calling `/api/artworks/?artist_id=...` ignores the parameter and returns artworks from **every artist on the platform**, corrupting public artist portfolio pages.
 
-* [ ] Real-time notification center dropdown
-* [ ] Mark notification as read UI
-* [ ] Comment and review notifications push
+- [ ] **5.2. Replace In-Memory Dashboard & Selector Pagination Trap**
+  - [ ] In `frontend/src/pages/dashboard/DashboardPage.jsx`, replace `api.get('/artworks/')` + JS `.filter()` with a backend query: `api.get('/artworks/', { params: { artist: user.id } })`. Currently, the dashboard only inspects page 1 (first 20 artworks globally); if >20 artworks exist, an artist's works drop off page 1 and the dashboard shows 0 artworks.
+  - [ ] In `frontend/src/pages/dashboard/ExhibitionManagerPage.jsx`, add server-side search (`/api/artworks/?search=...`) to the artwork link selector rather than client-filtering only the first 20 items.
 
-## 15. End-to-End Test Suite
+- [ ] **5.3. Implement Frontend JWT Silent Token Refresh**
+  - [ ] Update `frontend/src/lib/api.js` Axios response interceptor: when a request fails with `401 Unauthorized`, attempt to refresh using `lynqart_refresh_token` via `POST /api/accounts/token/refresh/` and retry the original request.
+  - [ ] Currently, token refreshing is never invoked on the frontend; after 60 minutes, the interceptor abruptly wipes credentials and logs the user out, causing artists to lose uncommitted statement drafts.
 
-* [x] Production bundle build verification (`vite build`)
-* [ ] E2E Cypress or Playwright test suite
+- [ ] **5.4. Restrict Draft Content from Public Feeds**
+  - [ ] In `ArtworkViewSet.get_queryset()` and `ExhibitionViewSet.get_queryset()`, ensure unauthenticated or non-owner requests are strictly filtered to `status='published'`. Currently, draft artworks and exhibitions are visible to anyone who queries the API.
 
-## 16. Deployment & Release Readiness
+- [ ] **5.5. Eliminate N+1 Query Cascade on Comments and Reviews**
+  - [ ] In `backend/comments/serializers.py` and `backend/reviews/serializers.py`, remove `artwork_detail = ArtworkSerializer(source='artwork', read_only=True)`.
+  - [ ] Replace with a lightweight `ArtworkBriefSerializer` (id, title, slug) to avoid serializing all versions, gallery images, and tags for every single comment and reply.
 
-* [ ] Add seed data script for production database
-* [ ] Deploy frontend to Vercel
-* [ ] Deploy backend to Render/Railway
-* [ ] Connect production Neon PostgreSQL and Cloudinary
+- [ ] **5.6. Connect AI Statement Fallback Generator**
+  - [ ] In `backend/ai/api_views.py`, wire up the unused `synthesize_artist_statement(...)` function inside `generate_draft()`. If OpenRouter returns 429, 503, or `OPENROUTER_API_KEY` is not configured, fall back to the structured template generator instead of throwing an unhandled 503 error.
 
----
+- [ ] **5.7. Fix Environment Loading Collision (`load_dotenv`)**
+  - [ ] In `backend/config/settings.py`, change `load_dotenv(BASE_DIR / '.env')` to `load_dotenv(BASE_DIR / '.env', override=True)`. This prevents ambient OS environment variables (such as `DEBUG=release` on Windows) from crashing the server on startup.
 
-# Important Product Rules
+- [ ] **5.8. Synchronize Documentation with Actual Codebase**
+  - [ ] Correct endpoints in `docs/API_REFERENCE.md`:
+    - Change `/qr/generate-qr/` to `/api/qr/codes/generate_qr/`.
+    - Change `/accounts/artists/{user_id}/` to `/api/accounts/artist-profiles/{id}/`.
+    - Document the actual exhibition artwork linking route (`/api/exhibitions/artworks/`).
+    - Correct comment payload fields (`comment` instead of `comment_text`, `artwork` instead of `artwork_id`).
+  - [ ] Synchronize `docs/ENVIRONMENT_SETUP.md` with `settings.py` database variables (`DB_*` vs. `DATABASE_*`).
 
-* Do not add a single `role` field.
-* Use capability flags like `is_artist`, `is_expert`, and `can_manage_exhibitions`.
-* Artists are not automatically experts.
-* AI must never publish content automatically.
-* Artwork and exhibition pages should use stable slugs or UUIDs.
-* Exhibitions are first-class entities, not just homepage content.
-* Keep the MVP focused on publishing, exhibition browsing, QR access, comments, expert reviews, and analytics.
-* Uploads must work locally in development and through Cloudinary in production.
+- [ ] **5.9. Prevent Unsolicited Artist Profile Creation**
+  - [ ] In `backend/accounts/auth_views.py` (`ArtistProfileSelfView.get`), replace `get_or_create` with a standard `.filter().first()` query. Visiting the endpoint should not automatically create an `ArtistProfile` for a regular user.
 
----
-
-# MVP Completion Criteria
-
-The MVP is complete when:
-
-* [x] Artists can register and become artists
-* [x] Artists can upload artworks and write Markdown statements
-* [x] Each artwork gets a QR code and public page
-* [x] Exhibitions can be created and linked to artworks
-* [x] Exhibition QR codes open exhibition catalogues
-* [x] Guests can browse artworks and exhibitions without logging in
-* [x] Lecturers can leave expert reviews
-* [x] Users can leave comments and favorites
-* [x] Artists can edit work while preserving version history
-* [x] Artists can view analytics
-* [x] AI helps with writing but never publishes automatically
+- [ ] **5.10. Enforce Artwork `allow_comments` Setting**
+  - [ ] In `CommentViewSet.perform_create` (`backend/comments/api_views.py`), verify `artwork.allow_comments == True` before creating comments.
 
 ---
 
-# Phase 3 Completion Summary
+## 4. Phase 6: Missing Subsystems & Incomplete Workflows
 
-* [x] Phase 1 complete (Backend foundations)
-* [x] Phase 2 complete (Serializers, viewsets, permissions, tests)
-* [x] Phase 3 complete (Frontend UI design style guide, artwork & exhibition management, QR workflows, AI assistant, public catalogue)
+- [ ] **6.1. Complete the Notification Dispatch Pipeline**
+  - [ ] Connect Django `post_save` signals to dispatch notifications for key platform events:
+    - New comment on an artist's artwork.
+    - New reply to a user's comment.
+    - Expert review published on an artist's artwork.
+    - Artwork favorited/bookmarked.
+    - Artwork included in a curated exhibition.
+  - [ ] Implement `POST /api/notifications/mark-all-read/` on the backend (currently returns 404).
+  - [ ] Add the notifications bell icon to the mobile header (`< 768px`) in `frontend/src/components/ui/Header.jsx`.
+
+- [ ] **6.2. Prevent Ghost & Duplicate QR Records**
+  - [ ] In `QRCodeSerializer.validate` (`backend/qr/serializers.py`), verify that the target `entity_id` actually exists in the database.
+  - [ ] Add a `unique_together = ('entity_type', 'entity_id')` constraint or use `get_or_create` logic in `generate_qr` so repeated clicks do not create duplicate QR records with incrementing slugs.
+
+- [ ] **6.3. Concurrency-Safe Artwork Version Numbering**
+  - [ ] Move `version_number` increment logic from the client to `ArtworkVersionViewSet.perform_create` using database transactions (`select_for_update()`) to eliminate duplicate version race conditions.
+
+- [ ] **6.4. Comment Moderation & Reporting Subsystem**
+  - [ ] Implement a `ReportedComment` model and endpoint (`POST /api/comments/{id}/report/`) so users can flag abusive comments.
+  - [ ] Provide artwork owners and administrators with comment moderation tools (hide/delete) in the UI.
+
+---
+
+## 5. Phase 7: Senior Developer Recommendations (Prioritized)
+
+Features designed to maximize real-world adoption in physical art galleries, university exhibitions, and independent artist communities:
+
+### 5.1. Tier 1: High-Impact Physical Gallery Bridge (Immediate Next Up)
+- [ ] **Print-Ready Exhibition Wall Placard & Museum Label Generator (PDF)**
+  - *Problem*: Downloading a raw PNG square QR code is impractical for gallery curators who need standardized, elegant wall labels.
+  - *Solution*: One-click **"Export Wall Placard (PDF)"** formatted to standard museum tag dimensions (4"×6", 3"×5", or Avery adhesive templates) displaying Artwork Title (display serif), Artist Name, Year, Medium, Dimensions, a statement teaser, and the QR code with scan instructions.
+- [ ] **Audio Artist Statements ("Listen to the Artist")**
+  - *Problem*: Visitors in dim, crowded galleries dislike reading 500 words on a mobile screen while standing in front of physical art.
+  - *Solution*: Allow artists to upload a 60–90 second audio recording (or generate AI voice synthesis) of their statement. Add a sticky audio player bar on the public artwork page so visitors can listen through headphones while viewing the physical work.
+- [ ] **Direct Collector & Acquisition Inquiries**
+  - *Problem*: Physical exhibitions are primary networking and sales opportunities, but LynqArt has no channel to connect interested buyers with artists.
+  - *Solution*: Add an optional *"Inquire About This Work"* button that opens a structured collector inquiry form, notifying the artist via email/notification without exposing personal contact details.
+
+### 5.2. Tier 2: Enhanced Exhibition Experience & Engagement
+- [ ] **Offline & Low-Connectivity Exhibition Mode (PWA)**
+  - *Problem*: Gallery spaces, basements, and historic brick venues frequently suffer from spotty mobile reception.
+  - *Solution*: Implement a Progressive Web App (PWA) with a Service Worker. Scanning the exhibition entrance QR prompts: *"Download Exhibition Guide"*, caching statements, curator notes, and compressed thumbnails in IndexedDB for seamless offline browsing.
+- [ ] **Curated Exhibition Tour Flow & Interactive Room Checklist**
+  - *Problem*: Exhibitions have intentional room layouts and narrative sequences that unordered grids destroy.
+  - *Solution*: Add room groupings or sequence numbers (`display_order`) with bottom navigation (`← Previous Work` / `Next Work →`) and an interactive visitor checklist on the exhibition catalogue page.
+- [ ] **Real-Time Exhibition Guestbook & Curated Approval Queue**
+  - *Problem*: Generic comments sections lack the warmth of physical exhibition guestbooks and risk unmoderated spam during live shows.
+  - *Solution*: Reframe comments into an "Exhibition Guestbook" with an optional organizer approval toggle (*"Approve guestbook notes before public display"*).
+
+### 5.3. Tier 3: Long-Term Platform Value & Preservation
+- [ ] **Certificate of Authenticity (COA) with Cryptographic Hash**
+  - *Problem*: Artists selling physical works need a tamper-proof certificate of authenticity.
+  - *Solution*: Generate a cryptographically signed digital COA PDF linked to the artwork's permanent UUID and QR code for provenance tracking.
+- [ ] **Multi-Lingual Artist Statement Translation**
+  - *Problem*: International gallery attendees require statements in multiple languages.
+  - *Solution*: Use AI translation to generate verified translations (e.g. French, Spanish, German) switchable on the public artwork page.
+
+---
+
+## 6. Phase 8: Deployment Readiness & DevOps
+
+- [ ] **8.1. Database Seeding Script**
+  - [ ] Create a Django management command (`python manage.py seed_demo_data`) with realistic sample artworks, statements, exhibitions, and expert reviews for staging and client demos.
+- [ ] **8.2. Production Image Handling (Cloudinary)**
+  - [ ] Verify `CLOUDINARY_STORAGE_ENABLED=True` with live credentials; ensure local `MEDIA_ROOT` fallback works in development.
+- [ ] **8.3. Frontend Automated Test Suite**
+  - [ ] Configure Vitest + React Testing Library for core UI flows (auth session, markdown rendering, manager forms).
+  - [ ] Add Playwright smoke tests for the QR resolution and public browsing pipeline.
+- [ ] **8.4. Cloud Deployment**
+  - [ ] Deploy backend to Render or Railway with Gunicorn and Neon managed PostgreSQL.
+  - [ ] Deploy frontend to Vercel with production environment variables (`VITE_API_BASE_URL`, `VITE_API_HOST`).
+  - [ ] Configure `CORS_ALLOWED_ORIGINS` and `CSRF_TRUSTED_ORIGINS` to exact production domains with SSL/HTTPS enforced.
+
+---
+
+## 7. Important Product Rules & Principles
+
+1. **Capability Flags over Roles**: Never introduce a single `role` field. Users register as regular users; permissions (`is_artist`, `is_expert`, `can_manage_exhibitions`) are granted independently.
+2. **AI is Assistive Only**: AI drafts statements but must **never** automatically publish content. The artist remains the creative author and must review/approve all text.
+3. **Permanent Slugs & UUIDs**: All QR codes must point to immutable slugs or UUIDs, never auto-incrementing integer IDs.
+4. **Preserve Artistic History**: Artist statements should not be silently overwritten. Revisions create immutable `ArtworkVersion` records.
+5. **Physical-Digital Harmony**: Every digital interaction should enhance, not distract from, the physical artwork in the gallery.

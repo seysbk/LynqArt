@@ -16,6 +16,8 @@ from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
+from config.security import get_client_ip
+
 from .models import QRCode, QRScan
 from .serializers import QRCodeSerializer, QRScanSerializer
 
@@ -35,7 +37,7 @@ class QRCodeViewSet(viewsets.ModelViewSet):
         if not code:
             return Response({'detail': 'QR code not found.'}, status=status.HTTP_404_NOT_FOUND)
         visitor_hash = hashlib.sha256(
-            f"{request.META.get('REMOTE_ADDR', '')}:{request.META.get('HTTP_USER_AGENT', '')}".encode()
+            f"{get_client_ip(request)}:{request.META.get('HTTP_USER_AGENT', '')}".encode()
         ).hexdigest()
         recent_scan = code.qr_scans.filter(
             visitor_hash=visitor_hash,

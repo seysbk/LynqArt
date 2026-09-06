@@ -8,9 +8,11 @@ from uuid import uuid4
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import ArtistProfile
 from .serializers import BecomeArtistSerializer, CurrentUserSerializer, ProfileUpdateSerializer, RegisterSerializer
+from config.security import validate_and_store_upload
 
 User = get_user_model()
 
@@ -23,6 +25,10 @@ class RegisterView(APIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         return Response(CurrentUserSerializer(user).data, status=status.HTTP_201_CREATED)
+
+
+class ThrottledTokenObtainPairView(TokenObtainPairView):
+    throttle_scope = 'login'
 
 
 class CurrentUserView(APIView):
@@ -81,9 +87,8 @@ class ArtistProfileSelfView(APIView):
         data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
         avatar_file = request.FILES.get('avatar')
         if avatar_file:
-            _, extension = os.path.splitext(avatar_file.name)
-            path = default_storage.save(f'avatars/{uuid4().hex}{extension.lower()}', ContentFile(avatar_file.read()))
-            data['avatar_url'] = default_storage.url(path)
+            _, avatar_url = validate_and_store_upload(avatar_file, 'avatars', max_size_mb=5)
+            data['avatar_url'] = avatar_url
         serializer = BecomeArtistSerializer(instance=profile, data=data, partial=True, context={'request': request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
