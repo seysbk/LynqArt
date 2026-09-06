@@ -32,6 +32,7 @@ function App() {
         <Route path="artists/:artistId/:slug?" element={<ArtistProfilePage />} />
         <Route path="exhibitions/:exhibitionSlug" element={<ExhibitionPage />} />
         <Route path="qr/:qrSlug" element={<QRLandingPage />} />
+        <Route path="q/:qrSlug" element={<QRLandingPage />} />
         <Route path="terms" element={<TermsPage />} />
         <Route path="privacy" element={<PrivacyPage />} />
         <Route path="login" element={<LoginPage session={session} />} />

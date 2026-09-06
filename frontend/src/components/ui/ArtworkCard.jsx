@@ -2,7 +2,7 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import { mediaUrl } from '../../lib/media'
 
-export function ArtworkCard({ artwork }) {
+export function ArtworkCard({ artwork, source = 'unknown' }) {
   if (!artwork) return null
 
   const imageUrl = mediaUrl(artwork.images?.[0]?.image_url || artwork.banner_image)
@@ -10,7 +10,7 @@ export function ArtworkCard({ artwork }) {
 
   return (
     <Link
-      to={`/artworks/${artwork.slug}`}
+      to={`/artworks/${artwork.slug}${source !== 'unknown' ? `?source=${source}` : ''}`}
       className="group block overflow-hidden rounded-[14px] bg-[#141720] border border-white/[0.09] transition-all duration-200 hover:-translate-y-0.5 hover:border-white/[0.14]"
     >
       {/* Artwork Image Dominates */}

@@ -1,11 +1,15 @@
 import io
+import hashlib
 import os
+from datetime import timedelta
 from uuid import uuid4
 
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.db.models import F, Q
 from django.http import FileResponse
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
@@ -30,8 +34,17 @@ class QRCodeViewSet(viewsets.ModelViewSet):
         code = self.get_queryset().filter(qr_slug=request.query_params.get('slug', '')).first()
         if not code:
             return Response({'detail': 'QR code not found.'}, status=status.HTTP_404_NOT_FOUND)
-        code.scans = code.scans + 1
-        code.save(update_fields=['scans'])
+        visitor_hash = hashlib.sha256(
+            f"{request.META.get('REMOTE_ADDR', '')}:{request.META.get('HTTP_USER_AGENT', '')}".encode()
+        ).hexdigest()
+        recent_scan = code.qr_scans.filter(
+            visitor_hash=visitor_hash,
+            scanned_at__gte=timezone.now() - timedelta(seconds=30),
+        ).exists()
+        if not recent_scan:
+            QRScan.objects.create(qr_code=code, visitor_hash=visitor_hash)
+            QRCode.objects.filter(pk=code.pk).update(scans=F('scans') + 1)
+            code.refresh_from_db(fields=['scans'])
         payload = self.get_serializer(code).data
         try:
             from artworks.models import Artwork
@@ -64,7 +77,7 @@ class QRCodeViewSet(viewsets.ModelViewSet):
 
         qr = qrcode.QRCode(border=1, box_size=8)
         frontend_url = getattr(settings, 'FRONTEND_BASE_URL', 'http://localhost:5173').rstrip('/')
-        qr.add_data(f'{frontend_url}/qr/{qr_code.qr_slug}')
+        qr.add_data(f'{frontend_url}/q/{qr_code.qr_slug}')
         qr.make(fit=True)
         qr_img = qr.make_image(fill_color='#0F172A', back_color='white').convert('RGB')
 
@@ -136,8 +149,23 @@ class QRCodeViewSet(viewsets.ModelViewSet):
 class QRScanViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = QRScan.objects.select_related('qr_code').all().order_by('-scanned_at')
     serializer_class = QRScanSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ('qr_code__qr_slug', 'visitor_hash')
     filterset_fields = ('qr_code',)
     ordering_fields = ('scanned_at',)
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        user = self.request.user
+        if user.is_staff or user.is_superuser:
+            return queryset
+        from artworks.models import Artwork
+        from exhibitions.models import Exhibition
+
+        artwork_ids = Artwork.objects.filter(artist=user).values('id')
+        exhibition_ids = Exhibition.objects.filter(organizer=user).values('id')
+        return queryset.filter(
+            Q(qr_code__entity_type=QRCode.ENTITY_ARTWORK, qr_code__entity_id__in=artwork_ids)
+            | Q(qr_code__entity_type=QRCode.ENTITY_EXHIBITION, qr_code__entity_id__in=exhibition_ids)
+        )

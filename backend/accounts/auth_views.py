@@ -87,6 +87,10 @@ class ArtistProfileSelfView(APIView):
         serializer = BecomeArtistSerializer(instance=profile, data=data, partial=True, context={'request': request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        user = request.user
+        if not user.is_artist:
+            user.is_artist = True
+            user.save(update_fields=['is_artist'])
         return Response(serializer.data)
 
     def delete(self, request):

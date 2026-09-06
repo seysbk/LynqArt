@@ -226,7 +226,7 @@ export function ArtistProfilePage() {
         {artworks.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {artworks.map((artwork) => (
-              <ArtworkCard key={artwork.id} artwork={artwork} />
+              <ArtworkCard key={artwork.id} artwork={artwork} source="artist_profile" />
             ))}
           </div>
         ) : (

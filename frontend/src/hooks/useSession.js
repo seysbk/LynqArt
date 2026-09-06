@@ -43,6 +43,16 @@ export function useSession() {
       })
   }, [])
 
+  const refresh = async () => {
+    const accessToken = localStorage.getItem('lynqart_access_token') || ''
+    const refreshToken = localStorage.getItem('lynqart_refresh_token') || ''
+    if (!accessToken) return
+    setAuthToken(accessToken)
+    const { data } = await api.get('/accounts/profile/')
+    setSession({ user: data, accessToken, refreshToken, loading: false, error: '' })
+    return data
+  }
+
   const signIn = async (credentials) => {
     const { data } = await api.post('/accounts/token/', credentials)
     localStorage.setItem('lynqart_access_token', data.access)
@@ -64,5 +74,5 @@ export function useSession() {
     await signIn({ username: payload.username, password: payload.password })
   }
 
-  return { ...session, signIn, signOut, register }
+  return { ...session, signIn, signOut, register, refresh }
 }

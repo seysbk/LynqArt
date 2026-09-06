@@ -127,7 +127,7 @@ export function ExplorePage() {
           ) : filteredItems.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filteredItems.map((item) => (
-                <ArtworkCard key={item.id} artwork={item} />
+                  <ArtworkCard key={item.id} artwork={item} source="internal_search" />
               ))}
             </div>
           ) : (

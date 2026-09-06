@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { api } from '../../lib/api'
@@ -26,6 +26,7 @@ const formatDate = (value) => {
 
 export function ArtworkDetailPage({ session }) {
   const { artworkSlug } = useParams()
+  const [searchParams] = useSearchParams()
   const [artwork, setArtwork] = useState(null)
   const [reviews, setReviews] = useState([])
   const [comments, setComments] = useState([])
@@ -35,6 +36,10 @@ export function ArtworkDetailPage({ session }) {
   const [commentText, setCommentText] = useState('')
   const [editingCommentId, setEditingCommentId] = useState(null)
   const [editingText, setEditingText] = useState('')
+  const [reviewTitle, setReviewTitle] = useState('')
+  const [reviewText, setReviewText] = useState('')
+  const [reviewRating, setReviewRating] = useState(0)
+  const [submittingReview, setSubmittingReview] = useState(false)
   const [message, setMessage] = useState('')
 
   useEffect(() => {
@@ -51,6 +56,11 @@ export function ArtworkDetailPage({ session }) {
         const results = await Promise.all(requests)
         if (!active) return
         setArtwork(data)
+        api.post('/analytics/views/', {
+          artwork: data.id,
+          source: searchParams.get('source') || 'unknown',
+          viewed_from: document.referrer,
+        }).catch(() => {})
         setReviews(list(results[0].data))
         setComments(list(results[1].data).filter((item) => !item.parent_comment))
         setQrCode(list(results[2].data)[0] || null)
@@ -61,7 +71,7 @@ export function ArtworkDetailPage({ session }) {
     return () => {
       active = false
     }
-  }, [artworkSlug, session.user])
+  }, [artworkSlug, searchParams, session.user])
 
   const statement = artwork?.current_version_detail?.markdown_statement || artwork?.versions?.[0]?.markdown_statement
   const images = useMemo(
@@ -79,6 +89,29 @@ export function ArtworkDetailPage({ session }) {
       setMessage('Comment posted.')
     } catch {
       setMessage('Could not post comment.')
+    }
+  }
+
+  const submitExpertReview = async (event) => {
+    event.preventDefault()
+    if (!reviewTitle.trim() || !reviewText.trim() || !session.user?.is_expert) return
+    setSubmittingReview(true)
+    try {
+      const { data } = await api.post('/reviews/', {
+        artwork: artwork.id,
+        title: reviewTitle.trim(),
+        markdown_review: reviewText.trim(),
+        rating: Number(reviewRating),
+      })
+      setReviews([data, ...reviews])
+      setReviewTitle('')
+      setReviewText('')
+      setReviewRating(0)
+      setMessage('Expert review published.')
+    } catch {
+      setMessage('Could not publish expert review.')
+    } finally {
+      setSubmittingReview(false)
     }
   }
 
@@ -278,16 +311,55 @@ export function ArtworkDetailPage({ session }) {
         </section>
       )}
 
-      {/* Blended Discussions & Expert Reviews Section */}
+      {/* Dedicated Expert Reviews and Community Discussions */}
       <section className="space-y-6 pt-6 border-t border-white/[0.08]">
         <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
           <div className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-indigo-400" />
-            <h2 className="text-xl font-bold text-[#F4F4F5]">Discussions &amp; Peer Reviews ({reviews.length + comments.length})</h2>
+            <h2 className="text-xl font-bold text-[#F4F4F5]">Expert Reviews &amp; Discussions</h2>
           </div>
         </div>
 
-        {/* Dedicated Verified Expert Reviews Banner/Feed if Present */}
+        {session.user?.is_expert && (
+          <form onSubmit={submitExpertReview} className="surface-card max-w-2xl space-y-3 border-amber-500/30 bg-amber-500/5 p-5">
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-400">Write an Expert Review</h3>
+              <p className="mt-1 text-[11px] text-[#A1A1AA]">This critique is stored separately from visitor comments and displayed as an expert review.</p>
+            </div>
+            <input
+              required
+              value={reviewTitle}
+              onChange={(event) => setReviewTitle(event.target.value)}
+              placeholder="Review title"
+              className="w-full rounded-[10px] bg-[#141720] border border-white/[0.09] p-3 text-xs text-[#F4F4F5] outline-none focus:border-amber-400"
+            />
+            <textarea
+              required
+              rows={4}
+              value={reviewText}
+              onChange={(event) => setReviewText(event.target.value)}
+              placeholder="Write your academic or lecturer critique in Markdown..."
+              className="w-full rounded-[10px] bg-[#141720] border border-white/[0.09] p-3 text-xs text-[#F4F4F5] outline-none focus:border-amber-400"
+            />
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <label className="flex items-center gap-2 text-xs text-[#A1A1AA]">
+                Rating
+                <select
+                  value={reviewRating}
+                  onChange={(event) => setReviewRating(event.target.value)}
+                  className="rounded-[8px] bg-[#141720] border border-white/[0.09] px-2 py-1.5 text-xs text-[#F4F4F5] outline-none focus:border-amber-400"
+                >
+                  {[0, 1, 2, 3, 4, 5].map((rating) => <option key={rating} value={rating}>{rating}/5</option>)}
+                </select>
+              </label>
+              <Button type="submit" variant="primary" disabled={submittingReview} className="!py-1.5 !px-3 text-xs bg-amber-600 hover:bg-amber-500">
+                {submittingReview ? 'Publishing...' : 'Publish Expert Review'}
+              </Button>
+            </div>
+          </form>
+        )}
+
+        {/* Dedicated Expert Review Feed */}
         {reviews.length > 0 && (
           <div className="space-y-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
@@ -344,21 +416,15 @@ export function ArtworkDetailPage({ session }) {
             <div className="space-y-3 max-w-2xl">
               {comments.map((item) => {
                 const isOwner = session.user?.id === item.user?.id
-                const isExpert = item.user?.is_expert
                 const isEditing = editingCommentId === item.id
 
                 return (
-                  <div key={item.id} className={`surface-card p-4 space-y-2 text-xs border ${isExpert ? 'border-amber-500/30 bg-amber-500/5' : 'border-white/[0.08]'}`}>
+                  <div key={item.id} className="surface-card p-4 space-y-2 text-xs border border-white/[0.08]">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-[#F4F4F5]">
                           {item.user?.full_name || item.user?.username || 'Visitor'}
                         </span>
-                        {isExpert && (
-                          <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold text-[10px] flex items-center gap-1">
-                            <Award className="h-3 w-3 inline" /> Verified Expert Review
-                          </span>
-                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-[#71717A] text-[10px]">{formatDate(item.created_at)}</span>

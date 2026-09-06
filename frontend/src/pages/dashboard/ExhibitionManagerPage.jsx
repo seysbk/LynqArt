@@ -5,7 +5,7 @@ import { mediaUrl } from '../../lib/media'
 import { ImageUpload } from '../../components/ui/ImageUpload'
 import { MarkdownTips } from '../../components/ui/MarkdownTips'
 import { Button } from '../../components/ui/Button'
-import { QrCode, Download, Eye, Check, ExternalLink, ArrowRight, ArrowLeft, Trash2, Sparkles } from 'lucide-react'
+import { QrCode, Download, Eye, Check, ExternalLink, ArrowRight, ArrowLeft, Trash2, Sparkles, Search } from 'lucide-react'
 import { AIAssistantModal } from '../../components/ai/AIAssistantModal'
 import { Modal } from '../../components/ui/Modal'
 import ReactMarkdown from 'react-markdown'
@@ -41,6 +41,7 @@ export function ExhibitionManagerPage() {
   const [form, setForm] = useState(empty)
   const [item, setItem] = useState(null)
   const [allArtworks, setAllArtworks] = useState([])
+  const [artworkSearch, setArtworkSearch] = useState('')
   const [qrCode, setQrCode] = useState(null)
   const [saving, setSaving] = useState(false)
   const [preview, setPreview] = useState(false)
@@ -204,6 +205,9 @@ export function ExhibitionManagerPage() {
   }
 
   const linkedArtworkIds = new Set((item?.artworks || []).map((link) => link.artwork || link.artwork_detail?.id))
+  const filteredArtworks = allArtworks.filter((artwork) =>
+    artwork.title.toLowerCase().includes(artworkSearch.trim().toLowerCase()),
+  )
 
   const toggleArtworkLink = async (artworkId) => {
     if (!item) return
@@ -515,24 +519,53 @@ export function ExhibitionManagerPage() {
           </div>
 
           <div className="space-y-3">
-            <h3 className="text-xs font-semibold text-[#F4F4F5]">Catalogue Artworks ({item?.artworks?.length || 0} Linked)</h3>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h3 className="text-xs font-semibold text-[#F4F4F5]">
+                Catalogue Artworks ({item?.artworks?.length || 0} Linked)
+              </h3>
+              <label className="relative block sm:w-64">
+                <span className="sr-only">Search catalogue artworks</span>
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#71717A]" />
+                <input
+                  type="search"
+                  value={artworkSearch}
+                  onChange={(event) => setArtworkSearch(event.target.value)}
+                  placeholder="Search artworks..."
+                  className={`${inputClass} pl-9`}
+                />
+              </label>
+            </div>
             <div className="grid gap-2 sm:grid-cols-3 pt-1">
-              {allArtworks.map((artwork) => {
+              {filteredArtworks.map((artwork) => {
                 const isLinked = linkedArtworkIds.has(artwork.id)
                 return (
                   <div
                     key={artwork.id}
                     onClick={() => toggleArtworkLink(artwork.id)}
-                    className={`p-3 rounded-[9px] border text-xs cursor-pointer flex items-center justify-between transition ${
-                      isLinked ? 'bg-indigo-600/20 border-indigo-400/50 text-[#F4F4F5]' : 'bg-[#0D0F14] border-white/[0.06] text-[#A1A1AA]'
+                    className={`p-3 rounded-[9px] border text-xs cursor-pointer flex items-center gap-3 transition ${
+                      isLinked
+                        ? 'bg-emerald-500/10 border-emerald-400/60 text-[#F4F4F5] ring-1 ring-emerald-400/20'
+                        : 'bg-[#0D0F14] border-white/[0.06] text-[#A1A1AA] hover:border-white/[0.16]'
                     }`}
                   >
-                    <span className="truncate">{artwork.title}</span>
-                    <span className="text-[10px] font-bold shrink-0 ml-2">{isLinked ? '✓ Linked' : '+ Link'}</span>
+                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                      isLinked ? 'border-emerald-400 bg-emerald-400 text-[#07110C]' : 'border-white/20 text-transparent'
+                    }`}>
+                      <Check className="h-3 w-3" />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">{artwork.title}</span>
+                    <span className={`text-[10px] font-bold shrink-0 ${isLinked ? 'text-emerald-300' : 'text-[#71717A]'}`}>
+                      {isLinked ? 'Linked' : 'Link'}
+                    </span>
                   </div>
                 )
               })}
             </div>
+            {filteredArtworks.length === 0 && (
+              <p className="rounded-[9px] border border-dashed border-white/[0.08] px-4 py-6 text-center text-xs text-[#71717A]">
+                No artworks match “{artworkSearch}”.
+              </p>
+            )}
           </div>
 
           {/* Actions Bar */}

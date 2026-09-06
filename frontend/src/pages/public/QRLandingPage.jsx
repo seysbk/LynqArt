@@ -35,6 +35,6 @@ export function QRLandingPage() {
     )
   }
 
-  const path = target.entity_type === 'artwork' ? `/artworks/${target.target_slug}` : `/exhibitions/${target.target_slug}`
+  const path = target.entity_type === 'artwork' ? `/artworks/${target.target_slug}?source=qr` : `/exhibitions/${target.target_slug}`
   return <Navigate to={path} replace />
 }

@@ -153,6 +153,8 @@ export function ProfilePage({ session }) {
     setSavingArtist(true)
     try {
       await api.patch('/accounts/artist-profile/', artistForm)
+      const updatedUser = await session?.refresh?.()
+      if (updatedUser) setUserProfile(updatedUser)
       setModalState({ isOpen: true, title: 'Success', message: 'Artist profile details updated successfully.', type: 'success' })
     } catch (err) {
       setModalState({ isOpen: true, title: 'Error', message: err?.response?.data?.detail || 'Could not update artist details.', type: 'error' })
@@ -514,17 +516,64 @@ export function ProfilePage({ session }) {
           </div>
         </form>
       ) : (
-        <div className="surface-card p-6 space-y-3">
-          <h2 className="text-sm font-semibold text-[#F4F4F5]">Artist Enrollment</h2>
-          <p className="text-xs text-[#A1A1AA]">
-            You have not activated your artist status yet. To publish artworks and write artist statements, visit the dashboard and click "Become an Artist".
-          </p>
-          <Link to="/dashboard">
-            <Button variant="primary" className="!py-1.5 text-xs">
-              Go to Dashboard to Become an Artist
-            </Button>
-          </Link>
-        </div>
+        <form onSubmit={saveArtistDetails} className="surface-card p-6 space-y-4">
+          <div className="border-b border-white/[0.06] pb-3">
+            <h2 className="text-sm font-semibold text-[#F4F4F5]">Become an Artist</h2>
+            <p className="text-xs text-[#A1A1AA] mt-1">
+              Complete your public artist profile to unlock artwork uploads, statements, and your artist page.
+            </p>
+          </div>
+
+          <label className="block space-y-1 text-xs font-medium text-[#A1A1AA]">
+            Artist Bio &amp; Creative Statement *
+            <textarea
+              required
+              rows={4}
+              value={artistForm.bio}
+              onChange={(e) => setArtistForm({ ...artistForm, bio: e.target.value })}
+              placeholder="Describe your artistic focus and background..."
+              className={inputClass}
+            />
+          </label>
+
+          <label className="block space-y-1 text-xs font-medium text-[#A1A1AA]">
+            Studio / City Location *
+            <input
+              required
+              value={artistForm.location}
+              onChange={(e) => setArtistForm({ ...artistForm, location: e.target.value })}
+              placeholder="e.g. Accra, Ghana"
+              className={inputClass}
+            />
+          </label>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="space-y-1 text-xs font-medium text-[#A1A1AA]">
+              Portfolio Website
+              <input
+                type="url"
+                value={artistForm.website}
+                onChange={(e) => setArtistForm({ ...artistForm, website: e.target.value })}
+                placeholder="https://example.com"
+                className={inputClass}
+              />
+            </label>
+            <label className="space-y-1 text-xs font-medium text-[#A1A1AA]">
+              Instagram Handle
+              <input
+                value={artistForm.instagram}
+                onChange={(e) => setArtistForm({ ...artistForm, instagram: e.target.value })}
+                placeholder="@username"
+                className={inputClass}
+              />
+            </label>
+          </div>
+
+          <Button type="submit" variant="primary" disabled={savingArtist} className="text-xs">
+            <Check className="h-4 w-4" />
+            <span>{savingArtist ? 'Activating Artist Account...' : 'Become an Artist'}</span>
+          </Button>
+        </form>
       )}
 
       {/* Danger Zone: Account Deletion */}

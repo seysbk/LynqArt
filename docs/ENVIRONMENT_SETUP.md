@@ -36,8 +36,8 @@ LynqArt's Django backend uses environment variables for flexible configuration a
 | Variable | Default | Purpose | Example |
 |----------|---------|---------|---------|
 | `SECRET_KEY` | (required) | Django secret key for cryptographic signing | Generate with: `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"` |
-| `DEBUG` | `True` | Enable debug mode (NEVER use `True` in production) | Development: `True`, Production: `False` |
-| `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated list of allowed domain names | `myapp.com,www.myapp.com,localhost` |
+| `DEBUG` | `True` in development, `False` when `ENV=production` | Enable debug mode (NEVER use `True` in production) | Development: `True`, Production: `False` |
+| `ALLOWED_HOSTS` | `localhost,127.0.0.1,0.0.0.0` | Comma-separated list of allowed domain names or LAN IPs | `myapp.com,www.myapp.com,192.168.1.25` |
 | `ENV` | `development` | Environment name for logging/monitoring | `development`, `staging`, `production` |
 
 ### Database Configuration
@@ -73,6 +73,7 @@ DATABASE_PORT=5432
 |----------|---------|---------|---------|
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173` | Comma-separated frontend URLs | `https://myapp.com,https://www.myapp.com` |
 | `CORS_ALLOW_ALL_ORIGINS` | `False` | Allow all origins (security risk!) | Use only for testing; never in production |
+| `CSRF_TRUSTED_ORIGINS` | Local Vite origins | Exact browser origins allowed to make unsafe requests | `http://192.168.1.25:5173` |
 
 **Development (Vite + React):**
 ```bash
@@ -83,7 +84,30 @@ CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ```bash
 CORS_ALLOWED_ORIGINS=https://lynqart.com,https://www.lynqart.com
 CORS_ALLOW_ALL_ORIGINS=False
+CSRF_TRUSTED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ```
+
+**LAN development (same Wi-Fi/network):** replace `192.168.1.25` with the
+backend computer's LAN IP in both `.env` files. Keep the lists exact; do not
+use `*` or enable `CORS_ALLOW_ALL_ORIGINS`.
+
+```bash
+# backend/.env
+DEBUG=True
+ENV=development
+ALLOWED_HOSTS=localhost,127.0.0.1,192.168.1.25
+CORS_ALLOWED_ORIGINS=http://192.168.1.25:5173
+CSRF_TRUSTED_ORIGINS=http://192.168.1.25:5173
+FRONTEND_BASE_URL=http://192.168.1.25:5173
+
+# frontend/.env.local
+VITE_API_BASE_URL=http://192.168.1.25:8000/api
+VITE_API_HOST=http://192.168.1.25:8000
+VITE_DEV_HOST=0.0.0.0
+```
+
+Start the services with `python manage.py runserver 0.0.0.0:8000` and
+`pnpm dev`. Do not use these HTTP/LAN settings for production.
 
 ### JWT Authentication
 

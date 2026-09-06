@@ -9,5 +9,5 @@ class ArtworkViewSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ArtworkView
-        fields = ('id', 'artwork', 'artwork_detail', 'visitor_hash', 'viewed_from', 'user_agent', 'viewed_at')
+        fields = ('id', 'artwork', 'artwork_detail', 'source', 'viewed_at')
         read_only_fields = ('id', 'viewed_at')

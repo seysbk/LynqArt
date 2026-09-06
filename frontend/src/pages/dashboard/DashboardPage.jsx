@@ -29,6 +29,7 @@ export function DashboardPage({ session }) {
   const [artworks, setArtworks] = useState([])
   const [exhibitions, setExhibitions] = useState([])
   const [qrCodes, setQrCodes] = useState([])
+  const [analyticsSummary, setAnalyticsSummary] = useState({ total_views: 0, unique_visitors: 0, total_qr_scans: 0, unique_qr_visitors: 0, source_breakdown: [], artworks: [] })
   const [comments, setComments] = useState([])
   const [favorites, setFavorites] = useState([])
   const [aiGenerations, setAiGenerations] = useState([])
@@ -42,13 +43,14 @@ export function DashboardPage({ session }) {
       api.get('/accounts/profile/'),
       api.get('/accounts/artist-profile/').catch(() => ({ data: null })),
       api.get('/artworks/', { params: { ordering: '-created_at' } }),
-      api.get('/exhibitions/', { params: { ordering: '-created_at' } }).catch(() => ({ data: { results: [] } })),
+      api.get('/exhibitions/', { params: { organizer: user.id, ordering: '-created_at' } }).catch(() => ({ data: { results: [] } })),
       api.get('/qr/codes/', { params: { ordering: '-created_at' } }),
+      api.get('/analytics/summary/').catch(() => ({ data: { total_views: 0, unique_visitors: 0, total_qr_scans: 0, unique_qr_visitors: 0, source_breakdown: [], artworks: [] } })),
       api.get('/comments/', { params: { ordering: '-created_at' } }).catch(() => ({ data: { results: [] } })),
       api.get('/comments/favorites/', { params: { ordering: '-created_at' } }).catch(() => ({ data: { results: [] } })),
       api.get('/ai/generations/').catch(() => ({ data: { results: [] } })),
     ])
-      .then(([profileRes, artistRes, artworksRes, exhRes, qrRes, commentsRes, favoritesRes, aiRes]) => {
+      .then(([profileRes, artistRes, artworksRes, exhRes, qrRes, summaryRes, commentsRes, favoritesRes, aiRes]) => {
         if (!alive) return
         setProfile(profileRes.data)
         setArtistProfile(artistRes.data)
@@ -69,9 +71,10 @@ export function DashboardPage({ session }) {
           allQrCodes.filter((item) =>
             item.entity_type === 'artwork'
               ? myArtworks.some((art) => art.id === item.entity_id)
-              : true,
+              : allExhibitions.some((exh) => exh.id === item.entity_id),
           ),
         )
+        setAnalyticsSummary(summaryRes.data)
         setComments(allComments.filter((item) => item.user?.id === user.id))
         setFavorites(allFavorites.filter((item) => item.user?.id === user.id))
         setAiGenerations(allAi)
@@ -117,17 +120,15 @@ export function DashboardPage({ session }) {
     [qrCodes, selectedArtwork],
   )
 
-  const totalQrScans = useMemo(
-    () => qrCodes.reduce((sum, item) => sum + (item.scans || 0), 0),
-    [qrCodes],
-  )
+  const totalQrScans = analyticsSummary.total_qr_scans || 0
+  const totalArtworkViews = analyticsSummary.total_views || 0
 
-  const exhibitionQrScans = useMemo(() => {
-    const exhIds = new Set(exhibitions.map((e) => e.id))
-    return qrCodes
-      .filter((qr) => qr.entity_type === 'exhibition' && exhIds.has(qr.entity_id))
-      .reduce((sum, item) => sum + (item.scans || 0), 0)
-  }, [exhibitions, qrCodes])
+  const exhibitionQrScans = analyticsSummary.exhibition_qr_scans || 0
+
+  const artworkAnalytics = useMemo(
+    () => new Map((analyticsSummary.artworks || []).map((item) => [item.artwork, item])),
+    [analyticsSummary],
+  )
 
   if (loading) return <LoadingState title="Loading Analytics & Workspace" description="Fetching performance metrics..." />
 
@@ -217,7 +218,7 @@ export function DashboardPage({ session }) {
       </div>
 
       {/* Key Metrics Overview (Condensed 2-column grid on mobile devices < 640px) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         <div className="surface-card p-3.5 sm:p-4 space-y-1">
           <div className="flex items-center justify-between text-xs text-[#71717A]">
             <span>Artworks</span>
@@ -247,6 +248,15 @@ export function DashboardPage({ session }) {
 
         <div className="surface-card p-3.5 sm:p-4 space-y-1">
           <div className="flex items-center justify-between text-xs text-[#71717A]">
+            <span>Artwork Visits</span>
+            <Eye className="h-4 w-4 text-sky-400" />
+          </div>
+          <p className="text-xl sm:text-2xl font-bold text-[#F4F4F5]">{totalArtworkViews}</p>
+          <p className="text-[10px] sm:text-[11px] text-[#71717A]">Public page visits</p>
+        </div>
+
+        <div className="surface-card p-3.5 sm:p-4 space-y-1">
+          <div className="flex items-center justify-between text-xs text-[#71717A]">
             <span>Comments</span>
             <MessageSquare className="h-4 w-4 text-indigo-400" />
           </div>
@@ -263,6 +273,43 @@ export function DashboardPage({ session }) {
           <p className="text-[10px] sm:text-[11px] text-[#71717A]">Bookmarked items</p>
         </div>
       </div>
+
+      <section className="surface-card p-5 sm:p-6 space-y-4">
+        <div className="flex flex-col gap-1 border-b border-white/[0.06] pb-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-sky-400">Audience Reach</span>
+            <h2 className="text-base font-bold text-[#F4F4F5]">Verified activity from your content</h2>
+          </div>
+          <p className="text-[11px] text-[#71717A]">Counts are recorded events, not estimates.</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-[10px] border border-white/[0.06] bg-[#0D0F14] p-4">
+            <p className="text-[11px] text-[#71717A]">Artwork page visits</p>
+            <p className="mt-1 text-2xl font-extrabold text-sky-300">{totalArtworkViews}</p>
+            <p className="mt-1 text-[10px] text-[#71717A]">Recorded from public artwork pages</p>
+          </div>
+          <div className="rounded-[10px] border border-white/[0.06] bg-[#0D0F14] p-4">
+            <p className="text-[11px] text-[#71717A]">QR link visits</p>
+            <p className="mt-1 text-2xl font-extrabold text-emerald-300">{totalQrScans}</p>
+            <p className="mt-1 text-[10px] text-[#71717A]">Physical QR resolutions</p>
+          </div>
+          <div className="rounded-[10px] border border-white/[0.06] bg-[#0D0F14] p-4">
+            <p className="text-[11px] text-[#71717A]">Total tracked reach</p>
+            <p className="mt-1 text-2xl font-extrabold text-[#F4F4F5]">{totalArtworkViews + totalQrScans}</p>
+            <p className="mt-1 text-[10px] text-[#71717A]">Artwork visits plus QR visits</p>
+          </div>
+          <div className="rounded-[10px] border border-white/[0.06] bg-[#0D0F14] p-4">
+            <p className="text-[11px] text-[#71717A]">Unique visitors</p>
+            <p className="mt-1 text-2xl font-extrabold text-indigo-300">{analyticsSummary.unique_visitors || 0}</p>
+            <p className="mt-1 text-[10px] text-[#71717A]">Privacy-safe artwork visitors</p>
+          </div>
+          <div className="rounded-[10px] border border-white/[0.06] bg-[#0D0F14] p-4">
+            <p className="text-[11px] text-[#71717A]">Unique QR visitors</p>
+            <p className="mt-1 text-2xl font-extrabold text-emerald-300">{analyticsSummary.unique_qr_visitors || 0}</p>
+            <p className="mt-1 text-[10px] text-[#71717A]">Privacy-safe scan visitors</p>
+          </div>
+        </div>
+      </section>
 
       {/* EXHIBITION ANALYTICS & MANAGEMENT (FOR EXHIBITION ORGANIZERS ONLY) */}
       {user.can_manage_exhibitions && (
@@ -467,6 +514,12 @@ export function DashboardPage({ session }) {
                 </div>
 
                 <div className="p-4 rounded-[10px] bg-[#0D0F14] border border-white/[0.06] space-y-1">
+                  <span className="text-[11px] font-medium text-[#71717A]">Public Visits</span>
+                  <p className="text-2xl font-extrabold text-sky-300">{artworkAnalytics.get(selectedArtwork?.id)?.views || 0}</p>
+                  <p className="text-[10px] text-[#71717A]">Artwork page views</p>
+                </div>
+
+                <div className="p-4 rounded-[10px] bg-[#0D0F14] border border-white/[0.06] space-y-1">
                   <span className="text-[11px] font-medium text-[#71717A]">Statement Versions</span>
                   <p className="text-2xl font-extrabold text-[#F4F4F5]">{selectedArtwork.versions?.length || 1}</p>
                   <p className="text-[10px] text-[#71717A]">Markdown edit history</p>
@@ -556,7 +609,7 @@ export function DashboardPage({ session }) {
                 <div key={qr.id} className="flex items-center justify-between gap-3 p-2.5 rounded-[9px] bg-[#0D0F14] border border-white/[0.06]">
                   <div className="min-w-0">
                     <p className="text-xs font-mono text-[#F4F4F5] truncate">{qr.qr_slug}</p>
-                    <p className="text-[10px] text-[#71717A] uppercase">{qr.entity_type} · {qr.scans || 0} scans</p>
+                      <p className="text-[10px] text-[#71717A] uppercase">{qr.entity_type} · {qr.scans || 0} scans</p>
                   </div>
                   {qr.qr_image_url && (
                     <a href={mediaUrl(qr.qr_image_url)} target="_blank" rel="noreferrer" className="text-xs text-indigo-400 hover:underline">

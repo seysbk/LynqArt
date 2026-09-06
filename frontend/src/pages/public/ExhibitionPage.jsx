@@ -111,7 +111,7 @@ export function ExhibitionPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {artworks.map((item) => {
               const artwork = item.artwork_detail || item
-              return <ArtworkCard key={item.id || artwork.id} artwork={artwork} />
+              return <ArtworkCard key={item.id || artwork.id} artwork={artwork} source="exhibition" />
             })}
           </div>
         ) : (

@@ -22,7 +22,7 @@ class ExhibitionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsCanManageExhibitionsOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ('title', 'slug', 'location', 'short_description', 'markdown_description', 'organizer__username')
-    filterset_fields = ('status', 'show_on_homepage', 'is_featured')
+    filterset_fields = ('status', 'show_on_homepage', 'is_featured', 'organizer')
     ordering_fields = ('created_at', 'updated_at', 'start_date', 'end_date', 'title')
 
     def finalize_response(self, request, response, *args, **kwargs):

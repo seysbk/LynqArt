@@ -88,8 +88,8 @@ export function HomePage({ session }) {
                   <Button variant="secondary">Upload Artwork</Button>
                 </Link>
               ) : session.user ? (
-                <Link to="/dashboard">
-                  <Button variant="secondary">Become an Artist</Button>
+                <Link to="/profile">
+                  <Button variant="secondary">Start Artist Profile</Button>
                 </Link>
               ) : (
                 <Link to="/register">
