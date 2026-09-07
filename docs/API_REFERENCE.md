@@ -123,7 +123,7 @@ Response:
 
 ### Get Artist Profile
 ```
-GET /accounts/artists/{user_id}/
+GET /api/accounts/artist-profiles/{id}/
 ```
 
 ## Artwork Endpoints
@@ -241,23 +241,24 @@ GET /exhibitions/{exhibition_id}/
 
 ### Add Artwork to Exhibition
 ```
-POST /exhibitions/{exhibition_id}/add-artwork/
+POST /api/exhibitions/artworks/
 Authorization: Bearer {access_token}
 Content-Type: application/json
 
 {
-  "artwork_id": "550e8400-e29b-41d4-a716-446655440000"
+  "exhibition": "550e8400-e29b-41d4-a716-446655440000",
+  "artwork": "550e8400-e29b-41d4-a716-446655440001"
 }
 ```
 
 ### Remove Artwork from Exhibition
 ```
-POST /exhibitions/{exhibition_id}/remove-artwork/
+DELETE /api/exhibitions/artworks/{id}/
 Authorization: Bearer {access_token}
 Content-Type: application/json
 
 {
-  "artwork_id": "550e8400-e29b-41d4-a716-446655440000"
+  "artwork": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -280,8 +281,8 @@ Authorization: Bearer {access_token} (optional)
 Content-Type: application/json
 
 {
-  "artwork_id": "550e8400-e29b-41d4-a716-446655440000",
-  "comment_text": "Great work! Love the use of color.",
+  "artwork": "550e8400-e29b-41d4-a716-446655440000",
+  "comment": "Great work! Love the use of color.",
   "parent_comment": null
 }
 ```
@@ -293,8 +294,8 @@ Authorization: Bearer {access_token}
 Content-Type: application/json
 
 {
-  "artwork_id": "550e8400-e29b-41d4-a716-446655440000",
-  "comment_text": "Thanks for the feedback!",
+  "artwork": "550e8400-e29b-41d4-a716-446655440000",
+  "comment": "Thanks for the feedback!",
   "parent_comment": "550e8400-e29b-41d4-a716-446655440099"
 }
 ```
@@ -308,7 +309,7 @@ Authorization: Bearer {access_token} (must be expert)
 Content-Type: application/json
 
 {
-  "artwork_id": "550e8400-e29b-41d4-a716-446655440000",
+  "artwork": "550e8400-e29b-41d4-a716-446655440000",
   "markdown_review": "# Expert Critique\n\nThis work demonstrates...",
   "rating": 4,
   "is_pinned": true
@@ -319,7 +320,7 @@ Content-Type: application/json
 
 ### Generate QR Code for Artwork
 ```
-POST /qr/generate-qr/
+POST /api/qr/codes/generate_qr/
 Authorization: Bearer {access_token}
 Content-Type: application/json
 

@@ -36,7 +36,7 @@ class ArtworkVersionSerializer(serializers.ModelSerializer):
             'change_note',
             'created_at',
         )
-        read_only_fields = ('id', 'created_at')
+        read_only_fields = ('id', 'created_at', 'version_number')
 
 
 class ArtworkImageSerializer(serializers.ModelSerializer):
@@ -53,6 +53,13 @@ class ArtworkImageSerializer(serializers.ModelSerializer):
             'created_at',
         )
         read_only_fields = ('id', 'created_at')
+
+
+class ArtworkBriefSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Artwork
+        fields = ('id', 'title', 'slug')
+        read_only_fields = fields
 
 
 class ArtworkTagSerializer(serializers.ModelSerializer):

@@ -69,14 +69,29 @@ class AIGenerationAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     @patch.dict('os.environ', {'OPENROUTER_API_KEY': ''})
-    def test_generate_draft_missing_api_key(self):
+    def test_generate_draft_missing_api_key_uses_fallback(self):
         self.client.force_authenticate(user=self.artist)
         response = self.client.post(self.url, {
             'artwork': str(self.artwork.id),
             'prompt': 'Exploring texture and shadow',
         })
-        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
-        self.assertIn('not configured', response.data['error'])
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['model_used'], 'structured-template-fallback')
+        self.assertIn('Bronze Reflection', response.data['generated_text'])
+
+    @patch('requests.post')
+    @patch.dict('os.environ', {'OPENROUTER_API_KEY': 'sk-or-v1-test-secret-key'})
+    def test_generate_draft_rate_limit_uses_fallback(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.status_code = 429
+        mock_response.json.return_value = {'error': {'message': 'rate limited'}}
+        mock_post.return_value = mock_response
+
+        self.client.force_authenticate(user=self.artist)
+        response = self.client.post(self.url, {'artwork': str(self.artwork.id)})
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['model_used'], 'structured-template-fallback')
 
     @patch('requests.post')
     @patch.dict('os.environ', {

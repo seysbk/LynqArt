@@ -42,7 +42,7 @@ export function DashboardPage({ session }) {
     Promise.all([
       api.get('/accounts/profile/'),
       api.get('/accounts/artist-profile/').catch(() => ({ data: null })),
-      api.get('/artworks/', { params: { ordering: '-created_at' } }),
+      api.get('/artworks/', { params: { artist: user.id, ordering: '-created_at' } }),
       api.get('/exhibitions/', { params: { organizer: user.id, ordering: '-created_at' } }).catch(() => ({ data: { results: [] } })),
       api.get('/qr/codes/', { params: { ordering: '-created_at' } }),
       api.get('/analytics/summary/').catch(() => ({ data: { total_views: 0, unique_visitors: 0, total_qr_scans: 0, unique_qr_visitors: 0, source_breakdown: [], artworks: [] } })),
@@ -62,7 +62,7 @@ export function DashboardPage({ session }) {
         const allFavorites = favoritesRes.data.results || favoritesRes.data || []
         const allAi = aiRes.data.results || aiRes.data || []
 
-        const myArtworks = allArtworks.filter((item) => item.artist?.id === user.id)
+        const myArtworks = allArtworks
         setArtworks(myArtworks)
         if (myArtworks.length > 0) setSelectedArtworkId(myArtworks[0].id)
 

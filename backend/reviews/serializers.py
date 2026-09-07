@@ -1,12 +1,12 @@
 from rest_framework import serializers
 
 from accounts.serializers import UserBriefSerializer
-from artworks.serializers import ArtworkSerializer
+from artworks.serializers import ArtworkBriefSerializer
 from .models import ExpertReview
 
 
 class ExpertReviewSerializer(serializers.ModelSerializer):
-    artwork_detail = ArtworkSerializer(source='artwork', read_only=True)
+    artwork_detail = ArtworkBriefSerializer(source='artwork', read_only=True)
     reviewer = UserBriefSerializer(read_only=True)
 
     class Meta:

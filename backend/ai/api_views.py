@@ -8,7 +8,7 @@ from exhibitions.models import Exhibition
 
 from .models import AIGeneration
 from .serializers import AIGenerationSerializer
-from .services import AIProviderError, AIService, AIServiceError
+from .services import AIConfigError, AIProviderError, AIService, AIServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -106,17 +106,37 @@ class AIGenerationViewSet(viewsets.ModelViewSet):
                 tone=tone,
                 mode=mode,
             )
-        except AIProviderError as e:
-            target = f'artwork {artwork.id}' if artwork else f'exhibition {exhibition.id}'
-            logger.error(f"AI Generation failed for user {request.user.id}, {target}: {e}")
-            response_status = e.provider_status if e.provider_status in {401, 402, 429} else status.HTTP_503_SERVICE_UNAVAILABLE
-            return Response(
-                {
-                    'error': str(e),
-                    'provider_status': e.provider_status,
-                },
-                status=response_status,
+        except AIConfigError as e:
+            generated_text = synthesize_artist_statement(
+                artwork.title if artwork else exhibition.title,
+                artwork.medium if artwork else '',
+                prompt,
+                tone,
             )
+            model_used = 'structured-template-fallback'
+        except AIProviderError as e:
+            if e.provider_status in {429, 503}:
+                generated_text = synthesize_artist_statement(
+                    artwork.title if artwork else exhibition.title,
+                    artwork.medium if artwork else '',
+                    prompt,
+                    tone,
+                )
+                model_used = 'structured-template-fallback'
+                e = None
+            if e is None:
+                pass
+            else:
+                target = f'artwork {artwork.id}' if artwork else f'exhibition {exhibition.id}'
+                logger.error(f"AI Generation failed for user {request.user.id}, {target}: {e}")
+                response_status = e.provider_status if e.provider_status in {401, 402, 429} else status.HTTP_503_SERVICE_UNAVAILABLE
+                return Response(
+                    {
+                        'error': str(e),
+                        'provider_status': e.provider_status,
+                    },
+                    status=response_status,
+                )
         except AIServiceError as e:
             target = f'artwork {artwork.id}' if artwork else f'exhibition {exhibition.id}'
             logger.error(f"AI Generation failed for user {request.user.id}, {target}: {e}")

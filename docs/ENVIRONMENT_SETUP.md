@@ -15,7 +15,7 @@ LynqArt's Django backend uses environment variables for flexible configuration a
 2. **Edit `.env` with your values:**
    ```bash
    # Development defaults are already suitable for local testing
-   # Just ensure SECRET_KEY and DATABASE_URL are configured
+   # Just ensure SECRET_KEY and DB_* variables are configured
    ```
 
 3. **Load environment variables:**
@@ -44,27 +44,27 @@ LynqArt's Django backend uses environment variables for flexible configuration a
 
 | Variable | Default | Purpose | Example |
 |----------|---------|---------|---------|
-| `DATABASE_ENGINE` | `django.db.backends.sqlite3` | Database backend | `django.db.backends.postgresql` for PostgreSQL |
-| `DATABASE_NAME` | `db.sqlite3` | Database name/path | `/path/to/db.sqlite3` or `lynqart_db` |
-| `DATABASE_USER` | `` | Database user (PostgreSQL only) | `postgres` |
-| `DATABASE_PASSWORD` | `` | Database password (PostgreSQL only) | `your_secure_password` |
-| `DATABASE_HOST` | `` | Database host (PostgreSQL only) | `localhost`, `neon.tech`, etc. |
-| `DATABASE_PORT` | `` | Database port (PostgreSQL only) | `5432` |
+| `DB_ENGINE` | `django.db.backends.sqlite3` | Database backend | `django.db.backends.postgresql` for PostgreSQL |
+| `DB_NAME` | `db.sqlite3` | Database name/path | `/path/to/db.sqlite3` or `lynqart_db` |
+| `DB_USER` | `` | Database user (PostgreSQL only) | `postgres` |
+| `DB_PASSWORD` | `` | Database password (PostgreSQL only) | `your_secure_password` |
+| `DB_HOST` | `` | Database host (PostgreSQL only) | `localhost`, `neon.tech`, etc. |
+| `DB_PORT` | `` | Database port (PostgreSQL only) | `5432` |
 
 **SQLite Example (Development):**
 ```bash
-DATABASE_ENGINE=django.db.backends.sqlite3
-DATABASE_NAME=db.sqlite3
+DB_ENGINE=django.db.backends.sqlite3
+DB_NAME=db.sqlite3
 ```
 
 **PostgreSQL Example (Production on Neon):**
 ```bash
-DATABASE_ENGINE=django.db.backends.postgresql
-DATABASE_NAME=lynqart_prod
-DATABASE_USER=postgres
-DATABASE_PASSWORD=your_secure_password
-DATABASE_HOST=ep-example.us-east-1.compute.neon.tech
-DATABASE_PORT=5432
+DB_ENGINE=django.db.backends.postgresql
+DB_NAME=lynqart_prod
+DB_USER=postgres
+DB_PASSWORD=your_secure_password
+DB_HOST=ep-example.us-east-1.compute.neon.tech
+DB_PORT=5432
 ```
 
 ### CORS Configuration

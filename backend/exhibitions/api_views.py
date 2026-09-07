@@ -38,6 +38,11 @@ class ExhibitionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        user = self.request.user
+        if not user.is_authenticated:
+            queryset = queryset.filter(status='published')
+        elif not (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)):
+            queryset = queryset.filter(organizer=user) | queryset.filter(status='published')
         if self.action in {'update', 'partial_update', 'destroy'} and self.request.user.is_authenticated:
             if not (getattr(self.request.user, 'is_staff', False) or getattr(self.request.user, 'is_superuser', False)):
                 return queryset.filter(organizer=self.request.user)

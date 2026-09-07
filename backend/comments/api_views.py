@@ -19,6 +19,11 @@ class CommentViewSet(viewsets.ModelViewSet):
     ordering_fields = ('created_at', 'updated_at')
 
     def perform_create(self, serializer):
+        artwork = serializer.validated_data['artwork']
+        if not artwork.allow_comments:
+            from rest_framework.exceptions import ValidationError
+
+            raise ValidationError({'artwork': 'Comments are disabled for this artwork.'})
         serializer.save(user=self.request.user)
 
     def get_queryset(self):

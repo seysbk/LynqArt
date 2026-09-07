@@ -48,9 +48,9 @@ export function ExhibitionManagerPage() {
   const [showAiModal, setShowAiModal] = useState(false)
   const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null, confirmText: 'OK', cancelText: null })
 
-  const loadAllArtworks = () =>
+  const loadArtworks = (search = '') =>
     api
-      .get('/artworks/', { params: { ordering: 'title' } })
+      .get('/artworks/', { params: { ordering: 'title', search: search.trim() || undefined } })
       .then(({ data }) => setAllArtworks(data.results || data || []))
 
   const refresh = async (slug) => {
@@ -65,7 +65,10 @@ export function ExhibitionManagerPage() {
   }
 
   useEffect(() => {
-    loadAllArtworks()
+    loadArtworks(artworkSearch)
+  }, [artworkSearch])
+
+  useEffect(() => {
     if (exhibitionSlug) {
       refresh(exhibitionSlug).catch(() => {})
       const stepFromQuery = searchParams.get('step')
@@ -205,9 +208,7 @@ export function ExhibitionManagerPage() {
   }
 
   const linkedArtworkIds = new Set((item?.artworks || []).map((link) => link.artwork || link.artwork_detail?.id))
-  const filteredArtworks = allArtworks.filter((artwork) =>
-    artwork.title.toLowerCase().includes(artworkSearch.trim().toLowerCase()),
-  )
+  const filteredArtworks = allArtworks
 
   const toggleArtworkLink = async (artworkId) => {
     if (!item) return

@@ -1,13 +1,13 @@
 from rest_framework import serializers
 
 from accounts.serializers import UserBriefSerializer
-from artworks.serializers import ArtworkSerializer
+from artworks.serializers import ArtworkBriefSerializer
 from .models import Comment, Favorite
 
 
 class CommentSerializer(serializers.ModelSerializer):
     user = UserBriefSerializer(read_only=True)
-    artwork_detail = ArtworkSerializer(source='artwork', read_only=True)
+    artwork_detail = ArtworkBriefSerializer(source='artwork', read_only=True)
     parent_comment_detail = serializers.StringRelatedField(source='parent_comment', read_only=True)
     replies = serializers.SerializerMethodField()
 

@@ -79,7 +79,7 @@ class ArtistProfileSelfView(APIView):
     parser_classes = [MultiPartParser, FormParser, permissions.serializers if hasattr(permissions, 'serializers') else APIView.parser_classes[0]]
 
     def get(self, request):
-        profile, _ = ArtistProfile.objects.get_or_create(user=request.user)
+        profile = ArtistProfile.objects.filter(user=request.user).first()
         return Response(BecomeArtistSerializer(profile).data)
 
     def patch(self, request):

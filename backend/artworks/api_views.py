@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
@@ -49,7 +50,7 @@ class ArtworkViewSet(viewsets.ModelViewSet):
     permission_classes = [IsArtistOrReadOnly, IsOwnerOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ('title', 'slug', 'description', 'medium', 'artist__username', 'artist__email', 'category__name')
-    filterset_fields = ('status', 'is_featured', 'allow_comments', 'category', 'artist')
+    filterset_fields = ('status', 'is_featured', 'allow_comments', 'category', 'artist', 'artist_id')
     ordering_fields = ('created_at', 'updated_at', 'published_at', 'title')
 
     def finalize_response(self, request, response, *args, **kwargs):
@@ -66,6 +67,11 @@ class ArtworkViewSet(viewsets.ModelViewSet):
         artist_id = self.request.query_params.get('artist_id') or self.request.query_params.get('artist')
         if artist_id:
             queryset = queryset.filter(artist_id=artist_id)
+        user = self.request.user
+        if not user.is_authenticated:
+            queryset = queryset.filter(status=Artwork.STATUS_PUBLISHED)
+        elif not (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)):
+            queryset = queryset.filter(artist=user) | queryset.filter(status=Artwork.STATUS_PUBLISHED)
         if self.action in {'update', 'partial_update', 'destroy'} and self.request.user.is_authenticated:
             if not (getattr(self.request.user, 'is_staff', False) or getattr(self.request.user, 'is_superuser', False)):
                 return queryset.filter(artist=self.request.user)
@@ -147,13 +153,15 @@ class ArtworkVersionViewSet(viewsets.ModelViewSet):
     ordering_fields = ('created_at', 'version_number')
 
     def perform_create(self, serializer):
-        artwork = serializer.validated_data['artwork']
         user = self.request.user
+        artwork = serializer.validated_data['artwork']
         if not getattr(user, 'is_staff', False) and not getattr(user, 'is_superuser', False) and artwork.artist_id != user.id:
             raise PermissionDenied('You do not have permission to update this artwork statement.')
 
-        version = serializer.save()
-        if artwork.current_version_id != version.id:
+        with transaction.atomic():
+            artwork = Artwork.objects.select_for_update().get(pk=artwork.pk)
+            next_version = artwork.versions.order_by('-version_number').values_list('version_number', flat=True).first() or 0
+            version = serializer.save(artwork=artwork, version_number=next_version + 1)
             artwork.current_version = version
             artwork.save(update_fields=['current_version', 'updated_at'])
 

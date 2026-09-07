@@ -83,44 +83,38 @@
 
 ## 3. Phase 5: High-Priority Functional Bug Fixes & Architectural Integrity
 
-- [ ] **5.1. Fix Artist Profile Page Artwork Query Bug**
-  - [ ] In `backend/artworks/api_views.py`, add `artist` and `artist_id` to `ArtworkViewSet.filterset_fields`.
-  - [ ] Currently, calling `/api/artworks/?artist_id=...` ignores the parameter and returns artworks from **every artist on the platform**, corrupting public artist portfolio pages.
+- [x] **5.1. Fix Artist Profile Page Artwork Query Bug**
+  - [x] In `backend/artworks/api_views.py`, add `artist` and `artist_id` to `ArtworkViewSet.filterset_fields`.
+  - [x] Calling `/api/artworks/?artist_id=...` now filters the portfolio to the requested artist.
 
-- [ ] **5.2. Replace In-Memory Dashboard & Selector Pagination Trap**
-  - [ ] In `frontend/src/pages/dashboard/DashboardPage.jsx`, replace `api.get('/artworks/')` + JS `.filter()` with a backend query: `api.get('/artworks/', { params: { artist: user.id } })`. Currently, the dashboard only inspects page 1 (first 20 artworks globally); if >20 artworks exist, an artist's works drop off page 1 and the dashboard shows 0 artworks.
-  - [ ] In `frontend/src/pages/dashboard/ExhibitionManagerPage.jsx`, add server-side search (`/api/artworks/?search=...`) to the artwork link selector rather than client-filtering only the first 20 items.
+- [x] **5.2. Replace In-Memory Dashboard & Selector Pagination Trap**
+  - [x] `DashboardPage.jsx` requests artworks with the current user's `artist` filter instead of loading the global first page and filtering in JavaScript.
+  - [x] `ExhibitionManagerPage.jsx` sends the selector search term to `/api/artworks/?search=...` instead of filtering only the loaded page locally.
 
-- [ ] **5.3. Implement Frontend JWT Silent Token Refresh**
-  - [ ] Update `frontend/src/lib/api.js` Axios response interceptor: when a request fails with `401 Unauthorized`, attempt to refresh using `lynqart_refresh_token` via `POST /api/accounts/token/refresh/` and retry the original request.
-  - [ ] Currently, token refreshing is never invoked on the frontend; after 60 minutes, the interceptor abruptly wipes credentials and logs the user out, causing artists to lose uncommitted statement drafts.
+- [x] **5.3. Implement Frontend JWT Silent Token Refresh**
+  - [x] The Axios response interceptor refreshes using `lynqart_refresh_token`, retries the original request, and preserves rotated refresh tokens.
 
-- [ ] **5.4. Restrict Draft Content from Public Feeds**
-  - [ ] In `ArtworkViewSet.get_queryset()` and `ExhibitionViewSet.get_queryset()`, ensure unauthenticated or non-owner requests are strictly filtered to `status='published'`. Currently, draft artworks and exhibitions are visible to anyone who queries the API.
+- [x] **5.4. Restrict Draft Content from Public Feeds**
+  - [x] `ArtworkViewSet.get_queryset()` and `ExhibitionViewSet.get_queryset()` restrict unauthenticated and non-owner reads to published content while retaining owner access to drafts.
 
-- [ ] **5.5. Eliminate N+1 Query Cascade on Comments and Reviews**
-  - [ ] In `backend/comments/serializers.py` and `backend/reviews/serializers.py`, remove `artwork_detail = ArtworkSerializer(source='artwork', read_only=True)`.
-  - [ ] Replace with a lightweight `ArtworkBriefSerializer` (id, title, slug) to avoid serializing all versions, gallery images, and tags for every single comment and reply.
+- [x] **5.5. Eliminate N+1 Query Cascade on Comments and Reviews**
+  - [x] Comment and review serializers now use `ArtworkBriefSerializer` with only `id`, `title`, and `slug`.
 
-- [ ] **5.6. Connect AI Statement Fallback Generator**
-  - [ ] In `backend/ai/api_views.py`, wire up the unused `synthesize_artist_statement(...)` function inside `generate_draft()`. If OpenRouter returns 429, 503, or `OPENROUTER_API_KEY` is not configured, fall back to the structured template generator instead of throwing an unhandled 503 error.
+- [x] **5.6. Connect AI Statement Fallback Generator**
+  - [x] `generate_draft()` falls back to the structured template for missing API keys and OpenRouter 429/503 responses.
 
-- [ ] **5.7. Fix Environment Loading Collision (`load_dotenv`)**
-  - [ ] In `backend/config/settings.py`, change `load_dotenv(BASE_DIR / '.env')` to `load_dotenv(BASE_DIR / '.env', override=True)`. This prevents ambient OS environment variables (such as `DEBUG=release` on Windows) from crashing the server on startup.
+- [x] **5.7. Fix Environment Loading Collision (`load_dotenv`)
+  - [x] `load_dotenv(BASE_DIR / '.env', override=True)` ensures project configuration wins over ambient environment values.
 
-- [ ] **5.8. Synchronize Documentation with Actual Codebase**
-  - [ ] Correct endpoints in `docs/API_REFERENCE.md`:
-    - Change `/qr/generate-qr/` to `/api/qr/codes/generate_qr/`.
-    - Change `/accounts/artists/{user_id}/` to `/api/accounts/artist-profiles/{id}/`.
-    - Document the actual exhibition artwork linking route (`/api/exhibitions/artworks/`).
-    - Correct comment payload fields (`comment` instead of `comment_text`, `artwork` instead of `artwork_id`).
-  - [ ] Synchronize `docs/ENVIRONMENT_SETUP.md` with `settings.py` database variables (`DB_*` vs. `DATABASE_*`).
+- [x] **5.8. Synchronize Documentation with Actual Codebase**
+  - [x] API routes and payload names in `docs/API_REFERENCE.md` now match the implementation.
+  - [x] `docs/ENVIRONMENT_SETUP.md` now documents the `DB_*` settings used by `settings.py`.
 
-- [ ] **5.9. Prevent Unsolicited Artist Profile Creation**
-  - [ ] In `backend/accounts/auth_views.py` (`ArtistProfileSelfView.get`), replace `get_or_create` with a standard `.filter().first()` query. Visiting the endpoint should not automatically create an `ArtistProfile` for a regular user.
+- [x] **5.9. Prevent Unsolicited Artist Profile Creation**
+  - [x] `ArtistProfileSelfView.get` uses `.filter(user=request.user).first()` and does not create a profile as a side effect.
 
-- [ ] **5.10. Enforce Artwork `allow_comments` Setting**
-  - [ ] In `CommentViewSet.perform_create` (`backend/comments/api_views.py`), verify `artwork.allow_comments == True` before creating comments.
+- [x] **5.10. Enforce Artwork `allow_comments` Setting**
+  - [x] `CommentViewSet.perform_create` rejects comments when the target artwork has `allow_comments=False`.
 
 ---
 
@@ -140,8 +134,8 @@
   - [ ] In `QRCodeSerializer.validate` (`backend/qr/serializers.py`), verify that the target `entity_id` actually exists in the database.
   - [ ] Add a `unique_together = ('entity_type', 'entity_id')` constraint or use `get_or_create` logic in `generate_qr` so repeated clicks do not create duplicate QR records with incrementing slugs.
 
-- [ ] **6.3. Concurrency-Safe Artwork Version Numbering**
-  - [ ] Move `version_number` increment logic from the client to `ArtworkVersionViewSet.perform_create` using database transactions (`select_for_update()`) to eliminate duplicate version race conditions.
+- [x] **6.3. Concurrency-Safe Artwork Version Numbering**
+  - [x] `ArtworkVersionViewSet.perform_create` assigns version numbers under `transaction.atomic()` with `select_for_update()` and updates the current version.
 
 - [ ] **6.4. Comment Moderation & Reporting Subsystem**
   - [ ] Implement a `ReportedComment` model and endpoint (`POST /api/comments/{id}/report/`) so users can flag abusive comments.
