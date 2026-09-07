@@ -33,6 +33,24 @@ class Artwork(models.Model):
         (STATUS_ARCHIVED, 'Archived'),
     ]
 
+    AVAILABILITY_AVAILABLE = 'available_for_enquiry'
+    AVAILABILITY_NOT_FOR_SALE = 'not_for_sale'
+    AVAILABILITY_ON_LOAN = 'on_loan'
+    AVAILABILITY_SOLD = 'sold'
+    AVAILABILITY_CHOICES = [
+        (AVAILABILITY_AVAILABLE, 'Available for acquisition / enquiries'),
+        (AVAILABILITY_NOT_FOR_SALE, 'Not available for sale / Private collection'),
+        (AVAILABILITY_ON_LOAN, 'On loan'),
+        (AVAILABILITY_SOLD, 'Acquired / Sold'),
+    ]
+
+    LICENSE_CHOICES = [
+        ('all_rights_reserved', 'All Rights Reserved'),
+        ('cc_by_nc_nd', 'Creative Commons BY-NC-ND'),
+        ('cc_by_sa', 'Creative Commons BY-SA'),
+        ('public_domain', 'Public Domain'),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     artist = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='artworks')
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='artworks')
@@ -47,6 +65,11 @@ class Artwork(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_DRAFT)
     allow_comments = models.BooleanField(default=True)
     is_featured = models.BooleanField(default=False)
+    is_artist_featured = models.BooleanField(default=False)
+    availability_status = models.CharField(max_length=30, choices=AVAILABILITY_CHOICES, default=AVAILABILITY_AVAILABLE)
+    copyright_holder = models.CharField(max_length=255, blank=True, default='')
+    license_type = models.CharField(max_length=50, choices=LICENSE_CHOICES, default='all_rights_reserved')
+    provenance_notes = models.TextField(blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     published_at = models.DateTimeField(null=True, blank=True)

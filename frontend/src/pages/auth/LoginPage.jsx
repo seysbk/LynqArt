@@ -9,11 +9,13 @@ const inputClass =
 export function LoginPage({ session }) {
   const navigate = useNavigate()
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const onSubmit = async (event) => {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
     setError('')
+    setLoading(true)
 
     try {
       await session.signIn({
@@ -23,6 +25,7 @@ export function LoginPage({ session }) {
       navigate('/dashboard')
     } catch (error) {
       setError(getApiErrorMessage(error, 'Please check your credentials and try again.'))
+      setLoading(false)
     }
   }
 
@@ -32,6 +35,7 @@ export function LoginPage({ session }) {
       subtitle="Access your creator dashboard, statement history, and physical QR codes."
       onSubmit={onSubmit}
       error={error}
+      loading={loading}
       cta="Sign In"
     >
       <input

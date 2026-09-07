@@ -1,7 +1,8 @@
 import React from 'react'
+import { Loader2 } from 'lucide-react'
 import { Icon } from './Icons'
 
-export function AuthForm({ title, subtitle, children, onSubmit, error, cta }) {
+export function AuthForm({ title, subtitle, children, onSubmit, error, cta, loading = false }) {
   return (
     <section className="mx-auto max-w-lg fm-card p-8 shadow-2xl shadow-indigo-950/40 my-8">
       <div className="mb-6 text-center">
@@ -14,7 +15,9 @@ export function AuthForm({ title, subtitle, children, onSubmit, error, cta }) {
       </div>
 
       <form className="space-y-4" onSubmit={onSubmit}>
-        {children}
+        <fieldset disabled={loading} className="space-y-4 border-0 p-0 m-0">
+          {children}
+        </fieldset>
 
         {error && (
           <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-300 flex items-center gap-2">
@@ -25,12 +28,17 @@ export function AuthForm({ title, subtitle, children, onSubmit, error, cta }) {
 
         <button
           type="submit"
-          className="fm-btn-primary w-full flex items-center justify-center gap-2 text-sm mt-2"
+          className="fm-btn-primary w-full flex items-center justify-center gap-2 text-sm mt-2 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+          disabled={loading}
         >
-          <span>{cta}</span>
-          <Icon name="arrowRight" className="h-4 w-4" />
+          {loading ? (
+            <><Loader2 className="h-4 w-4 animate-spin text-white" /><span>Authenticating...</span></>
+          ) : (
+            <><span>{cta}</span><Icon name="arrowRight" className="h-4 w-4" /></>
+          )}
         </button>
       </form>
     </section>
   )
 }
+

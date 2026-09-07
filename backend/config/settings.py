@@ -142,8 +142,12 @@ REST_FRAMEWORK = {
         'user': '1000/day',
         'login': '10/minute',
         'ai_generation': '10/minute',
+        'contact': '5/hour',
     },
 }
+
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'no-reply@lynqart.local')
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),

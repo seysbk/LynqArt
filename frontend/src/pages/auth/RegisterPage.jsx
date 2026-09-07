@@ -9,11 +9,13 @@ const inputClass =
 export function RegisterPage({ session }) {
   const navigate = useNavigate()
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const onSubmit = async (event) => {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
     setError('')
+    setLoading(true)
 
     try {
       await session.register({
@@ -27,6 +29,7 @@ export function RegisterPage({ session }) {
       navigate('/dashboard')
     } catch (error) {
       setError(getApiErrorMessage(error, 'Please review your registration details and try again.'))
+      setLoading(false)
     }
   }
 
@@ -36,6 +39,7 @@ export function RegisterPage({ session }) {
       subtitle="Register a free account to participate in discussions, bookmark artworks, and activate your artist profile."
       onSubmit={onSubmit}
       error={error}
+      loading={loading}
       cta="Create Account"
     >
       <input className={inputClass} name="username" placeholder="Username *" required />

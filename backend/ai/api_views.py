@@ -16,33 +16,20 @@ logger = logging.getLogger(__name__)
 def synthesize_artist_statement(title, medium, concept, tone='contemplative'):
     """
     Structured artistic statement generator fallback when OpenAI/OpenRouter API key is not configured.
-    Generates rich, professional Markdown statements for artists.
+    Provides a clean, humble Markdown draft based strictly on the artist's supplied title, medium, and notes.
     """
-    tones = {
-        'poetic': 'evokes an introspective resonance',
-        'academic': 'interrogates the formal and materiality boundaries',
-        'minimalist': 'strips away noise to accentuate essential core form',
-        'contemplative': 'invites quiet reflection on memory and perception',
-    }
-    selected_tone = tones.get(tone.lower(), tones['contemplative'])
-    
     title_str = title or 'Untitled Work'
     medium_str = medium or 'mixed media'
-    concept_str = concept or 'exploring form, texture, and physical presence'
+    concept_str = concept or 'the physical relationships between materials, form, and composition'
 
-    statement = (
+    return (
         f"## Artist Statement: *{title_str}*\n\n"
-        f"*{title_str}* is an exploration rendered through {medium_str}. "
-        f"At its core, the work engages with {concept_str}, creating a space where physical texture and narrative converge.\n\n"
-        f"### Conceptual Foundations\n"
-        f"Through this piece, the creative practice {selected_tone}. "
-        f"The choice of {medium_str} is intentional—allowing subtle interactions between light, surface, and composition to articulate themes that words often fail to capture fully.\n\n"
-        f"> \"The physical artwork acts as an anchor for digital memory—a visual dialogue between presence and preservation.\"\n\n"
-        f"### Process & Materials\n"
-        f"The construction of *{title_str}* relies on deliberate layering and reduction. "
-        f"By balancing structured geometry with intuitive mark-making, the work remains an open dialogue between the artist's intent and the viewer's perception."
+        f"*{title_str}* is created using {medium_str}. "
+        f"The work focuses on {concept_str}.\n\n"
+        f"### Materials & Approach\n"
+        f"Working with {medium_str} provides a direct physical foundation for the piece. "
+        f"The arrangement emphasizes balance, texture, and the visual character of the chosen medium."
     )
-    return statement
 
 
 class AIGenerationViewSet(viewsets.ModelViewSet):

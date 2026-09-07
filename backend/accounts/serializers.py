@@ -5,7 +5,7 @@ from django.db import transaction
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import ArtistProfile
+from .models import ArtistProfile, ContactMessage
 
 User = get_user_model()
 
@@ -205,4 +205,29 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         forbidden = self.protected_fields.intersection(self.initial_data.keys())
         if forbidden:
             raise serializers.ValidationError({field: 'This field cannot be changed here.' for field in sorted(forbidden)})
+        return attrs
+
+
+class ContactMessageSerializer(serializers.ModelSerializer):
+    artist_id = serializers.PrimaryKeyRelatedField(source='artist', queryset=User.objects.filter(is_artist=True), write_only=True)
+    artist = UserBriefSerializer(read_only=True)
+
+    class Meta:
+        model = ContactMessage
+        fields = (
+            'id', 'artist', 'artist_id', 'artwork', 'sender_name', 'sender_email',
+            'sender_phone', 'inquiry_type', 'message', 'created_at',
+        )
+        read_only_fields = ('id', 'created_at')
+
+    def validate_message(self, value):
+        if len(value.strip()) < 10:
+            raise serializers.ValidationError('Please provide at least 10 characters.')
+        return value
+
+    def validate(self, attrs):
+        artwork = attrs.get('artwork')
+        artist = attrs['artist']
+        if artwork and artwork.artist_id != artist.id:
+            raise serializers.ValidationError({'artwork': 'This artwork does not belong to the selected artist.'})
         return attrs

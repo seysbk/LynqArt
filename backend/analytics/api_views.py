@@ -31,6 +31,8 @@ class ArtworkViewViewSet(viewsets.ModelViewSet):
         artwork = Artwork.objects.filter(pk=request.data.get('artwork'), status=Artwork.STATUS_PUBLISHED).first()
         if not artwork:
             return Response({'artwork': 'Published artwork not found.'}, status=status.HTTP_404_NOT_FOUND)
+        if request.user.is_authenticated and artwork.artist_id == request.user.id:
+            return Response({'detail': 'Owner previews are not counted as views.'}, status=status.HTTP_200_OK)
         visitor_hash = hashlib.sha256(
             f"{get_client_ip(request)}:{request.META.get('HTTP_USER_AGENT', '')}".encode()
         ).hexdigest()

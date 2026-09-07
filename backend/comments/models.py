@@ -28,3 +28,35 @@ class Favorite(models.Model):
 
     def __str__(self):
         return f'{self.user} likes {self.artwork}'
+
+
+class Report(models.Model):
+    REASON_CHOICES = [
+        ('inappropriate', 'Inappropriate Content / NSFW'),
+        ('harassment', 'Harassment or Hate Speech'),
+        ('spam', 'Spam or Advertising'),
+        ('copyright', 'Copyright or Intellectual Property Infringement'),
+        ('other', 'Other Violation'),
+    ]
+    STATUS_CHOICES = [
+        ('pending', 'Pending Review'),
+        ('reviewed', 'Reviewed'),
+        ('dismissed', 'Dismissed'),
+        ('actioned', 'Actioned'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    reporter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='reports')
+    reporter_ip = models.CharField(max_length=64, blank=True, default='')
+    target_comment = models.ForeignKey(Comment, on_delete=models.CASCADE, null=True, blank=True, related_name='reports')
+    target_artwork = models.ForeignKey('artworks.Artwork', on_delete=models.CASCADE, null=True, blank=True, related_name='reports')
+    target_exhibition = models.ForeignKey('exhibitions.Exhibition', on_delete=models.CASCADE, null=True, blank=True, related_name='reports')
+    target_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='reported_as_target')
+    reason = models.CharField(max_length=32, choices=REASON_CHOICES)
+    details = models.TextField(blank=True, default='')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    moderator_notes = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('-created_at',)

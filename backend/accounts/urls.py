@@ -3,12 +3,13 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 
 from .auth_views import ArtistProfileSelfView, BecomeArtistView, CurrentUserView, RegisterView, ThrottledTokenObtainPairView
-from .api_views import ArtistProfileViewSet, UserViewSet
+from .api_views import ArtistProfileViewSet, ContactMessageViewSet, UserViewSet
 from .views import healthcheck
 
 router = DefaultRouter()
 router.register(r'users', UserViewSet, basename='user')
 router.register(r'artist-profiles', ArtistProfileViewSet, basename='artistprofile')
+router.register(r'inquiries', ContactMessageViewSet, basename='inquiry')
 
 urlpatterns = [
     path('', healthcheck, name='accounts-healthcheck'),

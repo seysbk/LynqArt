@@ -50,7 +50,7 @@ class ArtworkViewSet(viewsets.ModelViewSet):
     permission_classes = [IsArtistOrReadOnly, IsOwnerOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ('title', 'slug', 'description', 'medium', 'artist__username', 'artist__email', 'category__name')
-    filterset_fields = ('status', 'is_featured', 'allow_comments', 'category', 'artist', 'artist_id')
+    filterset_fields = ('status', 'is_featured', 'is_artist_featured', 'allow_comments', 'category', 'artist', 'artist_id')
     ordering_fields = ('created_at', 'updated_at', 'published_at', 'title')
 
     def finalize_response(self, request, response, *args, **kwargs):

@@ -1,12 +1,15 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, permissions, status, viewsets
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from accounts.permissions import IsOwnerOrReadOnly
 
-from .models import Comment, Favorite
-from .serializers import CommentSerializer, FavoriteSerializer
+from config.security import get_client_ip
+
+from .models import Comment, Favorite, Report
+from .serializers import CommentSerializer, FavoriteSerializer, ReportSerializer
 
 
 class CommentViewSet(viewsets.ModelViewSet):
@@ -21,9 +24,11 @@ class CommentViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         artwork = serializer.validated_data['artwork']
         if not artwork.allow_comments:
-            from rest_framework.exceptions import ValidationError
-
             raise ValidationError({'artwork': 'Comments are disabled for this artwork.'})
+        if serializer.validated_data.get('parent_comment') and artwork.artist != self.request.user and not (
+            self.request.user.is_staff or self.request.user.is_superuser
+        ):
+            raise PermissionDenied('Only the artist can reply to visitor comments on this artwork.')
         serializer.save(user=self.request.user)
 
     def get_queryset(self):
@@ -61,3 +66,19 @@ class FavoriteViewSet(viewsets.ModelViewSet):
             if deleted_count == 0:
                 return Response({'detail': 'Favorite not found.'}, status=status.HTTP_404_NOT_FOUND)
             return Response({'detail': 'Favorite removed.'}, status=status.HTTP_204_NO_CONTENT)
+
+
+class ReportViewSet(viewsets.ModelViewSet):
+    queryset = Report.objects.select_related('reporter', 'target_comment', 'target_artwork', 'target_exhibition', 'target_user').all()
+    serializer_class = ReportSerializer
+    permission_classes = [permissions.AllowAny]
+    http_method_names = ['post', 'get', 'head', 'options']
+
+    def get_queryset(self):
+        if self.request.user.is_authenticated and (self.request.user.is_staff or self.request.user.is_superuser):
+            return super().get_queryset()
+        return Report.objects.none()
+
+    def perform_create(self, serializer):
+        user = self.request.user if self.request.user.is_authenticated else None
+        serializer.save(reporter=user, reporter_ip=get_client_ip(self.request))

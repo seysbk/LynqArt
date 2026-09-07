@@ -4,7 +4,8 @@ import { api, mediaUrl } from '../../lib/api'
 import { ArtworkCard } from '../../components/ui/ArtworkCard'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { LoadingState } from '../../components/ui/LoadingState'
-import { MapPin, Globe, Video } from 'lucide-react'
+import { MapPin, Globe, Video, Mail } from 'lucide-react'
+import { ContactArtistModal } from '../../components/ui/ContactArtistModal'
 
 function InstagramIcon({ className }) {
   return (
@@ -57,21 +58,21 @@ function TwitterIcon({ className }) {
 }
 
 export function ArtistProfilePage() {
-  const { artistId } = useParams()
+  const { artistIdentifier } = useParams()
   const [profile, setProfile] = useState(null)
   const [artworks, setArtworks] = useState([])
   const [loading, setLoading] = useState(true)
+  const [contactOpen, setContactOpen] = useState(false)
 
   useEffect(() => {
     let alive = true
     Promise.all([
-      api.get('/accounts/artist-profiles/', { params: { user: artistId } }),
-      api.get('/artworks/', { params: { artist_id: artistId, status: 'published', ordering: '-created_at' } }),
+      api.get(`/accounts/artist-profiles/${artistIdentifier}/`),
+      api.get('/artworks/', { params: { artist: artistIdentifier, status: 'published', ordering: '-created_at' } }),
     ])
       .then(([profileRes, artworksRes]) => {
         if (!alive) return
-        const records = profileRes.data.results || profileRes.data || []
-        setProfile(records[0] || null)
+        setProfile(profileRes.data)
         setArtworks(artworksRes.data.results || artworksRes.data || [])
         setLoading(false)
       })
@@ -83,12 +84,13 @@ export function ArtistProfilePage() {
     return () => {
       alive = false
     }
-  }, [artistId])
+  }, [artistIdentifier])
 
   if (loading) return <LoadingState title="Loading Artist Portfolio" description="Fetching bio and artworks..." />
   if (!profile) return <EmptyState title="Artist Profile Not Found" description="This artist profile is not available." />
 
   const artistName = profile.user?.full_name || profile.user?.username || 'Artist'
+  const featuredArtworks = artworks.filter((artwork) => artwork.is_artist_featured)
 
   return (
     <div className="space-y-12 lg:space-y-16">
@@ -113,6 +115,7 @@ export function ArtistProfilePage() {
               )}
             </div>
           </div>
+          <button type="button" onClick={() => setContactOpen(true)} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-indigo-500 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-400"><Mail className="h-4 w-4" /> Contact artist</button>
 
           {/* Social & External Links */}
           <div className="flex flex-wrap items-center gap-3 text-xs text-[#A1A1AA]">
@@ -217,6 +220,8 @@ export function ArtistProfilePage() {
         )}
       </div>
 
+      {featuredArtworks.length > 0 && <section className="space-y-5"><h2 className="text-2xl font-bold text-white">Selected works</h2><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{featuredArtworks.map((artwork) => <ArtworkCard key={artwork.id} artwork={artwork} source="artist_featured" />)}</div></section>}
+
       {/* Published Portfolio Artworks (Section 39) */}
       <section className="space-y-6">
         <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
@@ -233,6 +238,7 @@ export function ArtistProfilePage() {
           <EmptyState title="No Public Artworks" description="This artist has not published any public portfolio works yet." />
         )}
       </section>
+      {contactOpen && <ContactArtistModal artist={profile.user} onClose={() => setContactOpen(false)} />}
     </div>
   )
 }

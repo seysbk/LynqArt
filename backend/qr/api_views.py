@@ -77,7 +77,11 @@ class QRCodeViewSet(viewsets.ModelViewSet):
         except ImportError:
             Image = None
 
-        qr = qrcode.QRCode(border=1, box_size=8)
+        qr = qrcode.QRCode(
+            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            border=2,
+            box_size=8,
+        )
         frontend_url = getattr(settings, 'FRONTEND_BASE_URL', 'http://localhost:5173').rstrip('/')
         qr.add_data(f'{frontend_url}/q/{qr_code.qr_slug}')
         qr.make(fit=True)
@@ -114,6 +118,17 @@ class QRCodeViewSet(viewsets.ModelViewSet):
 
             # Paste QR code in center
             card.paste(qr_img, (padding, padding + header_h))
+
+            logo_size = max(24, int(qr_w * 0.18))
+            logo_left = padding + (qr_w - logo_size) // 2
+            logo_top = padding + header_h + (qr_h - logo_size) // 2
+            draw.rounded_rectangle(
+                (logo_left, logo_top, logo_left + logo_size, logo_top + logo_size),
+                radius=logo_size // 5,
+                fill='white',
+            )
+            mark_margin = max(4, logo_size // 5)
+            draw.text((logo_left + mark_margin, logo_top + mark_margin), 'L', fill='#4F46E5')
 
             # Draw bottom branding "LynqArt"
             draw.text((padding, padding + header_h + qr_h + 8), 'LynqArt', fill='#818CF8')

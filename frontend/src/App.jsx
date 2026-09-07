@@ -29,7 +29,7 @@ function App() {
         <Route index element={<HomePage session={session} />} />
         <Route path="explore" element={<ExplorePage />} />
         <Route path="artworks/:artworkSlug" element={<ArtworkDetailPage session={session} />} />
-        <Route path="artists/:artistId/:slug?" element={<ArtistProfilePage />} />
+        <Route path="artists/:artistIdentifier/:slug?" element={<ArtistProfilePage />} />
         <Route path="exhibitions/:exhibitionSlug" element={<ExhibitionPage />} />
         <Route path="qr/:qrSlug" element={<QRLandingPage />} />
         <Route path="q/:qrSlug" element={<QRLandingPage />} />

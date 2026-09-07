@@ -5,9 +5,11 @@ import remarkGfm from 'remark-gfm'
 import { api } from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
 import { Button } from '../../components/ui/Button'
+import { ArtworkCard } from '../../components/ui/ArtworkCard'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { LoadingState } from '../../components/ui/LoadingState'
-import { Heart, QrCode, Share2, Award, MessageSquare } from 'lucide-react'
+import { Heart, QrCode, Share2, Award, MessageSquare, Mail } from 'lucide-react'
+import { ContactArtistModal } from '../../components/ui/ContactArtistModal'
 
 const list = (data) => data?.results || data || []
 
@@ -41,6 +43,8 @@ export function ArtworkDetailPage({ session }) {
   const [reviewRating, setReviewRating] = useState(0)
   const [submittingReview, setSubmittingReview] = useState(false)
   const [message, setMessage] = useState('')
+  const [otherArtworks, setOtherArtworks] = useState([])
+  const [contactOpen, setContactOpen] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -56,6 +60,12 @@ export function ArtworkDetailPage({ session }) {
         const results = await Promise.all(requests)
         if (!active) return
         setArtwork(data)
+        document.title = `${data.title} by ${data.artist?.full_name || data.artist?.username || 'Artist'} | LynqArt`
+        const description = data.description || `About this work: ${data.title}`
+        const meta = document.querySelector('meta[name="description"]') || document.head.appendChild(Object.assign(document.createElement('meta'), { name: 'description' }))
+        meta.setAttribute('content', description.slice(0, 160))
+        const related = await api.get('/artworks/', { params: { artist_id: data.artist?.id, status: 'published', ordering: '-created_at' } }).catch(() => ({ data: [] }))
+        setOtherArtworks(list(related.data).filter((item) => item.id !== data.id).slice(0, 4))
         api.post('/analytics/views/', {
           artwork: data.id,
           source: searchParams.get('source') || 'unknown',
@@ -208,7 +218,7 @@ export function ArtworkDetailPage({ session }) {
             <p className="text-base text-[#A1A1AA]">
               By{' '}
               {artwork.artist?.id ? (
-                <Link to={`/artists/${artwork.artist.id}`} className="text-[#F4F4F5] hover:text-indigo-400 transition-colors font-medium">
+                <Link to={`/artists/${artwork.artist.username || artwork.artist.id}`} className="text-[#F4F4F5] hover:text-indigo-400 transition-colors font-medium">
                   {artistName}
                 </Link>
               ) : (
@@ -224,6 +234,10 @@ export function ArtworkDetailPage({ session }) {
                 <Heart className={`h-4 w-4 ${favorite ? 'fill-indigo-400 text-indigo-400' : ''}`} />
                 <span>{favorite ? 'Bookmarked' : 'Bookmark'}</span>
               </Button>
+            )}
+
+            {artwork.availability_status === 'available_for_enquiry' && artwork.artist && (
+              <Button variant="secondary" onClick={() => setContactOpen(true)} className="!min-h-11 !py-1.5 !px-3 text-xs"><Mail className="h-4 w-4" /><span>Inquire about this work</span></Button>
             )}
 
             {qrCode?.qr_image_url && (
@@ -253,6 +267,10 @@ export function ArtworkDetailPage({ session }) {
               <p className="text-xs text-[#71717A] italic">No artist statement added yet.</p>
             )}
           </div>
+
+          {artwork.description && <div className="space-y-2"><h2 className="text-sm font-semibold uppercase tracking-wider text-indigo-400">About this work</h2><p className="text-sm leading-relaxed text-[#A1A1AA]">{artwork.description}</p></div>}
+
+          <div className="flex items-center gap-2"><span className="rounded-full border border-indigo-400/30 bg-indigo-400/10 px-3 py-1 text-xs text-indigo-200">{artwork.availability_status === 'available_for_enquiry' ? 'Available for acquisition / enquiries' : artwork.availability_status === 'not_for_sale' ? 'Not for sale / Private collection' : artwork.availability_status === 'on_loan' ? 'On exhibition loan' : 'Acquired / Sold'}</span></div>
 
           {/* Artwork Information */}
           <div className="surface-card p-5 space-y-3">
@@ -310,6 +328,8 @@ export function ArtworkDetailPage({ session }) {
           </div>
         </section>
       )}
+
+      {otherArtworks.length > 0 && <section className="space-y-5 border-t border-white/[0.08] pt-8"><div className="flex items-center justify-between"><h2 className="text-xl font-bold text-[#F4F4F5]">More from this artist</h2><Link to={`/artists/${artwork.artist?.username || artwork.artist?.id}`} className="text-xs text-indigo-400 hover:underline">View artist profile</Link></div><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{otherArtworks.map((item) => <ArtworkCard key={item.id} artwork={item} source="related_artwork" />)}</div></section>}
 
       {/* Dedicated Expert Reviews and Community Discussions */}
       <section className="space-y-6 pt-6 border-t border-white/[0.08]">
@@ -489,6 +509,7 @@ export function ArtworkDetailPage({ session }) {
           )}
         </div>
       </section>
+      {contactOpen && <ContactArtistModal artist={artwork.artist} artwork={artwork} onClose={() => setContactOpen(false)} />}
     </div>
   )
 }

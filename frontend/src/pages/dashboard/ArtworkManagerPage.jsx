@@ -22,6 +22,11 @@ const empty = {
   tag_ids: [],
   allow_comments: true,
   is_featured: false,
+  is_artist_featured: false,
+  availability_status: 'available_for_enquiry',
+  copyright_holder: '',
+  license_type: 'all_rights_reserved',
+  provenance_notes: '',
   markdown_statement: '',
   change_note: '',
 }
@@ -449,8 +454,9 @@ export function ArtworkManagerPage() {
           </div>
 
           <label className="block space-y-1 text-xs font-medium text-[#A1A1AA]">
-            Short Description / Synopsis
-            <textarea name="description" rows={2} value={form.description || ''} onChange={change} placeholder="Artwork synopsis..." className={inputClass} />
+            About this work
+            <span className="block text-[11px] font-normal text-[#71717A]">Conversational background, technical notes, or informal context about this physical piece.</span>
+            <textarea name="description" rows={2} value={form.description || ''} onChange={change} placeholder="About this work..." className={inputClass} />
           </label>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -476,7 +482,19 @@ export function ArtworkManagerPage() {
                 <option value="archived">Archived</option>
               </select>
             </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-[#A1A1AA]">Availability</label>
+              <select name="availability_status" value={form.availability_status} onChange={change} className={inputClass}>
+                <option value="available_for_enquiry">Available for acquisition / enquiries</option>
+                <option value="not_for_sale">Not for sale / Private collection</option>
+                <option value="on_loan">On exhibition loan</option>
+                <option value="sold">Acquired / Sold</option>
+              </select>
+            </div>
           </div>
+
+          <label className="flex min-h-11 items-center gap-2 text-xs text-[#A1A1AA]"><input type="checkbox" name="is_artist_featured" checked={form.is_artist_featured} onChange={change} /> Feature this artwork on my profile</label>
 
           {/* Tag Selection Multi-Input */}
           <div className="space-y-2 pt-2">

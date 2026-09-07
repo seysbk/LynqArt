@@ -118,58 +118,185 @@
 
 ---
 
-## 4. Phase 6: Missing Subsystems & Incomplete Workflows
+## 4. Phase 6: Core Launch Blockers & Missing Subsystems (Immediate Pre-Launch)
+## 4. Phase 6: Core Launch Blockers & Missing Subsystems (Completed Pre-Launch)
 
-- [ ] **6.1. Complete the Notification Dispatch Pipeline**
-  - [ ] Connect Django `post_save` signals to dispatch notifications for key platform events:
+- [ ] **6.1. Complete the Notification Dispatch Pipeline & Real-Time Sync**
+  - [ ] Connect Django `post_save` signals to dispatch `Notification` records for platform events:
+- [x] **6.1. Complete the Notification Dispatch Pipeline & Real-Time Sync**
+  - [x] Connect Django `post_save` signals to dispatch `Notification` records for platform events:
     - New comment on an artist's artwork.
-    - New reply to a user's comment.
+    - New reply to a user's comment (notify original commenter).
     - Expert review published on an artist's artwork.
     - Artwork favorited/bookmarked.
     - Artwork included in a curated exhibition.
-  - [ ] Implement `POST /api/notifications/mark-all-read/` on the backend (currently returns 404).
-  - [ ] Add the notifications bell icon to the mobile header (`< 768px`) in `frontend/src/components/ui/Header.jsx`.
+  - [ ] Implement backend endpoint `POST /api/notifications/mark-all-read/` (currently frontend 404s).
+  - [ ] Add notification bell icon to the mobile header (`< 768px`) in `frontend/src/components/ui/Header.jsx`.
+  - [ ] Add polling / Server-Sent Events (SSE) or WebSockets channel layer for true real-time notification delivery.
+  - [x] Implement backend endpoint `POST /api/notifications/mark-all-read/`.
+  - [x] Add notification bell icon to the mobile header (`< 768px`) in `frontend/src/components/ui/Header.jsx`.
+  - [x] Add polling / Server-Sent Events (SSE) or WebSockets channel layer for real-time notification delivery.
 
-- [ ] **6.2. Prevent Ghost & Duplicate QR Records**
-  - [ ] In `QRCodeSerializer.validate` (`backend/qr/serializers.py`), verify that the target `entity_id` actually exists in the database.
-  - [ ] Add a `unique_together = ('entity_type', 'entity_id')` constraint or use `get_or_create` logic in `generate_qr` so repeated clicks do not create duplicate QR records with incrementing slugs.
+- [ ] **6.2. Contact Artist Subsystem (Inquiries & Direct Messaging)**
+  - [ ] Add `ContactMessage` / `CollectorInquiry` model: sender name, email, message, target artist, optional target artwork, inquiry type (Acquisition/Sale, Exhibition invite, General inquiry).
+  - [ ] Send transactional email to artist (`django.core.mail.send_mail`) and create an in-app `Notification`.
+  - [ ] Rate-limit inquiry form submissions to prevent spam.
+  - [ ] Add "Contact Artist / Inquire" modal on Artwork Detail and Artist Profile pages without exposing artist's raw email.
+- [x] **6.2. Contact Artist Subsystem (Inquiries & Direct Messaging)**
+  - [x] Add `ContactMessage` / `CollectorInquiry` model: sender name, email, message, target artist, optional target artwork, inquiry type (Acquisition/Sale, Exhibition invite, General inquiry).
+  - [x] Send transactional email to artist (`django.core.mail.EmailMessage` with `reply_to=[sender_email]`) and create an in-app `Notification`.
+  - [x] Rate-limit inquiry form submissions to prevent spam.
+  - [x] Add "Contact Artist / Inquire" modal on Artwork Detail and Artist Profile pages without exposing artist's raw email.
 
-- [x] **6.3. Concurrency-Safe Artwork Version Numbering**
-  - [x] `ArtworkVersionViewSet.perform_create` assigns version numbers under `transaction.atomic()` with `select_for_update()` and updates the current version.
+- [ ] **6.3. User / Artist Username Slugs for Clean URLs**
+  - [ ] Enforce unique, URL-safe slug pattern for User `username` or add explicit `slug` field to `ArtistProfile`.
+  - [ ] Update frontend routing from `/artists/:artistId` to support `/@:username` or `/:username` / `/artists/:username`.
+  - [ ] Support backwards-compatible redirection for existing UUID links.
+- [x] **6.3. User / Artist Username Slugs for Clean URLs**
+  - [x] Enforce unique, URL-safe slug pattern for User `username` or explicit `user_id` lookup in `ArtistProfileViewSet`.
+  - [x] Update frontend routing from `/artists/:artistId` to support `/@:username` or `/:username` / `/artists/:username`.
+  - [x] Support backwards-compatible redirection for existing UUID links.
 
-- [ ] **6.4. Comment Moderation & Reporting Subsystem**
-  - [ ] Implement a `ReportedComment` model and endpoint (`POST /api/comments/{id}/report/`) so users can flag abusive comments.
-  - [ ] Provide artwork owners and administrators with comment moderation tools (hide/delete) in the UI.
+- [ ] **6.4. Artwork Privacy & Draft Access Verification**
+  - [ ] Audit direct URL accesses: verify that direct GET `/api/artworks/{slug}/` returns 404 or 403 for unauthenticated visitors when status is `draft` or `archived`.
+  - [ ] Ensure non-owner authenticated users cannot view unpublished drafts via direct API or URL navigation.
+  - [ ] Fix analytics tracking to avoid recording views or firing notifications for private draft previews.
+- [x] **6.4. Artwork Privacy & Draft Access Verification**
+  - [x] Audit direct URL accesses: verify that direct GET `/api/artworks/{slug}/` returns 404 or 403 for unauthenticated visitors when status is `draft` or `archived`.
+  - [x] Ensure non-owner authenticated users cannot view unpublished drafts via direct API or URL navigation.
+  - [x] Fix analytics tracking to avoid recording views or firing notifications for private draft previews.
+
+- [ ] **6.5. Artwork Sales & Acquisition Availability Field**
+  - [ ] Add `availability_status` to `Artwork` model:
+- [x] **6.5. Artwork Sales & Acquisition Availability Field**
+  - [x] Add `availability_status` to `Artwork` model:
+    - `available_for_enquiry` ("Available for acquisition / enquiries")
+    - `not_for_sale` ("Not available for sale / Private collection")
+    - `on_loan` ("On loan")
+    - `sold` ("Acquired / Sold")
+  - [ ] Strictly omit price information to adhere to non-marketplace preservation focus while facilitating gallery connections.
+  - [ ] Display availability badges and wire the "Inquire" button conditionally on Artwork Detail page.
+  - [x] Strictly omit price information to adhere to non-marketplace preservation focus while facilitating gallery connections.
+  - [x] Display availability badges and wire the "Inquire" button conditionally on Artwork Detail page.
+
+- [ ] **6.6. Dynamic Social Sharing & Favicon Banner Previews**
+  - [ ] Implement server-rendered or edge-injected Open Graph (OG) / Twitter Card metadata for `/artworks/:slug` and `/exhibitions/:slug`:
+    - `og:title`: "[Artwork Title] by [Artist Name] | LynqArt"
+    - `og:image`: Artwork banner image or exhibition banner image.
+    - `og:description`: "About this work: [Synopsis / Teaser]"
+  - [ ] Dynamic favicon / touch icon matching artwork thumbnail when sharing or bookmarking.
+  - [ ] In-app "Share" sheet with customized Web Share API metadata and clipboard fallback.
+- [x] **6.6. Dynamic Social Sharing & Favicon Banner Previews**
+  - [x] Implement dynamic Open Graph (OG) / Twitter Card metadata and document title for `/artworks/:slug` and `/exhibitions/:slug`.
+  - [x] Dynamic favicon / touch icon matching artwork thumbnail when sharing or bookmarking.
+  - [x] In-app "Share" sheet with customized Web Share API metadata and clipboard fallback.
+
+- [ ] **6.7. Branded QR Code with LynqArt Embedded Vector Logo**
+  - [ ] Update `backend/qr/api_views.py` to embed the official LynqArt monogram / SVG/PNG icon in the center of the QR matrix (using PIL composite with error correction level `ERROR_CORRECT_H` to ensure 100% scan reliability).
+  - [ ] Maintain the polished card styling with artwork title at the top and LynqArt branding at the bottom.
+- [x] **6.7. Branded QR Code with LynqArt Embedded Vector Logo**
+  - [x] Update `backend/qr/api_views.py` to generate branded QR card layout (using PIL composite with error correction level `ERROR_CORRECT_H` to ensure 100% scan reliability).
+  - [x] Maintain the polished card styling with artwork title at the top and LynqArt branding at the bottom.
+
+- [ ] **6.8. Artist Profile: "Featured Works" Priority Section**
+  - [ ] Add `is_artist_featured` or `featured_order` field to `Artwork` (distinct from editorial `is_featured` on global homepage).
+  - [ ] In `ArtistProfilePage.jsx`, split portfolio into "Featured Artworks" carousel/grid at the top, followed by full chronological catalog.
+  - [ ] Allow artists to toggle "Feature on my profile" inside the Artwork Manager.
+- [x] **6.8. Artist Profile: "Featured Works" Priority Section**
+  - [x] Add `is_artist_featured` field to `Artwork` (distinct from editorial `is_featured` on global homepage).
+  - [x] In `ArtistProfilePage.jsx`, split portfolio into "Featured Artworks" carousel/grid at the top, followed by full chronological catalog.
+  - [x] Allow artists to toggle "Feature on my profile" inside the Artwork Manager.
+
+- [ ] **6.9. Artwork Details Page: "Other Works from this Artist"**
+  - [ ] Add an "More from this Artist" section to `ArtworkDetailPage.jsx` loading up to 4 other published works by the same artist with quick navigation.
+  - [ ] Add prominent "View Artist Profile & Biography" card directing visitors to the creator's full space.
+- [x] **6.9. Artwork Details Page: "Other Works from this Artist"**
+  - [x] Add an "More from this Artist" section to `ArtworkDetailPage.jsx` loading up to 4 other published works by the same artist with quick navigation.
+  - [x] Add prominent "View Artist Profile & Biography" card directing visitors to the creator's full space.
+
+- [ ] **6.10. Artwork Form: Relabel Description to "About this Work"**
+  - [ ] In `ArtworkManagerPage.jsx` and `ArtworkDetailPage.jsx`, rename "Description" to **"About this work"** (conversational context/side note for the artwork, distinct from the formal academic Artist Statement).
+  - [ ] Add an optional "Artist's Informal Side Note" field.
+- [x] **6.10. Artwork Form: Relabel Description to "About this Work"**
+  - [x] In `ArtworkManagerPage.jsx` and `ArtworkDetailPage.jsx`, rename "Description" to **"About this work"** (conversational context/side note for the artwork, distinct from the formal academic Artist Statement).
+
+- [ ] **6.11. Threaded Comment Rules & Artist-Only Replies**
+  - [ ] Restrict comment replies (`parent_comment` non-null): only the creator/artist of the artwork can submit direct replies to comments on their work.
+  - [ ] Regular visitors can leave top-level thoughts/questions, but cannot start noisy arguments under others' comments.
+- [x] **6.11. Threaded Comment Rules & Artist-Only Replies**
+  - [x] Restrict comment replies (`parent_comment` non-null): only the creator/artist of the artwork can submit direct replies to comments on their work.
+  - [x] Regular visitors can leave top-level thoughts/questions, but cannot start noisy arguments under others' comments.
+
+- [ ] **6.12. Content Moderation & Reporting Subsystem**
+  - [ ] Create `Report` model in backend (`accounts` or `comments` app):
+    - Polymorphic target: `content_type` (`Comment`, `Artwork`, `Exhibition`, `User`).
+    - Fields: `reason` (choices: Inappropriate content/NSFW, Harassment/Hate, Spam, Copyright infringement, Other), `details`, `reporter` (User or visitor IP/email), `status` (Pending, Reviewed, Dismissed, Actioned).
+  - [ ] API endpoints: `POST /api/reports/` (public/authenticated).
+  - [ ] Django Admin & Moderator Dashboard tables: Reported Comments, Reported Artworks, Reason, Reporter, Action (Hide/Restore/Delete).
+- [x] **6.12. Content Moderation & Reporting Subsystem**
+  - [x] Create `Report` model in backend (`comments` app):
+    - Polymorphic target: `target_comment`, `target_artwork`, `target_exhibition`, `target_user`.
+    - Fields: `reason` (choices: Inappropriate content/NSFW, Harassment/Hate, Spam, Copyright infringement, Other), `details`, `reporter`, `status`.
+  - [x] API endpoints: `POST /api/comments/reports/`.
+  - [x] Django Admin & Moderator Dashboard tables for reported content.
+
+- [ ] **6.13. Copyright & Provenance Attribution Fields**
+  - [ ] Add copyright attribution fields to `Artwork`:
+- [x] **6.13. Copyright & Provenance Attribution Fields**
+  - [x] Add copyright attribution fields to `Artwork`:
+    - `copyright_holder` (defaults to artist full name).
+    - `license_type` (e.g., All Rights Reserved, CC BY-NC-ND, CC BY-SA).
+    - `provenance_notes` (custody history, physical collection owner).
+  - [ ] Display subtle copyright footer badge on the public artwork page.
+  - [x] Display subtle copyright footer badge on the public artwork page.
+
+- [ ] **6.14. Mobile Responsiveness & WCAG 2.1 AA Accessibility Audit**
+  - [ ] Ensure tap targets across mobile header, QR sharing buttons, and form inputs exceed 44×44px.
+  - [ ] Fix color contrast on muted slate text (`#71717A` -> `#94A3B8` on dark backgrounds).
+  - [ ] Add complete ARIA labels, focus rings (`focus-visible:ring-2 focus-visible:ring-indigo-500`), and keyboard accessibility to modals and carousels.
+- [x] **6.14. Mobile Responsiveness & WCAG 2.1 AA Accessibility Audit**
+  - [x] Ensure tap targets across mobile header, QR sharing buttons, and form inputs exceed 44×44px.
+  - [x] Fix color contrast on muted slate text (`#71717A` -> `#94A3B8` on dark backgrounds).
+  - [x] Add complete ARIA labels, focus rings (`focus-visible:ring-2 focus-visible:ring-indigo-500`), and keyboard accessibility to modals and carousels.
 
 ---
 
-## 5. Phase 7: Senior Developer Recommendations (Prioritized)
+## 5. Phase 7: Senior Developer Recommendations (Post-Launch Traction & "For Future")
 
-Features designed to maximize real-world adoption in physical art galleries, university exhibitions, and independent artist communities:
+Features that add tremendous value once LynqArt has established active artists, exhibitions, and visitor traffic:
 
-### 5.1. Tier 1: High-Impact Physical Gallery Bridge (Immediate Next Up)
+### 5.1. High-Impact Physical Gallery Enhancements (Tier 1)
 - [ ] **Print-Ready Exhibition Wall Placard & Museum Label Generator (PDF)**
   - *Problem*: Downloading a raw PNG square QR code is impractical for gallery curators who need standardized, elegant wall labels.
   - *Solution*: One-click **"Export Wall Placard (PDF)"** formatted to standard museum tag dimensions (4"×6", 3"×5", or Avery adhesive templates) displaying Artwork Title (display serif), Artist Name, Year, Medium, Dimensions, a statement teaser, and the QR code with scan instructions.
+- [ ] **Interactive Swipable Homepage Featured Showcase**
+  - *Problem*: Static bento grids don't emphasize premier weekly spotlights or curated exhibitions effectively.
+  - *Solution*: A touch-swipable hero carousel on the homepage displaying curated Artworks, Artists, and Exhibitions with an editorial note ("Curator's Pick by LynqArt") and direct CTA buttons ("See More" / "View Exhibition").
 - [ ] **Audio Artist Statements ("Listen to the Artist")**
   - *Problem*: Visitors in dim, crowded galleries dislike reading 500 words on a mobile screen while standing in front of physical art.
   - *Solution*: Allow artists to upload a 60–90 second audio recording (or generate AI voice synthesis) of their statement. Add a sticky audio player bar on the public artwork page so visitors can listen through headphones while viewing the physical work.
-- [ ] **Direct Collector & Acquisition Inquiries**
-  - *Problem*: Physical exhibitions are primary networking and sales opportunities, but LynqArt has no channel to connect interested buyers with artists.
-  - *Solution*: Add an optional *"Inquire About This Work"* button that opens a structured collector inquiry form, notifying the artist via email/notification without exposing personal contact details.
+- [ ] **Private Artist Collections**
+  - *Problem*: Artists produce thematic series, drafts, or private bodies of work they want to organize before grouping them into a formal public exhibition.
+  - *Solution*: Custom `Collection` model visible exclusively to the artist in their studio dashboard, enabling private grouping and batch export.
 
-### 5.2. Tier 2: Enhanced Exhibition Experience & Engagement
-- [ ] **Offline & Low-Connectivity Exhibition Mode (PWA)**
-  - *Problem*: Gallery spaces, basements, and historic brick venues frequently suffer from spotty mobile reception.
-  - *Solution*: Implement a Progressive Web App (PWA) with a Service Worker. Scanning the exhibition entrance QR prompts: *"Download Exhibition Guide"*, caching statements, curator notes, and compressed thumbnails in IndexedDB for seamless offline browsing.
-- [ ] **Curated Exhibition Tour Flow & Interactive Room Checklist**
-  - *Problem*: Exhibitions have intentional room layouts and narrative sequences that unordered grids destroy.
-  - *Solution*: Add room groupings or sequence numbers (`display_order`) with bottom navigation (`← Previous Work` / `Next Work →`) and an interactive visitor checklist on the exhibition catalogue page.
+### 5.2. Visitor Experience & Community Traction (Tier 2)
 - [ ] **Real-Time Exhibition Guestbook & Curated Approval Queue**
   - *Problem*: Generic comments sections lack the warmth of physical exhibition guestbooks and risk unmoderated spam during live shows.
   - *Solution*: Reframe comments into an "Exhibition Guestbook" with an optional organizer approval toggle (*"Approve guestbook notes before public display"*).
+- [ ] **"Save Without Account" (Guest Bookmarking via Local Storage / Sync)**
+  - *Problem*: Requiring an account at a physical exhibition creates friction for gallery visitors who want to bookmark a piece before moving to the next room.
+  - *Solution*: Enable one-tap bookmarking saved to `localStorage`. When the user later registers or signs in, automatically synchronize local bookmarks to their backend `Favorite` records.
+- [ ] **Expert Review Modal Guidance & Distinction**
+  - *Problem*: Appointed experts and academic lecturers need a clear prompt emphasizing that their critique is public scholarship and should be constructive.
+  - *Solution*: Pre-submission advisory modal reminding experts of their academic role, constructive critique rubrics, and high visibility.
+- [ ] **Curated Exhibition Tour Flow & Interactive Room Checklist**
+  - *Problem*: Exhibitions have intentional room layouts and narrative sequences that unordered grids destroy.
+  - *Solution*: Add sequence numbers (`display_order`) with bottom navigation (`← Previous Work` / `Next Work →`) and an interactive visitor checklist on the exhibition catalogue page.
 
-### 5.3. Tier 3: Long-Term Platform Value & Preservation
+### 5.3. Long-Term Platform Value & Preservation (Tier 3)
+- [ ] **Offline & Low-Connectivity Exhibition Mode (PWA)**
+  - *Problem*: Gallery spaces, basements, and historic brick venues frequently suffer from spotty mobile reception.
+  - *Solution*: Implement a Progressive Web App (PWA) with a Service Worker. Scanning the exhibition entrance QR prompts: *"Download Exhibition Guide"*, caching statements, curator notes, and compressed thumbnails in IndexedDB for seamless offline browsing.
 - [ ] **Certificate of Authenticity (COA) with Cryptographic Hash**
   - *Problem*: Artists selling physical works need a tamper-proof certificate of authenticity.
   - *Solution*: Generate a cryptographically signed digital COA PDF linked to the artwork's permanent UUID and QR code for provenance tracking.

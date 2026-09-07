@@ -106,14 +106,17 @@ export function Header({ session }) {
         <div className="px-4 h-[62px] flex items-center justify-between border-b border-white/[0.04]">
           <Logo />
 
-          <Link
-            to={userProfilePath}
-            className="h-9 w-9 rounded-full bg-slate-900 border border-white/[0.09] flex items-center justify-center text-slate-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 overflow-hidden"
-            title={user ? `Profile: ${user.username}` : 'Sign In'}
-            aria-label={user ? `User Profile for ${user.username}` : 'Sign In'}
-          >
-            {renderProfileBadge('sm')}
-          </Link>
+          <div className="flex items-center gap-2">
+            <NotificationsCenter session={session} />
+            <Link
+              to={userProfilePath}
+              className="h-9 w-9 rounded-full bg-slate-900 border border-white/[0.09] flex items-center justify-center text-slate-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 overflow-hidden"
+              title={user ? `Profile: ${user.username}` : 'Sign In'}
+              aria-label={user ? `User Profile for ${user.username}` : 'Sign In'}
+            >
+              {renderProfileBadge('sm')}
+            </Link>
+          </div>
         </div>
 
         {/* Mobile Navigation Row 2: Horizontal scrolling navigation row */}
