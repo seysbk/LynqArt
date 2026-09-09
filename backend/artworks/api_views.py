@@ -1,11 +1,14 @@
 import os
 from uuid import uuid4
 
+from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.db import models as db_models
 from django.db import transaction
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, permissions, status, viewsets
+from rest_framework import filters, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -13,9 +16,11 @@ from rest_framework.response import Response
 
 from accounts.permissions import IsArtistOrReadOnly, IsOwnerOrReadOnly
 from config.security import validate_and_store_upload
+from notifications.models import Notification
 
-from .models import Artwork, ArtworkImage, ArtworkTag, ArtworkVersion, Category, Tag
+from .models import Artwork, ArtworkContributor, ArtworkImage, ArtworkTag, ArtworkVersion, Category, Tag
 from .serializers import (
+    ArtworkContributorSerializer,
     ArtworkImageSerializer,
     ArtworkSerializer,
     ArtworkTagSerializer,
@@ -23,6 +28,8 @@ from .serializers import (
     CategorySerializer,
     TagSerializer,
 )
+
+User = get_user_model()
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
@@ -65,17 +72,43 @@ class ArtworkViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         artist_id = self.request.query_params.get('artist_id') or self.request.query_params.get('artist')
+        contributor_id = self.request.query_params.get('contributor_id') or self.request.query_params.get('contributor')
+        work_type = self.request.query_params.get('type')
+
         if artist_id:
-            queryset = queryset.filter(artist_id=artist_id)
+            target_user = User.objects.filter(
+                db_models.Q(id=artist_id) if len(str(artist_id)) == 36 else db_models.Q(username__iexact=artist_id)
+            ).first()
+            if target_user:
+                if work_type in {'contributed', 'collaborative'}:
+                    queryset = queryset.filter(contributors__user=target_user, contributors__status=ArtworkContributor.STATUS_ACCEPTED)
+                else:
+                    queryset = queryset.filter(artist=target_user)
+            else:
+                queryset = queryset.filter(artist_id=artist_id)
+        elif contributor_id:
+            target_user = User.objects.filter(
+                db_models.Q(id=contributor_id) if len(str(contributor_id)) == 36 else db_models.Q(username__iexact=contributor_id)
+            ).first()
+            if target_user:
+                queryset = queryset.filter(contributors__user=target_user, contributors__status=ArtworkContributor.STATUS_ACCEPTED)
+            else:
+                queryset = queryset.filter(contributors__user_id=contributor_id, contributors__status=ArtworkContributor.STATUS_ACCEPTED)
+
         user = self.request.user
         if not user.is_authenticated:
             queryset = queryset.filter(status=Artwork.STATUS_PUBLISHED)
         elif not (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)):
-            queryset = queryset.filter(artist=user) | queryset.filter(status=Artwork.STATUS_PUBLISHED)
+            queryset = queryset.filter(
+                db_models.Q(artist=user) |
+                db_models.Q(contributors__user=user, contributors__status=ArtworkContributor.STATUS_ACCEPTED) |
+                db_models.Q(status=Artwork.STATUS_PUBLISHED)
+            ).distinct()
+
         if self.action in {'update', 'partial_update', 'destroy'} and self.request.user.is_authenticated:
             if not (getattr(self.request.user, 'is_staff', False) or getattr(self.request.user, 'is_superuser', False)):
                 return queryset.filter(artist=self.request.user)
-        return queryset
+        return queryset.distinct() if (artist_id or contributor_id) else queryset
 
     def _store_upload(self, uploaded_file, folder):
         _, url = validate_and_store_upload(uploaded_file, folder, max_size_mb=10)
@@ -194,3 +227,109 @@ class ArtworkTagViewSet(viewsets.ModelViewSet):
         if artwork and artwork.artist_id != user.id and not (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)):
             raise PermissionDenied('You do not have permission to tag this artwork.')
         serializer.save()
+
+
+class ArtworkContributorViewSet(viewsets.ModelViewSet):
+    queryset = ArtworkContributor.objects.select_related('artwork', 'user', 'user__artist_profile').all().order_by('-created_at')
+    serializer_class = ArtworkContributorSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ('artwork', 'status', 'user')
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        artwork_param = self.request.query_params.get('artwork')
+        if artwork_param:
+            queryset = queryset.filter(
+                db_models.Q(artwork_id=artwork_param) | db_models.Q(artwork__slug=artwork_param)
+            )
+        return queryset
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        artwork_id = self.request.data.get('artwork_id') or self.request.data.get('artwork')
+        if not artwork_id:
+            raise serializers.ValidationError({'artwork': 'Artwork is required.'})
+
+        try:
+            if len(str(artwork_id)) == 36:
+                artwork = Artwork.objects.get(pk=artwork_id)
+            else:
+                artwork = Artwork.objects.get(slug=artwork_id)
+        except Artwork.DoesNotExist:
+            raise serializers.ValidationError({'artwork': 'Artwork not found.'})
+
+        if artwork.artist_id != user.id and not (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)):
+            raise PermissionDenied('Only the lead artist can add contributors to this artwork.')
+
+        target_user_id = self.request.data.get('user_id') or self.request.data.get('user')
+        if not target_user_id:
+            raise serializers.ValidationError({'user_id': 'Target user is required.'})
+
+        try:
+            target_user = User.objects.get(pk=target_user_id)
+        except User.DoesNotExist:
+            raise serializers.ValidationError({'user_id': 'User not found.'})
+
+        if target_user.id == artwork.artist_id:
+            raise serializers.ValidationError({'user_id': 'The lead artist is already the primary owner of this artwork.'})
+
+        if ArtworkContributor.objects.filter(artwork=artwork, user=target_user).exists():
+            raise serializers.ValidationError({'user_id': 'This user is already added or invited as a contributor to this artwork.'})
+
+        role = serializer.validated_data.get('contribution_role', '').strip() or 'Co-Artist'
+        contributor = serializer.save(artwork=artwork, user=target_user, contribution_role=role, status=ArtworkContributor.STATUS_PENDING)
+
+        Notification.objects.create(
+            user=target_user,
+            title=f'Collaboration Invitation: {artwork.title}',
+            message=f'You have been invited by {user.get_full_name() or user.username} to contribute to "{artwork.title}" as {role}.',
+            type='collaboration_invite',
+            sender_email=user.email,
+        )
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+        if instance.artwork.artist_id != user.id and instance.user_id != user.id and not (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)):
+            raise PermissionDenied('You do not have permission to remove this contributor.')
+        instance.delete()
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def accept(self, request, pk=None):
+        contributor = self.get_object()
+        if contributor.user_id != request.user.id and not (getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False)):
+            raise PermissionDenied('Only the invited contributor can accept this invitation.')
+
+        contributor.status = ArtworkContributor.STATUS_ACCEPTED
+        contributor.responded_at = timezone.now()
+        contributor.save(update_fields=['status', 'responded_at'])
+
+        Notification.objects.create(
+            user=contributor.artwork.artist,
+            title=f'Invitation Accepted: {contributor.artwork.title}',
+            message=f'{request.user.get_full_name() or request.user.username} accepted your invitation to contribute as {contributor.contribution_role} on "{contributor.artwork.title}".',
+            type='collaboration_accepted',
+            sender_email=request.user.email,
+        )
+
+        return Response(ArtworkContributorSerializer(contributor, context={'request': request}).data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def decline(self, request, pk=None):
+        contributor = self.get_object()
+        if contributor.user_id != request.user.id and not (getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False)):
+            raise PermissionDenied('Only the invited contributor can decline this invitation.')
+
+        contributor.status = ArtworkContributor.STATUS_DECLINED
+        contributor.responded_at = timezone.now()
+        contributor.save(update_fields=['status', 'responded_at'])
+
+        Notification.objects.create(
+            user=contributor.artwork.artist,
+            title=f'Invitation Declined: {contributor.artwork.title}',
+            message=f'{request.user.get_full_name() or request.user.username} declined your invitation to contribute as {contributor.contribution_role} on "{contributor.artwork.title}".',
+            type='collaboration_declined',
+            sender_email=request.user.email,
+        )
+
+        return Response(ArtworkContributorSerializer(contributor, context={'request': request}).data, status=status.HTTP_200_OK)

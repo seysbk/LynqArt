@@ -58,6 +58,21 @@ class UserBriefSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class UserSearchSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(source='get_full_name', read_only=True)
+    avatar_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'full_name', 'avatar_url', 'is_artist')
+        read_only_fields = fields
+
+    def get_avatar_url(self, obj):
+        if hasattr(obj, 'artist_profile') and obj.artist_profile.avatar_url:
+            return obj.artist_profile.avatar_url
+        return ''
+
+
 class ArtistProfileSerializer(serializers.ModelSerializer):
     user = UserBriefSerializer(read_only=True)
     user_id = serializers.PrimaryKeyRelatedField(source='user', queryset=User.objects.all(), write_only=True)

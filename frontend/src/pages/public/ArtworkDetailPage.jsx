@@ -6,7 +6,7 @@ import { api } from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
 import { shareLink, sharePreviewUrl } from '../../lib/sharing'
 import { Button } from '../../components/ui/Button'
-import { ArtworkCard } from '../../components/ui/ArtworkCard'
+import { ArtworkCard, formatAttribution } from '../../components/ui/ArtworkCard'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { LoadingState } from '../../components/ui/LoadingState'
 import { Heart, QrCode, Share2, Award, MessageSquare, Mail, Flag, Eye } from 'lucide-react'
@@ -282,7 +282,9 @@ export function ArtworkDetailPage({ session }) {
             <h1 className="text-3xl sm:text-4xl font-extrabold text-[#F4F4F5]">{artwork.title}</h1>
             <p className="text-base text-[#A1A1AA]">
               By{' '}
-              {artwork.artist?.id ? (
+              {artwork.accepted_contributors?.length ? (
+                <span className="text-[#F4F4F5] font-medium">{formatAttribution(artwork)}</span>
+              ) : artwork.artist?.id ? (
                 <Link to={`/artists/${artwork.artist.username || artwork.artist.id}`} className="text-[#F4F4F5] hover:text-indigo-400 transition-colors font-medium">
                   {artistName}
                 </Link>
@@ -337,6 +339,29 @@ export function ArtworkDetailPage({ session }) {
           {artwork.description && <div className="space-y-2"><h2 className="text-sm font-semibold uppercase tracking-wider text-indigo-400">About this work</h2><p className="text-sm leading-relaxed text-[#A1A1AA]">{artwork.description}</p></div>}
 
           <div className="flex items-center gap-2"><span className="rounded-full border border-indigo-400/30 bg-indigo-400/10 px-3 py-1 text-xs text-indigo-200">{artwork.availability_status === 'available_for_enquiry' ? 'Available for acquisition / enquiries' : artwork.availability_status === 'not_for_sale' ? 'Not for sale / Private collection' : artwork.availability_status === 'on_loan' ? 'On exhibition loan' : 'Acquired / Sold'}</span></div>
+
+          {/* Artists & Public Attribution Section */}
+          {artwork.accepted_contributors?.length > 0 && (
+            <div className="surface-card p-5 space-y-3 border-indigo-500/30 bg-indigo-500/5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-indigo-400">Artists &amp; Public Attribution</h3>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between pb-1">
+                  <Link to={`/artists/${artwork.artist?.username || artwork.artist?.id}`} className="font-semibold text-[#F4F4F5] hover:text-indigo-400 transition">
+                    {artistName}
+                  </Link>
+                  <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold text-[10px]">Lead Artist</span>
+                </div>
+                {artwork.accepted_contributors.map((c) => (
+                  <div key={c.id} className="flex items-center justify-between border-t border-white/[0.06] pt-1.5">
+                    <Link to={`/artists/${c.user?.username || c.user?.id}`} className="font-medium text-[#F4F4F5] hover:text-indigo-400 transition">
+                      {c.user?.full_name || c.user?.username}
+                    </Link>
+                    <span className="text-[#A1A1AA] text-[11px] font-medium">{c.contribution_role}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Artwork Information */}
           <div className="surface-card p-5 space-y-3">
