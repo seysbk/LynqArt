@@ -174,6 +174,12 @@ class ArtworkContributorTests(APITestCase):
         accept_res = self.client.post(reverse('artworkcontributor-accept', args=[contributor_id]))
         self.assertEqual(accept_res.status_code, status.HTTP_200_OK)
         self.assertEqual(accept_res.data['status'], 'accepted')
+        from accounts.models import ArtistProfile
+        self.assertTrue(ArtistProfile.objects.filter(user=self.co_artist).exists())
+
+        # An answered invitation cannot be answered again.
+        repeat_accept_res = self.client.post(reverse('artworkcontributor-accept', args=[contributor_id]))
+        self.assertEqual(repeat_accept_res.status_code, status.HTTP_400_BAD_REQUEST)
 
         # Now accepted contributor IS visible on public detail
         self.client.logout()
@@ -200,10 +206,27 @@ class ArtworkContributorTests(APITestCase):
         self.assertEqual(decline_res.status_code, status.HTTP_200_OK)
         self.assertEqual(decline_res.data['status'], 'declined')
 
+        repeat_decline_res = self.client.post(reverse('artworkcontributor-decline', args=[contributor_id]))
+        self.assertEqual(repeat_decline_res.status_code, status.HTTP_400_BAD_REQUEST)
+
         # Public detail does NOT show declined contributor
         self.client.logout()
         detail_res = self.client.get(reverse('artwork-detail', args=[self.artwork.slug]))
         self.assertEqual(len(detail_res.data['accepted_contributors']), 0)
+
+    def test_pending_invitations_are_not_publicly_listed(self):
+        self.client.force_authenticate(user=self.lead_artist)
+        pending_res = self.client.post(
+            reverse('artworkcontributor-list'),
+            {'artwork_id': str(self.artwork.id), 'user_id': str(self.co_artist.id), 'contribution_role': 'Illustrator'},
+        )
+        contributor_id = pending_res.data['id']
+
+        self.client.logout()
+        public_res = self.client.get(reverse('artworkcontributor-list'), {'artwork': str(self.artwork.id)})
+        self.assertEqual(public_res.status_code, status.HTTP_200_OK)
+        public_items = public_res.data['results'] if isinstance(public_res.data, dict) else public_res.data
+        self.assertFalse(any(str(item['id']) == str(contributor_id) for item in public_items))
 
     def test_contributor_cannot_edit_or_delete_artwork(self):
         # Create accepted contributor
@@ -216,6 +239,13 @@ class ArtworkContributorTests(APITestCase):
         # Cannot edit artwork (returns 403 or 404)
         patch_res = self.client.patch(reverse('artwork-detail', args=[self.artwork.slug]), {'title': 'Hacked Title'})
         self.assertIn(patch_res.status_code, (status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND))
+
+        contributor = ArtworkContributor.objects.get(artwork=self.artwork, user=self.co_artist)
+        contributor_patch = self.client.patch(
+            reverse('artworkcontributor-detail', args=[contributor.id]),
+            {'contribution_role': 'Lead Artist'},
+        )
+        self.assertEqual(contributor_patch.status_code, status.HTTP_403_FORBIDDEN)
 
         # Cannot delete artwork (returns 403 or 404)
         del_res = self.client.delete(reverse('artwork-detail', args=[self.artwork.slug]))

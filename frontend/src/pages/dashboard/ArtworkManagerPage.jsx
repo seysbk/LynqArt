@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
@@ -85,32 +85,59 @@ export function ArtworkManagerPage({ session }) {
   const [userSearchQuery, setUserSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [isSearchingUsers, setIsSearchingUsers] = useState(false)
+  const [userSearchMessage, setUserSearchMessage] = useState('')
   const [selectedContributorUser, setSelectedContributorUser] = useState(null)
   const [contributorRole, setContributorRole] = useState('Co-Artist')
   const [addingContributor, setAddingContributor] = useState(false)
+  const userSearchRequestRef = useRef(0)
 
-  const handleUserSearch = async (query) => {
-    setUserSearchQuery(query)
-    if (!query || query.trim().length < 2) {
+  const searchUsers = async (query, explicit = false) => {
+    const enteredQuery = query.trim()
+    const normalizedQuery = enteredQuery.replace(/^@+/, '')
+    const requestId = ++userSearchRequestRef.current
+
+    setUserSearchMessage('')
+    if (normalizedQuery.length < 2) {
       setSearchResults([])
+      setIsSearchingUsers(false)
+      if (explicit && enteredQuery) setUserSearchMessage('Enter at least 2 characters to search.')
       return
     }
+
     setIsSearchingUsers(true)
     try {
-      const { data } = await api.get('/users/search/', { params: { q: query.trim() } })
-      setSearchResults(data || [])
+      const { data } = await api.get('/accounts/users/search/', { params: { q: normalizedQuery } })
+      if (requestId !== userSearchRequestRef.current) return
+      const users = data || []
+      setSearchResults(users)
+      if (explicit && users.length === 0) {
+        setUserSearchMessage(`No user as "${enteredQuery}" was found.`)
+      }
     } catch {
+      if (requestId !== userSearchRequestRef.current) return
       setSearchResults([])
+      if (explicit) setUserSearchMessage('User search is temporarily unavailable. Please try again.')
     } finally {
-      setIsSearchingUsers(false)
+      if (requestId === userSearchRequestRef.current) setIsSearchingUsers(false)
     }
+  }
+
+  const handleUserSearch = (query) => {
+    setUserSearchQuery(query)
+    setUserSearchMessage('')
+    searchUsers(query)
+  }
+
+  const handleExplicitUserSearch = (event) => {
+    event.preventDefault()
+    searchUsers(userSearchQuery, true)
   }
 
   const addContributorInvitation = async () => {
     if (!selectedContributorUser || !artwork) return
     setAddingContributor(true)
     try {
-      await api.post('/contributors/', {
+      await api.post('/artworks/contributors/', {
         artwork_id: artwork.id,
         user_id: selectedContributorUser.id,
         contribution_role: contributorRole || 'Co-Artist',
@@ -118,6 +145,7 @@ export function ArtworkManagerPage({ session }) {
       setSelectedContributorUser(null)
       setUserSearchQuery('')
       setSearchResults([])
+      setUserSearchMessage('')
       setContributorRole('Co-Artist')
       await loadArtwork(artwork.slug)
       setModalState({ isOpen: true, title: 'Invitation Sent', message: `Collaboration invitation sent to ${selectedContributorUser.full_name || selectedContributorUser.username}!`, type: 'success' })
@@ -131,7 +159,7 @@ export function ArtworkManagerPage({ session }) {
   const removeContributor = async (contributorId, username) => {
     if (!artwork) return
     try {
-      await api.delete(`/contributors/${contributorId}/`)
+      await api.delete(`/artworks/contributors/${contributorId}/`)
       await loadArtwork(artwork.slug)
       setModalState({ isOpen: true, title: 'Contributor Removed', message: `Removed ${username} from artwork contributors.`, type: 'info' })
     } catch (error) {
@@ -523,7 +551,7 @@ export function ArtworkManagerPage({ session }) {
           }`}
         >
           <span className="h-5 w-5 rounded-full bg-white/20 flex items-center justify-center text-[11px]">3</span>
-          <span>Part 3: Media &amp; Exhibitions</span>
+          <span>Part 3: Media, Contributors &amp; Exhibitions</span>
         </button>
       </div>
 
@@ -671,177 +699,6 @@ export function ArtworkManagerPage({ session }) {
             </div>
           </div>
 
-          {/* Additional Contributors & Attribution Section */}
-          <div className="pt-4 border-t border-white/[0.06] space-y-4">
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-indigo-400 flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                <span>Additional Contributors &amp; Collaboration</span>
-              </h3>
-              <p className="mt-1 text-[11px] text-[#71717A]">
-                Invite additional artists, sculptors, photographers, or designers. Once accepted, this artwork will be listed on their profiles and included in public attributions.
-              </p>
-            </div>
-
-            {artwork ? (
-              <div className="space-y-3 bg-[#0D0F14] p-4 rounded-[10px] border border-white/[0.06]">
-                {/* Search LynqArt Artists */}
-                {!selectedContributorUser ? (
-                  <div className="space-y-2 relative">
-                    <label className="text-xs font-medium text-[#A1A1AA] flex items-center gap-1">
-                      <Search className="h-3.5 w-3.5 text-indigo-400" />
-                      <span>Search LynqArt Artists or Users</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={userSearchQuery}
-                      onChange={(e) => handleUserSearch(e.target.value)}
-                      placeholder="Type username or name (e.g., @jane_doe)..."
-                      className={inputClass}
-                    />
-
-                    {isSearchingUsers && <p className="text-[11px] text-[#71717A]">Searching users...</p>}
-
-                    {searchResults.length > 0 && (
-                      <div className="absolute z-10 left-0 right-0 top-full mt-1 bg-[#141720] border border-white/[0.1] rounded-[9px] shadow-xl max-h-48 overflow-y-auto divide-y divide-white/[0.06]">
-                        {searchResults.map((u) => (
-                          <div
-                            key={u.id}
-                            onClick={() => {
-                              setSelectedContributorUser(u)
-                              setSearchResults([])
-                            }}
-                            className="p-2.5 flex items-center justify-between hover:bg-indigo-600/20 cursor-pointer transition text-xs"
-                          >
-                            <div className="flex items-center gap-2">
-                              {u.avatar_url ? (
-                                <img src={mediaUrl(u.avatar_url)} alt={u.username} className="h-6 w-6 rounded-full object-cover" />
-                              ) : (
-                                <div className="h-6 w-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-[10px]">
-                                  {(u.full_name || u.username).charAt(0).toUpperCase()}
-                                </div>
-                              )}
-                              <div>
-                                <p className="font-semibold text-[#F4F4F5]">{u.full_name || u.username}</p>
-                                <p className="text-[10px] text-[#71717A]">@{u.username}</p>
-                              </div>
-                            </div>
-                            <span className="text-[10px] font-bold text-indigo-400">+ Select</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="p-3 rounded-[9px] bg-indigo-600/10 border border-indigo-500/30 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-xs">
-                        {selectedContributorUser.avatar_url ? (
-                          <img src={mediaUrl(selectedContributorUser.avatar_url)} alt="Selected" className="h-8 w-8 rounded-full object-cover" />
-                        ) : (
-                          <div className="h-8 w-8 rounded-full bg-indigo-500/30 text-indigo-300 flex items-center justify-center font-bold text-xs">
-                            {(selectedContributorUser.full_name || selectedContributorUser.username).charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <div>
-                          <p className="font-semibold text-[#F4F4F5]">{selectedContributorUser.full_name || selectedContributorUser.username}</p>
-                          <p className="text-[10px] text-[#71717A]">@{selectedContributorUser.username}</p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedContributorUser(null)}
-                        className="text-[#71717A] hover:text-white p-1"
-                        aria-label="Deselect contributor"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-
-                    <div className="grid gap-2 sm:grid-cols-2 items-end">
-                      <label className="space-y-1 text-xs font-medium text-[#A1A1AA]">
-                        Contribution Role
-                        <input
-                          type="text"
-                          value={contributorRole}
-                          onChange={(e) => setContributorRole(e.target.value)}
-                          placeholder="e.g. Sculptor, Photographer, Co-Artist..."
-                          className={inputClass}
-                        />
-                      </label>
-
-                      <Button
-                        type="button"
-                        variant="primary"
-                        disabled={addingContributor}
-                        onClick={addContributorInvitation}
-                        className="!py-2 text-xs shrink-0"
-                      >
-                        <UserPlus className="h-3.5 w-3.5" />
-                        <span>{addingContributor ? 'Sending...' : 'Send Collaboration Invitation'}</span>
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* List of Existing Contributors */}
-                {artwork.contributors?.length > 0 ? (
-                  <div className="space-y-2 pt-2 border-t border-white/[0.06]">
-                    <span className="text-[11px] font-semibold text-[#A1A1AA] uppercase tracking-wider block">
-                      Current Contributors &amp; Invitations ({artwork.contributors.length})
-                    </span>
-                    <div className="divide-y divide-white/[0.06]">
-                      {artwork.contributors.map((c) => (
-                        <div key={c.id} className="py-2 flex items-center justify-between gap-3 text-xs">
-                          <div className="flex items-center gap-2">
-                            {c.user?.avatar_url ? (
-                              <img src={mediaUrl(c.user.avatar_url)} alt={c.user.username} className="h-7 w-7 rounded-full object-cover" />
-                            ) : (
-                              <div className="h-7 w-7 rounded-full bg-[#191C27] text-indigo-400 font-bold text-[11px] flex items-center justify-center">
-                                {(c.user?.full_name || c.user?.username || 'C').charAt(0).toUpperCase()}
-                              </div>
-                            )}
-                            <div>
-                              <p className="font-semibold text-[#F4F4F5]">
-                                {c.user?.full_name || c.user?.username}
-                                <span className="text-[#71717A] font-normal text-[11px] ml-1">({c.contribution_role})</span>
-                              </p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
-                                  c.status === 'accepted'
-                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                    : c.status === 'declined'
-                                    ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                                    : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                                }`}>
-                                  {c.status}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => removeContributor(c.id, c.user?.full_name || c.user?.username)}
-                            className="text-xs text-rose-400 hover:text-rose-300 font-medium px-2 py-1 rounded bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 transition"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-[11px] text-[#71717A] italic">No additional contributors added yet.</p>
-                )}
-              </div>
-            ) : (
-              <p className="text-[11px] text-[#71717A] italic p-3 rounded-[9px] bg-[#0D0F14] border border-white/[0.06]">
-                Save primary specs first to enable contributor invitations for this artwork.
-              </p>
-            )}
-          </div>
-
           {/* QR Code Tag Surface */}
           <div className="pt-4 border-t border-white/[0.06] space-y-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-indigo-400 flex items-center gap-2">
@@ -976,9 +833,9 @@ export function ArtworkManagerPage({ session }) {
         <div className="space-y-6">
           <form onSubmit={(e) => handleStepSubmit(e, null)} className="surface-card p-6 space-y-6">
             <div className="border-b border-white/[0.06] pb-3">
-              <h2 className="text-base font-bold text-[#F4F4F5]">Part 3: Banner, Gallery Shots &amp; Exhibitions</h2>
+              <h2 className="text-base font-bold text-[#F4F4F5]">Part 3: Media, Contributors &amp; Exhibitions</h2>
               <p className="text-xs text-[#71717A] mt-0.5">
-                Upload imagery and associate this artwork with digital exhibition catalogues.
+                Upload imagery, invite collaborators, and associate this artwork with digital exhibition catalogues.
               </p>
             </div>
 
@@ -1082,6 +939,200 @@ export function ArtworkManagerPage({ session }) {
                     </div>
                   ))}
                 </div>
+              )}
+            </div>
+
+            {/* Additional Contributors & Attribution Section */}
+            <div className="space-y-4 pt-4 border-t border-white/[0.06]">
+              <div>
+                <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-indigo-400">
+                  <Users className="h-4 w-4" />
+                  <span>Additional Contributors &amp; Collaboration</span>
+                </h3>
+                <p className="mt-1 text-[11px] text-[#71717A]">
+                  Invite additional artists, sculptors, photographers, or designers. Once accepted, this artwork will be listed on their profiles and included in public attributions.
+                </p>
+              </div>
+
+              {artwork ? (
+                <div className="space-y-3 rounded-[10px] border border-white/[0.06] bg-[#0D0F14] p-4">
+                  {/* Search LynqArt Artists */}
+                  {!selectedContributorUser ? (
+                    <div className="relative space-y-2">
+                      <label className="flex items-center gap-1 text-xs font-medium text-[#A1A1AA]">
+                        <Search className="h-3.5 w-3.5 text-indigo-400" />
+                        <span>Search LynqArt Artists or Users</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={userSearchQuery}
+                          onChange={(e) => handleUserSearch(e.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault()
+                              handleExplicitUserSearch(event)
+                            }
+                          }}
+                          placeholder="Type username or name (e.g., @jane_doe)..."
+                          className={inputClass}
+                          aria-label="Contributor username or name"
+                        />
+                        <Button
+                          type="button"
+                          onClick={handleExplicitUserSearch}
+                          variant="secondary"
+                          disabled={isSearchingUsers || userSearchQuery.trim().length < 2}
+                          className="!py-2 shrink-0 text-xs"
+                        >
+                          <Search className="h-3.5 w-3.5" />
+                          <span>Search</span>
+                        </Button>
+                      </div>
+
+                      {isSearchingUsers && <p className="text-[11px] text-[#71717A]">Searching users...</p>}
+
+                      {userSearchMessage && !isSearchingUsers && (
+                        <p className="text-[11px] text-amber-300" role="status">{userSearchMessage}</p>
+                      )}
+
+                      {searchResults.length > 0 && (
+                        <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 divide-y divide-white/[0.06] overflow-y-auto rounded-[9px] border border-white/[0.1] bg-[#141720] shadow-xl">
+                          {searchResults.map((u) => (
+                            <div
+                              key={u.id}
+                              onClick={() => {
+                                setSelectedContributorUser(u)
+                                setSearchResults([])
+                              }}
+                              className="flex cursor-pointer items-center justify-between p-2.5 text-xs transition hover:bg-indigo-600/20"
+                            >
+                              <div className="flex items-center gap-2">
+                                {u.avatar_url ? (
+                                  <img src={mediaUrl(u.avatar_url)} alt={u.username} className="h-6 w-6 rounded-full object-cover" />
+                                ) : (
+                                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-500/20 text-[10px] font-bold text-indigo-400">
+                                    {(u.full_name || u.username).charAt(0).toUpperCase()}
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="font-semibold text-[#F4F4F5]">{u.full_name || u.username}</p>
+                                  <p className="text-[10px] text-[#71717A]">@{u.username}</p>
+                                </div>
+                              </div>
+                              <span className="text-[10px] font-bold text-indigo-400">+ Select</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-3 rounded-[9px] border border-indigo-500/30 bg-indigo-600/10 p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-xs">
+                          {selectedContributorUser.avatar_url ? (
+                            <img src={mediaUrl(selectedContributorUser.avatar_url)} alt="Selected" className="h-8 w-8 rounded-full object-cover" />
+                          ) : (
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500/30 text-xs font-bold text-indigo-300">
+                              {(selectedContributorUser.full_name || selectedContributorUser.username).charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-semibold text-[#F4F4F5]">{selectedContributorUser.full_name || selectedContributorUser.username}</p>
+                            <p className="text-[10px] text-[#71717A]">@{selectedContributorUser.username}</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedContributorUser(null)}
+                          className="p-1 text-[#71717A] hover:text-white"
+                          aria-label="Deselect contributor"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <div className="grid items-end gap-2 sm:grid-cols-2">
+                        <label className="space-y-1 text-xs font-medium text-[#A1A1AA]">
+                          Contribution Role
+                          <input
+                            type="text"
+                            value={contributorRole}
+                            onChange={(e) => setContributorRole(e.target.value)}
+                            placeholder="e.g. Sculptor, Photographer, Co-Artist..."
+                            className={inputClass}
+                          />
+                        </label>
+
+                        <Button
+                          type="button"
+                          variant="primary"
+                          disabled={addingContributor}
+                          onClick={addContributorInvitation}
+                          className="!py-2 text-xs shrink-0"
+                        >
+                          <UserPlus className="h-3.5 w-3.5" />
+                          <span>{addingContributor ? 'Sending...' : 'Send Collaboration Invitation'}</span>
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* List of Existing Contributors */}
+                  {artwork.contributors?.length > 0 ? (
+                    <div className="space-y-2 border-t border-white/[0.06] pt-2">
+                      <span className="block text-[11px] font-semibold uppercase tracking-wider text-[#A1A1AA]">
+                        Current Contributors &amp; Invitations ({artwork.contributors.length})
+                      </span>
+                      <div className="divide-y divide-white/[0.06]">
+                        {artwork.contributors.map((c) => (
+                          <div key={c.id} className="flex items-center justify-between gap-3 py-2 text-xs">
+                            <div className="flex items-center gap-2">
+                              {c.user?.avatar_url ? (
+                                <img src={mediaUrl(c.user.avatar_url)} alt={c.user.username} className="h-7 w-7 rounded-full object-cover" />
+                              ) : (
+                                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#191C27] text-[11px] font-bold text-indigo-400">
+                                  {(c.user?.full_name || c.user?.username || 'C').charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-semibold text-[#F4F4F5]">
+                                  {c.user?.full_name || c.user?.username}
+                                  <span className="ml-1 text-[11px] font-normal text-[#71717A]">({c.contribution_role})</span>
+                                </p>
+                                <div className="mt-0.5 flex items-center gap-2">
+                                  <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${
+                                    c.status === 'accepted'
+                                      ? 'border border-emerald-500/30 bg-emerald-500/20 text-emerald-400'
+                                      : c.status === 'declined'
+                                      ? 'border border-rose-500/30 bg-rose-500/20 text-rose-400'
+                                      : 'border border-amber-500/30 bg-amber-500/20 text-amber-400'
+                                  }`}>
+                                    {c.status}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => removeContributor(c.id, c.user?.full_name || c.user?.username)}
+                              className="rounded border border-rose-500/20 bg-rose-500/10 px-2 py-1 text-xs font-medium text-rose-400 transition hover:bg-rose-500/20 hover:text-rose-300"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] italic text-[#71717A]">No additional contributors added yet.</p>
+                  )}
+                </div>
+              ) : (
+                <p className="rounded-[9px] border border-white/[0.06] bg-[#0D0F14] p-3 text-[11px] italic text-[#71717A]">
+                  Save primary specs first to enable contributor invitations for this artwork.
+                </p>
               )}
             </div>
 

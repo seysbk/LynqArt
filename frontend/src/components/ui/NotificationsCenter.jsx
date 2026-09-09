@@ -20,7 +20,7 @@ export function NotificationsCenter({ session }) {
     try {
       const [notifRes, contribRes] = await Promise.all([
         api.get('/notifications/', { params: { ordering: '-created_at' } }),
-        api.get('/contributors/', { params: { user: user.id, status: 'pending' } }).catch(() => ({ data: [] })),
+        api.get('/artworks/contributors/', { params: { user: user.id, status: 'pending' } }).catch(() => ({ data: [] })),
       ])
       setNotifications(notifRes.data.results || notifRes.data || [])
       setPendingInvitations(contribRes.data.results || contribRes.data || [])
@@ -50,7 +50,7 @@ export function NotificationsCenter({ session }) {
   const handleAcceptInvitation = async (invitationId, event) => {
     if (event) event.stopPropagation()
     try {
-      await api.post(`/contributors/${invitationId}/accept/`)
+      await api.post(`/artworks/contributors/${invitationId}/accept/`)
       await fetchNotifications()
     } catch {
       // noop
@@ -60,7 +60,7 @@ export function NotificationsCenter({ session }) {
   const handleDeclineInvitation = async (invitationId, event) => {
     if (event) event.stopPropagation()
     try {
-      await api.post(`/contributors/${invitationId}/decline/`)
+      await api.post(`/artworks/contributors/${invitationId}/decline/`)
       await fetchNotifications()
     } catch {
       // noop

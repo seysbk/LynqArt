@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button'
 import { LoadingState } from '../../components/ui/LoadingState'
 import { useNavigate } from 'react-router-dom'
 import { Modal } from '../../components/ui/Modal'
+import { ArtworkCard } from '../../components/ui/ArtworkCard'
 import { User, ShieldCheck, Check, Sparkles, ImagePlus, Trash2, AlertTriangle, LogOut } from 'lucide-react'
 
 const inputClass =
@@ -15,6 +16,7 @@ export function ProfilePage({ session }) {
   const navigate = useNavigate()
   const [userProfile, setUserProfile] = useState(null)
   const [artistProfile, setArtistProfile] = useState(null)
+  const [collaborativeArtworks, setCollaborativeArtworks] = useState([])
   const [loading, setLoading] = useState(true)
   const [savingUser, setSavingUser] = useState(false)
   const [savingArtist, setSavingArtist] = useState(false)
@@ -51,6 +53,16 @@ export function ProfilePage({ session }) {
       .then(([uRes, aRes]) => {
         if (!alive) return
         setUserProfile(uRes.data)
+        api.get('/artworks/', {
+          params: { contributor: uRes.data.id, status: 'published', ordering: '-created_at' },
+        })
+          .then(({ data }) => {
+            if (!alive) return
+            setCollaborativeArtworks(data.results || data || [])
+          })
+          .catch(() => {
+            if (alive) setCollaborativeArtworks([])
+          })
         setUserForm({
           first_name: uRes.data.first_name || '',
           last_name: uRes.data.last_name || '',
@@ -574,6 +586,22 @@ export function ProfilePage({ session }) {
             <span>{savingArtist ? 'Activating Artist Account...' : 'Become an Artist'}</span>
           </Button>
         </form>
+      )}
+
+      {collaborativeArtworks.length > 0 && (
+        <section className="space-y-4">
+          <div className="border-b border-white/[0.08] pb-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-indigo-400">Collaborative Works</h2>
+            <p className="mt-1 text-xs text-[#A1A1AA]">
+              Published artworks where you are listed as an accepted collaborator.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {collaborativeArtworks.map((artwork) => (
+              <ArtworkCard key={artwork.id} artwork={artwork} source="profile_collaborations" />
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Danger Zone: Account Deletion */}

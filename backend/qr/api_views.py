@@ -119,16 +119,34 @@ class QRCodeViewSet(viewsets.ModelViewSet):
             # Paste QR code in center
             card.paste(qr_img, (padding, padding + header_h))
 
-            logo_size = max(24, int(qr_w * 0.18))
-            logo_left = padding + (qr_w - logo_size) // 2
-            logo_top = padding + header_h + (qr_h - logo_size) // 2
+            # Keep the complete LynqArt wordmark in the QR's quiet center area.
+            # Error correction H leaves enough recovery capacity for this small plaque.
+            brand_font_size = max(12, int(qr_w * 0.055))
+            try:
+                brand_font = ImageFont.truetype('DejaVuSans-Bold.ttf', brand_font_size)
+            except OSError:
+                brand_font = ImageFont.load_default()
+            brand_text = 'LynqArt'
+            text_box = draw.textbbox((0, 0), brand_text, font=brand_font)
+            brand_text_w = text_box[2] - text_box[0]
+            brand_text_h = text_box[3] - text_box[1]
+            plaque_padding_x = max(8, int(qr_w * 0.025))
+            plaque_padding_y = max(5, int(qr_w * 0.012))
+            plaque_w = brand_text_w + (plaque_padding_x * 2)
+            plaque_h = brand_text_h + (plaque_padding_y * 2)
+            plaque_left = padding + (qr_w - plaque_w) // 2
+            plaque_top = padding + header_h + (qr_h - plaque_h) // 2
             draw.rounded_rectangle(
-                (logo_left, logo_top, logo_left + logo_size, logo_top + logo_size),
-                radius=logo_size // 5,
+                (plaque_left, plaque_top, plaque_left + plaque_w, plaque_top + plaque_h),
+                radius=max(4, plaque_h // 4),
                 fill='white',
             )
-            mark_margin = max(4, logo_size // 5)
-            draw.text((logo_left + mark_margin, logo_top + mark_margin), 'L', fill='#4F46E5')
+            draw.text(
+                (plaque_left + plaque_padding_x, plaque_top + plaque_padding_y - text_box[1]),
+                brand_text,
+                fill='#4F46E5',
+                font=brand_font,
+            )
 
             # Draw bottom branding "LynqArt"
             draw.text((padding, padding + header_h + qr_h + 8), 'LynqArt', fill='#818CF8')

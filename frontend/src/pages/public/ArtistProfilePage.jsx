@@ -5,6 +5,7 @@ import { ArtworkCard } from '../../components/ui/ArtworkCard'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { LoadingState } from '../../components/ui/LoadingState'
 import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus'
+import { useDataRefresh } from '../../hooks/useDataRefresh'
 import { MapPin, Globe, Video, Mail, Users } from 'lucide-react'
 import { ContactArtistModal } from '../../components/ui/ContactArtistModal'
 
@@ -105,8 +106,6 @@ export function ArtistProfilePage() {
   if (!profile) return <EmptyState title="Artist Profile Not Found" description="This artist profile is not available." />
 
   const artistName = profile.user?.full_name || profile.user?.username || 'Artist'
-  const featuredArtworks = leadArtworks.filter((artwork) => artwork.is_artist_featured)
-
   return (
     <div className="space-y-12 lg:space-y-16">
       {/* Editorial Portfolio Header (Section 39) */}

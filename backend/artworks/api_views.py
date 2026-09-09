@@ -15,6 +15,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
 from accounts.permissions import IsArtistOrReadOnly, IsOwnerOrReadOnly
+from accounts.models import ArtistProfile
 from config.security import validate_and_store_upload
 from notifications.models import Notification
 
@@ -63,7 +64,13 @@ class ArtworkViewSet(viewsets.ModelViewSet):
     def finalize_response(self, request, response, *args, **kwargs):
         response = super().finalize_response(request, response, *args, **kwargs)
         if request.method == 'GET' and response.status_code == 200:
-            response['Cache-Control'] = 'public, max-age=60, s-maxage=300'
+            # The serialized contributor list includes pending invitations for the
+            # artwork owner, so authenticated responses must never be shared with
+            # another viewer by a public cache.
+            response['Cache-Control'] = (
+                'private, no-cache' if request.user.is_authenticated
+                else 'public, max-age=60, s-maxage=300'
+            )
         return response
 
     def perform_create(self, serializer):
@@ -243,7 +250,19 @@ class ArtworkContributorViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(
                 db_models.Q(artwork_id=artwork_param) | db_models.Q(artwork__slug=artwork_param)
             )
-        return queryset
+
+        # Accepted collaborators are public attribution data. Pending and
+        # declined invitations are private, and should only be visible to the
+        # lead artist, the invited user, or an administrator.
+        if not self.request.user.is_authenticated:
+            return queryset.filter(status=ArtworkContributor.STATUS_ACCEPTED)
+        if getattr(self.request.user, 'is_staff', False) or getattr(self.request.user, 'is_superuser', False):
+            return queryset
+        return queryset.filter(
+            db_models.Q(status=ArtworkContributor.STATUS_ACCEPTED) |
+            db_models.Q(artwork__artist=self.request.user) |
+            db_models.Q(user=self.request.user)
+        ).distinct()
 
     def perform_create(self, serializer):
         user = self.request.user
@@ -294,15 +313,29 @@ class ArtworkContributorViewSet(viewsets.ModelViewSet):
             raise PermissionDenied('You do not have permission to remove this contributor.')
         instance.delete()
 
+    def perform_update(self, serializer):
+        user = self.request.user
+        artwork = serializer.instance.artwork
+        if artwork.artist_id != user.id and not (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)):
+            raise PermissionDenied('Only the lead artist can edit contributor details.')
+        serializer.save()
+
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def accept(self, request, pk=None):
         contributor = self.get_object()
         if contributor.user_id != request.user.id and not (getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False)):
             raise PermissionDenied('Only the invited contributor can accept this invitation.')
+        if contributor.status != ArtworkContributor.STATUS_PENDING:
+            return Response({'detail': 'This invitation has already been answered.'}, status=status.HTTP_400_BAD_REQUEST)
 
         contributor.status = ArtworkContributor.STATUS_ACCEPTED
         contributor.responded_at = timezone.now()
         contributor.save(update_fields=['status', 'responded_at'])
+
+        # A collaborator does not need to be an artist before accepting an
+        # invitation. Creating the empty profile here makes the accepted work
+        # discoverable from their public profile immediately.
+        ArtistProfile.objects.get_or_create(user=contributor.user)
 
         Notification.objects.create(
             user=contributor.artwork.artist,
@@ -319,6 +352,8 @@ class ArtworkContributorViewSet(viewsets.ModelViewSet):
         contributor = self.get_object()
         if contributor.user_id != request.user.id and not (getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False)):
             raise PermissionDenied('Only the invited contributor can decline this invitation.')
+        if contributor.status != ArtworkContributor.STATUS_PENDING:
+            return Response({'detail': 'This invitation has already been answered.'}, status=status.HTTP_400_BAD_REQUEST)
 
         contributor.status = ArtworkContributor.STATUS_DECLINED
         contributor.responded_at = timezone.now()

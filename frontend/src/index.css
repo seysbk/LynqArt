@@ -112,8 +112,24 @@
 
 /* Custom Chiller / Decorative font styling for LynqArt logo */
 .font-display-logo {
-  font-family: 'Chiller', 'Brush Script MT', 'Comic Sans MS', cursive, 'Playfair Display', Georgia, serif;
-  letter-spacing: -0.05em;
+  /* Chiller is not available on every OS; keep a decorative handwriting fallback. */
+  font-family: 'Chiller', 'Segoe Print', 'Bradley Hand', 'Brush Script MT', cursive, serif;
+  letter-spacing: -0.08em;
+}
+
+.logo-letter {
+  display: inline-block;
+  position: relative;
+  transform: rotate(350deg);
+}
+
+.logo-letter-a {
+  font-weight: 600;
+}
+
+.logo-letter-r {
+  top: -2px;
+  left: -1px;
 }
 
 /* Buttons */

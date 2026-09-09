@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Route, Routes, useLocation } from 'react-router-dom'
 import { Analytics } from '@vercel/analytics/react'
 import { AppLayout } from './components/layout/AppLayout'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
@@ -18,12 +19,23 @@ import { QRLandingPage } from './pages/public/QRLandingPage'
 import { NotFoundPage } from './pages/public/NotFoundPage'
 import { TermsPage, PrivacyPage } from './pages/public/LegalPages'
 
+function ScrollToTop() {
+  const { pathname, search } = useLocation()
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }, [pathname, search])
+
+  return null
+}
+
 function App() {
   const session = useSession()
 
   return (
     <>
       <Analytics />
+      <ScrollToTop />
       <Routes>
       <Route element={<AppLayout session={session} />}>
         <Route index element={<HomePage session={session} />} />
