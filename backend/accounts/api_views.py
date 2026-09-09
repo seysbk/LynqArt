@@ -1,15 +1,22 @@
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
+from django.db.models import Q
 from rest_framework import filters, permissions, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
-from .models import ArtistProfile
 from .permissions import IsArtistProfileOwnerOrAdmin, IsSelfOrAdmin
 from notifications.models import Notification
 
 from .models import ArtistProfile, ContactMessage, FeedbackMessage
-from .serializers import ArtistProfileSerializer, ContactMessageSerializer, FeedbackMessageSerializer, UserSerializer
+from .serializers import (
+    ArtistProfileSerializer,
+    ContactMessageSerializer,
+    FeedbackMessageSerializer,
+    UserSearchSerializer,
+    UserSerializer,
+)
 
 User = get_user_model()
 
@@ -22,6 +29,20 @@ class UserViewSet(viewsets.ModelViewSet):
     search_fields = ('username', 'email', 'first_name', 'last_name')
     filterset_fields = ('is_artist', 'is_expert', 'is_verified', 'can_manage_exhibitions', 'is_active')
     ordering_fields = ('username', 'email', 'date_joined', 'created_at', 'updated_at')
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated], url_path='search')
+    def search_users(self, request):
+        query = request.query_params.get('q', '').strip()
+        if not query or len(query) < 2:
+            return Response([], status=status.HTTP_200_OK)
+        users = User.objects.filter(is_active=True).select_related('artist_profile').filter(
+            Q(username__icontains=query) |
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query) |
+            Q(email__icontains=query)
+        ).exclude(id=request.user.id)[:15]
+        serializer = UserSearchSerializer(users, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class ArtistProfileViewSet(viewsets.ModelViewSet):

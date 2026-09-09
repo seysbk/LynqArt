@@ -5,7 +5,7 @@ import { ArtworkCard } from '../../components/ui/ArtworkCard'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { LoadingState } from '../../components/ui/LoadingState'
 import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus'
-import { MapPin, Globe, Video, Mail } from 'lucide-react'
+import { MapPin, Globe, Video, Mail, Users } from 'lucide-react'
 import { ContactArtistModal } from '../../components/ui/ContactArtistModal'
 
 function InstagramIcon({ className }) {
@@ -61,7 +61,8 @@ function TwitterIcon({ className }) {
 export function ArtistProfilePage() {
   const { artistIdentifier } = useParams()
   const [profile, setProfile] = useState(null)
-  const [artworks, setArtworks] = useState([])
+  const [leadArtworks, setLeadArtworks] = useState([])
+  const [collaborativeArtworks, setCollaborativeArtworks] = useState([])
   const [loading, setLoading] = useState(true)
   const [contactOpen, setContactOpen] = useState(false)
   const { registerArtworksRefetchListener } = useDataRefresh()
@@ -69,13 +70,15 @@ export function ArtistProfilePage() {
   const fetchData = useCallback(async () => {
     let alive = true
     try {
-      const [profileRes, artworksRes] = await Promise.all([
+      const [profileRes, leadRes, collabRes] = await Promise.all([
         api.get(`/accounts/artist-profiles/${artistIdentifier}/`),
         api.get('/artworks/', { params: { artist: artistIdentifier, status: 'published', ordering: '-created_at' } }),
+        api.get('/artworks/', { params: { contributor: artistIdentifier, status: 'published', ordering: '-created_at' } }).catch(() => ({ data: [] })),
       ])
       if (!alive) return
       setProfile(profileRes.data)
-      setArtworks(artworksRes.data.results || artworksRes.data || [])
+      setLeadArtworks(leadRes.data.results || leadRes.data || [])
+      setCollaborativeArtworks(collabRes.data.results || collabRes.data || [])
       setLoading(false)
     } catch {
       if (!alive) return
@@ -102,7 +105,7 @@ export function ArtistProfilePage() {
   if (!profile) return <EmptyState title="Artist Profile Not Found" description="This artist profile is not available." />
 
   const artistName = profile.user?.full_name || profile.user?.username || 'Artist'
-  const featuredArtworks = artworks.filter((artwork) => artwork.is_artist_featured)
+  const featuredArtworks = leadArtworks.filter((artwork) => artwork.is_artist_featured)
 
   return (
     <div className="space-y-12 lg:space-y-16">
@@ -232,22 +235,41 @@ export function ArtistProfilePage() {
         )}
       </div>
 
-      {/* Featured Portfolio Artworks */}
+      {/* Lead Portfolio Artworks */}
       <section className="space-y-6">
         <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
-          <h2 className="text-2xl font-bold text-[#F4F4F5]">Featured Artworks ({featuredArtworks.length})</h2>
+          <h2 className="text-2xl font-bold text-[#F4F4F5]">Primary Artworks ({leadArtworks.length})</h2>
         </div>
 
-        {featuredArtworks.length > 0 ? (
+        {leadArtworks.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {featuredArtworks.map((artwork) => (
+            {leadArtworks.map((artwork) => (
               <ArtworkCard key={artwork.id} artwork={artwork} source="artist_profile" />
             ))}
           </div>
         ) : (
-          <EmptyState title="No Featured Artworks" description="This artist has not selected any artworks to display on their public profile yet." />
+          <EmptyState title="No Artworks Found" description="This artist has not published any lead artworks yet." />
         )}
       </section>
+
+      {/* Collaborative Works Section */}
+      {collaborativeArtworks.length > 0 && (
+        <section className="space-y-6 pt-6 border-t border-white/[0.08]">
+          <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-indigo-400" />
+              <h2 className="text-2xl font-bold text-[#F4F4F5]">Collaborative Works ({collaborativeArtworks.length})</h2>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {collaborativeArtworks.map((artwork) => (
+              <ArtworkCard key={artwork.id} artwork={artwork} source="artist_profile_collaborations" />
+            ))}
+          </div>
+        </section>
+      )}
+
       {contactOpen && <ContactArtistModal artist={profile.user} onClose={() => setContactOpen(false)} />}
     </div>
   )

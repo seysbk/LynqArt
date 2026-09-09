@@ -2,11 +2,29 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import { mediaUrl } from '../../lib/media'
 
+export function formatAttribution(artwork) {
+  if (!artwork) return 'Artist'
+  const leadName = artwork.artist?.full_name || artwork.artist?.username || 'Artist'
+  const accepted = artwork.accepted_contributors || []
+  if (!accepted.length) {
+    return leadName
+  }
+  const contributorNames = accepted.map((c) => c.user?.full_name || c.user?.username).filter(Boolean)
+  if (contributorNames.length === 1) {
+    return `${leadName} and ${contributorNames[0]}`
+  }
+  if (contributorNames.length === 2) {
+    return `${leadName}, ${contributorNames[0]}, and ${contributorNames[1]}`
+  }
+  return `${leadName} and ${contributorNames.length} collaborators`
+}
+
 export function ArtworkCard({ artwork, source = 'unknown' }) {
   if (!artwork) return null
 
   const imageUrl = mediaUrl(artwork.images?.[0]?.image_url || artwork.banner_image)
-  const artistName = artwork.artist?.full_name || artwork.artist?.username || 'Artist'
+  const attribution = formatAttribution(artwork)
+  const isCollaborative = Boolean(artwork.accepted_contributors?.length)
 
   return (
     <Link
@@ -26,6 +44,11 @@ export function ArtworkCard({ artwork, source = 'unknown' }) {
             No image available
           </div>
         )}
+        {isCollaborative && (
+          <span className="absolute top-2 right-2 px-2 py-0.5 rounded bg-indigo-600/90 text-white text-[10px] font-bold shadow">
+            Collaborative
+          </span>
+        )}
       </div>
 
       {/* Artwork Metadata */}
@@ -34,7 +57,7 @@ export function ArtworkCard({ artwork, source = 'unknown' }) {
           {artwork.title}
         </h3>
         <p className="text-xs text-[#A1A1AA] truncate">
-          {artistName}
+          By {attribution}
         </p>
         <p className="text-xs text-[#71717A] truncate pt-0.5">
           {artwork.medium || 'Artwork'} {artwork.year_created ? `· ${artwork.year_created}` : ''}

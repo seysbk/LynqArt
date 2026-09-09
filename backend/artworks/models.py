@@ -118,3 +118,30 @@ class ArtworkTag(models.Model):
 
     def __str__(self):
         return f'{self.artwork.title} - {self.tag.name}'
+
+
+class ArtworkContributor(models.Model):
+    STATUS_PENDING = 'pending'
+    STATUS_ACCEPTED = 'accepted'
+    STATUS_DECLINED = 'declined'
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_ACCEPTED, 'Accepted'),
+        (STATUS_DECLINED, 'Declined'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    artwork = models.ForeignKey(Artwork, on_delete=models.CASCADE, related_name='contributors')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='artwork_contributions')
+    contribution_role = models.CharField(max_length=150, blank=True, default='Co-Artist')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ('artwork', 'user')
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'{self.user.username} - {self.contribution_role} ({self.artwork.title}) [{self.status}]'

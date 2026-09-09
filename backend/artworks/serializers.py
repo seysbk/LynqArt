@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.utils.text import slugify
 
 from accounts.serializers import UserBriefSerializer
-from .models import Artwork, ArtworkImage, ArtworkTag, ArtworkVersion, Category, Tag
+from .models import Artwork, ArtworkContributor, ArtworkImage, ArtworkTag, ArtworkVersion, Category, Tag
 
 User = get_user_model()
 
@@ -62,6 +62,28 @@ class ArtworkBriefSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class ArtworkContributorSerializer(serializers.ModelSerializer):
+    user = UserBriefSerializer(read_only=True)
+    user_id = serializers.PrimaryKeyRelatedField(source='user', queryset=User.objects.all(), write_only=True)
+    artwork = ArtworkBriefSerializer(read_only=True)
+    artwork_id = serializers.PrimaryKeyRelatedField(source='artwork', queryset=Artwork.objects.all(), write_only=True, required=False)
+
+    class Meta:
+        model = ArtworkContributor
+        fields = (
+            'id',
+            'artwork',
+            'artwork_id',
+            'user',
+            'user_id',
+            'contribution_role',
+            'status',
+            'created_at',
+            'responded_at',
+        )
+        read_only_fields = ('id', 'status', 'created_at', 'responded_at', 'artwork')
+
+
 class ArtworkTagSerializer(serializers.ModelSerializer):
     class Meta:
         model = ArtworkTag
@@ -78,6 +100,8 @@ class ArtworkSerializer(serializers.ModelSerializer):
     versions = ArtworkVersionSerializer(many=True, read_only=True)
     images = ArtworkImageSerializer(many=True, read_only=True)
     tags = serializers.SerializerMethodField()
+    accepted_contributors = serializers.SerializerMethodField()
+    contributors = serializers.SerializerMethodField()
 
     class Meta:
         model = Artwork
@@ -111,8 +135,52 @@ class ArtworkSerializer(serializers.ModelSerializer):
             'images',
             'tags',
             'tag_ids',
+            'accepted_contributors',
+            'contributors',
         )
         read_only_fields = ('id', 'slug', 'created_at', 'updated_at')
+
+    def get_accepted_contributors(self, obj):
+        contributors = obj.contributors.filter(status=ArtworkContributor.STATUS_ACCEPTED).select_related('user', 'user__artist_profile')
+        res = []
+        for c in contributors:
+            user_data = UserBriefSerializer(c.user, context=self.context).data
+            avatar_url = ''
+            if hasattr(c.user, 'artist_profile') and c.user.artist_profile.avatar_url:
+                avatar_url = c.user.artist_profile.avatar_url
+            user_data['avatar_url'] = avatar_url
+            res.append({
+                'id': c.id,
+                'user': user_data,
+                'contribution_role': c.contribution_role,
+                'status': c.status,
+                'created_at': c.created_at,
+            })
+        return res
+
+    def get_contributors(self, obj):
+        request = self.context.get('request')
+        user = request.user if request and request.user.is_authenticated else None
+        if user and (user.id == obj.artist_id or getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)):
+            contributors = obj.contributors.select_related('user', 'user__artist_profile').all()
+        else:
+            contributors = obj.contributors.filter(status=ArtworkContributor.STATUS_ACCEPTED).select_related('user', 'user__artist_profile').all()
+        res = []
+        for c in contributors:
+            user_data = UserBriefSerializer(c.user, context=self.context).data
+            avatar_url = ''
+            if hasattr(c.user, 'artist_profile') and c.user.artist_profile.avatar_url:
+                avatar_url = c.user.artist_profile.avatar_url
+            user_data['avatar_url'] = avatar_url
+            res.append({
+                'id': c.id,
+                'user': user_data,
+                'contribution_role': c.contribution_role,
+                'status': c.status,
+                'created_at': c.created_at,
+                'responded_at': c.responded_at,
+            })
+        return res
 
     def _unique_slug(self, title, instance_id=None):
         base = slugify(title) or 'artwork'

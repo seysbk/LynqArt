@@ -7,6 +7,7 @@ import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus'
 export function NotificationsCenter({ session }) {
   const user = session?.user
   const [notifications, setNotifications] = useState([])
+  const [pendingInvitations, setPendingInvitations] = useState([])
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [expandedIds, setExpandedIds] = useState(new Set())
@@ -17,10 +18,15 @@ export function NotificationsCenter({ session }) {
     if (!user) return
     setLoading(true)
     try {
-      const { data } = await api.get('/notifications/', { params: { ordering: '-created_at' } })
-      setNotifications(data.results || data || [])
+      const [notifRes, contribRes] = await Promise.all([
+        api.get('/notifications/', { params: { ordering: '-created_at' } }),
+        api.get('/contributors/', { params: { user: user.id, status: 'pending' } }).catch(() => ({ data: [] })),
+      ])
+      setNotifications(notifRes.data.results || notifRes.data || [])
+      setPendingInvitations(contribRes.data.results || contribRes.data || [])
     } catch {
       setNotifications([])
+      setPendingInvitations([])
     } finally {
       setLoading(false)
     }
@@ -31,9 +37,7 @@ export function NotificationsCenter({ session }) {
 
   useEffect(() => {
     if (user) {
-      // Initial fetch immediately
       fetchNotifications()
-      // Poll every 15 seconds (was 45 seconds)
       const interval = window.setInterval(fetchNotifications, 15000)
       return () => {
         window.clearInterval(interval)
@@ -41,7 +45,27 @@ export function NotificationsCenter({ session }) {
     }
   }, [user, fetchNotifications])
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length
+  const unreadCount = notifications.filter((n) => !n.is_read).length + pendingInvitations.length
+
+  const handleAcceptInvitation = async (invitationId, event) => {
+    if (event) event.stopPropagation()
+    try {
+      await api.post(`/contributors/${invitationId}/accept/`)
+      await fetchNotifications()
+    } catch {
+      // noop
+    }
+  }
+
+  const handleDeclineInvitation = async (invitationId, event) => {
+    if (event) event.stopPropagation()
+    try {
+      await api.post(`/contributors/${invitationId}/decline/`)
+      await fetchNotifications()
+    } catch {
+      // noop
+    }
+  }
 
   const markAsRead = async (id) => {
     try {
@@ -108,7 +132,6 @@ export function NotificationsCenter({ session }) {
         onClick={() => {
           const newOpenState = !isOpen
           setIsOpen(newOpenState)
-          // Refetch notifications when opening the dropdown
           if (newOpenState) {
             fetchNotifications()
           }
@@ -126,206 +149,260 @@ export function NotificationsCenter({ session }) {
       </button>
 
       {isOpen && (
-        createPortal(<>
-          <div className="fixed inset-0 z-[9990]" onClick={() => setIsOpen(false)} />
-          <div className="fixed inset-x-3 top-[70px] z-[9991] max-h-[calc(100dvh-5.5rem)] overflow-hidden rounded-[12px] border border-white/[0.1] bg-[#141720] text-xs shadow-2xl sm:left-auto sm:right-4 sm:top-20 sm:w-96">
-            <div className="p-3.5 border-b border-white/[0.08] flex items-center justify-between bg-[#191C27]">
-              <div className="flex items-center gap-2">
-                <Bell className="h-4 w-4 text-indigo-400" />
-                <span className="font-bold text-[#F4F4F5]">Notifications Center</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {unreadCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={markAllAsRead}
-                    className="text-[11px] text-indigo-400 hover:underline flex items-center gap-1 font-medium"
-                  >
-                    <CheckCheck className="h-3 w-3" />
-                    <span>Mark all as read</span>
-                  </button>
-                )}
-                <button type="button" onClick={() => setIsOpen(false)} className="rounded p-1 text-slate-400 hover:text-white" aria-label="Close notifications">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="max-h-[calc(100dvh-9.75rem)] overflow-y-auto divide-y divide-white/[0.04] sm:max-h-96">
-              {loading ? (
-                <p className="p-4 text-center text-[#71717A]">Loading notifications...</p>
-              ) : notifications.length > 0 ? (
-                notifications.map((item) => {
-                  const isExpanded = expandedIds.has(item.id)
-                  const senderEmail = extractEmail(item)
-
-                  return (
-                    <div
-                      key={item.id}
-                      className={`p-3.5 space-y-2 transition cursor-pointer ${
-                        item.is_read ? 'bg-transparent' : 'bg-indigo-500/10'
-                      }`}
-                      onClick={() => toggleExpand(item.id)}
+        createPortal(
+          <>
+            <div className="fixed inset-0 z-[9990]" onClick={() => setIsOpen(false)} />
+            <div className="fixed inset-x-3 top-[70px] z-[9991] max-h-[calc(100dvh-5.5rem)] overflow-hidden rounded-[12px] border border-white/[0.1] bg-[#141720] text-xs shadow-2xl sm:left-auto sm:right-4 sm:top-20 sm:w-96">
+              <div className="p-3.5 border-b border-white/[0.08] flex items-center justify-between bg-[#191C27]">
+                <div className="flex items-center gap-2">
+                  <Bell className="h-4 w-4 text-indigo-400" />
+                  <span className="font-bold text-[#F4F4F5]">Notifications Center</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={markAllAsRead}
+                      className="text-[11px] text-indigo-400 hover:underline flex items-center gap-1 font-medium"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 space-y-0.5">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-semibold text-[#F4F4F5]">{item.title}</span>
-                            {item.type && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-white/[0.06] text-indigo-300">
-                                {item.type}
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-[10px] text-[#71717A] block">
-                            {new Date(item.created_at).toLocaleString()}
-                          </span>
-                        </div>
+                      <CheckCheck className="h-3 w-3" />
+                      <span>Mark all as read</span>
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setIsOpen(false)} className="rounded p-1 text-slate-400 hover:text-white" aria-label="Close notifications">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
 
-                        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                          {!item.is_read && (
-                            <button
-                              type="button"
-                              onClick={() => markAsRead(item.id)}
-                              className="text-slate-400 hover:text-indigo-400 p-1 rounded"
-                              title="Mark read"
-                            >
-                              <Check className="h-3.5 w-3.5" />
-                            </button>
-                          )}
+              <div className="max-h-[calc(100dvh-9.75rem)] overflow-y-auto divide-y divide-white/[0.04] sm:max-h-96">
+                {pendingInvitations.length > 0 && (
+                  <div className="p-3 bg-indigo-600/15 border-b border-indigo-500/30 space-y-2">
+                    <span className="text-[11px] font-bold text-indigo-300 uppercase tracking-wider block">
+                      Pending Collaboration Invitations ({pendingInvitations.length})
+                    </span>
+                    {pendingInvitations.map((inv) => (
+                      <div key={inv.id} className="p-2.5 rounded-[8px] bg-[#0D0F14] border border-white/[0.08] space-y-2 text-xs">
+                        <div>
+                          <p className="font-semibold text-[#F4F4F5]">{inv.artwork?.title || 'Artwork Collaboration'}</p>
+                          <p className="text-[11px] text-[#A1A1AA]">Role: {inv.contribution_role}</p>
+                        </div>
+                        <div className="flex gap-2">
                           <button
                             type="button"
-                            onClick={(e) => toggleExpand(item.id, e)}
-                            className="text-slate-400 hover:text-white p-1 rounded"
-                            title={isExpanded ? 'Collapse' : 'Expand message'}
+                            onClick={(e) => handleAcceptInvitation(inv.id, e)}
+                            className="flex-1 py-1 px-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] transition text-center"
                           >
-                            {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                            Accept
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeclineInvitation(inv.id, e)}
+                            className="flex-1 py-1 px-2 rounded bg-white/[0.06] hover:bg-rose-600/30 hover:text-rose-300 text-slate-300 font-semibold text-[11px] transition text-center"
+                          >
+                            Decline
                           </button>
                         </div>
                       </div>
+                    ))}
+                  </div>
+                )}
 
-                      {/* Summary or Expanded View */}
-                      {isExpanded ? (
-                        <div className="pt-2 border-t border-white/[0.06] space-y-2 text-[#A1A1AA]">
-                          <p className="whitespace-pre-wrap leading-relaxed font-sans text-xs text-[#F4F4F5]">
-                            {item.message}
-                          </p>
+                {loading ? (
+                  <p className="p-4 text-center text-[#71717A]">Loading notifications...</p>
+                ) : notifications.length > 0 ? (
+                  notifications.map((item) => {
+                    const isExpanded = expandedIds.has(item.id)
+                    const senderEmail = extractEmail(item)
+                    const matchingInvitation = pendingInvitations.find((inv) => inv.artwork?.title && item.message?.includes(inv.artwork.title))
 
-                          {senderEmail && (
-                            <div className="flex flex-wrap items-center gap-2 pt-1">
-                              <a
-                                href={getMailtoLink(item)}
-                                target="_blank"
-                                rel="noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-[11px] transition"
-                              >
-                                <Mail className="h-3 w-3" />
-                                <span>Reply via Email Client</span>
-                                <ExternalLink className="h-2.5 w-2.5 opacity-70" />
-                              </a>
+                    return (
+                      <div
+                        key={item.id}
+                        className={`p-3.5 space-y-2 transition cursor-pointer ${
+                          item.is_read ? 'bg-transparent' : 'bg-indigo-500/10'
+                        }`}
+                        onClick={() => toggleExpand(item.id)}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 space-y-0.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-semibold text-[#F4F4F5]">{item.title}</span>
+                              {item.type && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-white/[0.06] text-indigo-300">
+                                  {item.type}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-[#71717A] block">
+                              {new Date(item.created_at).toLocaleString()}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            {!item.is_read && (
                               <button
                                 type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setReplyModalItem(item)
-                                }}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-white/[0.06] hover:bg-white/[0.1] text-slate-200 text-[11px] transition"
+                                onClick={() => markAsRead(item.id)}
+                                className="text-slate-400 hover:text-indigo-400 p-1 rounded"
+                                title="Mark read"
                               >
-                                <span>View Reply Draft</span>
+                                <Check className="h-3.5 w-3.5" />
                               </button>
-                            </div>
-                          )}
+                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => toggleExpand(item.id, e)}
+                              className="text-slate-400 hover:text-white p-1 rounded"
+                              title={isExpanded ? 'Collapse' : 'Expand message'}
+                            >
+                              {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                            </button>
+                          </div>
                         </div>
-                      ) : (
-                        <p className="text-[#A1A1AA] line-clamp-2 leading-relaxed">
-                          {item.message}
-                        </p>
-                      )}
-                    </div>
-                  )
-                })
-              ) : (
-                <p className="p-6 text-center text-[#71717A]">No notifications yet.</p>
-              )}
+
+                        {/* Summary or Expanded View */}
+                        {isExpanded ? (
+                          <div className="pt-2 border-t border-white/[0.06] space-y-2 text-[#A1A1AA]">
+                            <p className="whitespace-pre-wrap leading-relaxed font-sans text-xs text-[#F4F4F5]">
+                              {item.message}
+                            </p>
+
+                            {matchingInvitation && (
+                              <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleAcceptInvitation(matchingInvitation.id, e)}
+                                  className="px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] transition"
+                                >
+                                  Accept Collaboration
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleDeclineInvitation(matchingInvitation.id, e)}
+                                  className="px-3 py-1 rounded bg-white/[0.06] hover:bg-rose-600/30 text-slate-200 text-[11px] transition"
+                                >
+                                  Decline
+                                </button>
+                              </div>
+                            )}
+
+                            {senderEmail && (
+                              <div className="flex flex-wrap items-center gap-2 pt-1">
+                                <a
+                                  href={getMailtoLink(item)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-[11px] transition"
+                                >
+                                  <Mail className="h-3 w-3" />
+                                  <span>Reply via Email Client</span>
+                                  <ExternalLink className="h-2.5 w-2.5 opacity-70" />
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setReplyModalItem(item)
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-white/[0.06] hover:bg-white/[0.1] text-slate-200 text-[11px] transition"
+                                >
+                                  <span>View Reply Draft</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-[#A1A1AA] line-clamp-2 leading-relaxed">
+                            {item.message}
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })
+                ) : (
+                  <p className="p-6 text-center text-[#71717A]">No notifications yet.</p>
+                )}
+              </div>
             </div>
-          </div>
-        </>, document.body)
+          </>,
+          document.body
+        )
       )}
 
       {/* Reply Draft Modal */}
       {replyModalItem && (
         createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-start justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm sm:items-center" onMouseDown={() => setReplyModalItem(null)} role="dialog" aria-modal="true" aria-label="Reply email draft">
-          <div className="surface-card my-auto max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto border border-white/10 p-5 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
-              <div className="flex items-center gap-2 text-indigo-400 font-bold text-sm">
-                <Mail className="h-4 w-4" />
-                <span>Compose Reply Email Draft</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setReplyModalItem(null)}
-                className="text-slate-400 hover:text-white p-1 rounded"
-                aria-label="Close reply draft"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <span className="text-[#71717A] block">To:</span>
-                <span className="font-medium text-[#F4F4F5]">{extractEmail(replyModalItem)}</span>
+          <div className="fixed inset-0 z-[9999] flex items-start justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm sm:items-center" onMouseDown={() => setReplyModalItem(null)} role="dialog" aria-modal="true" aria-label="Reply email draft">
+            <div className="surface-card my-auto max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto border border-white/10 p-5 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+              <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
+                <div className="flex items-center gap-2 text-indigo-400 font-bold text-sm">
+                  <Mail className="h-4 w-4" />
+                  <span>Compose Reply Email Draft</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReplyModalItem(null)}
+                  className="text-slate-400 hover:text-white p-1 rounded"
+                  aria-label="Close reply draft"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
 
-              <div>
-                <span className="text-[#71717A] block">Subject:</span>
-                <span className="font-medium text-[#F4F4F5]">Re: [LynqArt] {replyModalItem.title}</span>
-              </div>
+              <div className="space-y-3 text-xs">
+                <div>
+                  <span className="text-[#71717A] block">To:</span>
+                  <span className="font-medium text-[#F4F4F5]">{extractEmail(replyModalItem)}</span>
+                </div>
 
-              <div className="space-y-1">
-                <span className="text-[#71717A] block">Draft Body Preview:</span>
-                <div className="p-3 rounded-lg bg-[#0D0F14] border border-white/[0.08] text-[#A1A1AA] whitespace-pre-wrap font-mono text-[11px] max-h-48 overflow-y-auto">
-                  {`Hi,\n\nThank you for reaching out via LynqArt.\n\n---\nOriginal Message:\n${replyModalItem.message}`}
+                <div>
+                  <span className="text-[#71717A] block">Subject:</span>
+                  <span className="font-medium text-[#F4F4F5]">Re: [LynqArt] {replyModalItem.title}</span>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[#71717A] block">Draft Body Preview:</span>
+                  <div className="p-3 rounded-lg bg-[#0D0F14] border border-white/[0.08] text-[#A1A1AA] whitespace-pre-wrap font-mono text-[11px] max-h-48 overflow-y-auto">
+                    {`Hi,\n\nThank you for reaching out via LynqArt.\n\n---\nOriginal Message:\n${replyModalItem.message}`}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex flex-col-reverse gap-2 border-t border-white/[0.08] pt-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-              <button
-                type="button"
-                onClick={() => setReplyModalItem(null)}
-                className="px-3 py-1.5 rounded border border-white/[0.09] text-slate-300 hover:bg-white/[0.06] text-xs"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => handleCopyDraft(replyModalItem)}
-                className="px-3 py-1.5 rounded bg-white/[0.06] hover:bg-white/[0.1] text-slate-200 text-xs flex items-center gap-1.5"
-              >
-                <Copy className="h-3.5 w-3.5" />
-                <span>{copied ? 'Copied to Clipboard!' : 'Copy Draft'}</span>
-              </button>
+              <div className="flex flex-col-reverse gap-2 border-t border-white/[0.08] pt-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setReplyModalItem(null)}
+                  className="px-3 py-1.5 rounded border border-white/[0.09] text-slate-300 hover:bg-white/[0.06] text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCopyDraft(replyModalItem)}
+                  className="px-3 py-1.5 rounded bg-white/[0.06] hover:bg-white/[0.1] text-slate-200 text-xs flex items-center gap-1.5"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  <span>{copied ? 'Copied to Clipboard!' : 'Copy Draft'}</span>
+                </button>
 
-              <a
-                href={getMailtoLink(replyModalItem)}
-                target="_blank"
-                rel="noreferrer"
-                className="px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs flex items-center gap-1.5"
-              >
-                <Mail className="h-3.5 w-3.5" />
-                <span>Submit / Open Email App</span>
-                <ExternalLink className="h-3 w-3 opacity-80" />
-              </a>
+                <a
+                  href={getMailtoLink(replyModalItem)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs flex items-center gap-1.5"
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                  <span>Submit / Open Email App</span>
+                  <ExternalLink className="h-3 w-3 opacity-80" />
+                </a>
+              </div>
             </div>
-          </div>
-        </div>,
-        document.body,
+          </div>,
+          document.body
         )
       )}
     </div>
   )
 }
-
