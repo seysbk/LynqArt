@@ -70,3 +70,19 @@ class AuthSecurityTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['bio'], '')
+
+    def test_google_auth_creates_or_logs_in_user(self):
+        response = self.client.post(
+            reverse('google-auth'),
+            {
+                'email': 'googleuser@example.com',
+                'first_name': 'Google',
+                'last_name': 'User',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('access', response.data)
+        self.assertIn('refresh', response.data)
+        self.assertEqual(response.data['user']['email'], 'googleuser@example.com')

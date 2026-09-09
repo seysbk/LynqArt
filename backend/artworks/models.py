@@ -135,6 +135,7 @@ class ArtworkContributor(models.Model):
     artwork = models.ForeignKey(Artwork, on_delete=models.CASCADE, related_name='contributors')
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='artwork_contributions')
     contribution_role = models.CharField(max_length=150, blank=True, default='Co-Artist')
+    is_lead = models.BooleanField(default=False)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
     responded_at = models.DateTimeField(null=True, blank=True)

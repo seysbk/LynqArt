@@ -74,5 +74,14 @@ export function useSession() {
     await signIn({ username: payload.username, password: payload.password })
   }
 
-  return { ...session, signIn, signOut, register, refresh }
+  const signInWithGoogle = async (googleData) => {
+    const { data } = await api.post('/accounts/google/', googleData)
+    localStorage.setItem('lynqart_access_token', data.access)
+    localStorage.setItem('lynqart_refresh_token', data.refresh)
+    setAuthToken(data.access)
+    setSession({ user: data.user, accessToken: data.access, refreshToken: data.refresh, loading: false, error: '' })
+    return data.user
+  }
+
+  return { ...session, signIn, signOut, register, refresh, signInWithGoogle }
 }

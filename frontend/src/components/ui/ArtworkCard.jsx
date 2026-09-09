@@ -19,6 +19,20 @@ export function formatAttribution(artwork) {
   return `${leadName} and ${contributorNames.length} collaborators`
 }
 
+export function formatCopyrightHolders(artwork) {
+  if (!artwork) return 'Not specified'
+  if (artwork.copyright_holder && artwork.copyright_holder.trim()) {
+    return artwork.copyright_holder
+  }
+  const leadName = artwork.artist?.full_name || artwork.artist?.username || 'Lead Artist'
+  const accepted = artwork.accepted_contributors || []
+  if (!accepted.length) {
+    return leadName
+  }
+  const contributorNames = accepted.map((c) => c.user?.full_name || c.user?.username).filter(Boolean)
+  return [leadName, ...contributorNames].join(', ')
+}
+
 export function ArtworkCard({ artwork, source = 'unknown' }) {
   if (!artwork) return null
 

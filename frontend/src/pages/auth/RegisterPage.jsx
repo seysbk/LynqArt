@@ -11,8 +11,47 @@ export function RegisterPage({ session }) {
   const navigate = useNavigate()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false)
+
+  const handleGoogleAuth = async () => {
+    setError('')
+    setGoogleLoading(true)
+    try {
+      if (window.google?.accounts?.id) {
+        window.google.accounts.id.initialize({
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
+          callback: async (response) => {
+            if (response.credential) {
+              await session.signInWithGoogle({ credential: response.credential })
+              navigate('/dashboard')
+            }
+          },
+        })
+        window.google.accounts.id.prompt((notification) => {
+          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+            promptGoogleCredentialToken()
+          }
+        })
+      } else {
+        await promptGoogleCredentialToken()
+      }
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Google registration failed.'))
+      setGoogleLoading(false)
+    }
+  }
+
+  const promptGoogleCredentialToken = async () => {
+    const credential = window.prompt('Enter your Google ID token to authenticate with Google:')
+    if (!credential) {
+      setGoogleLoading(false)
+      return
+    }
+    await session.signInWithGoogle({ credential })
+    navigate('/dashboard')
+  }
 
   const onSubmit = async (event) => {
     event.preventDefault()
@@ -43,6 +82,8 @@ export function RegisterPage({ session }) {
       onSubmit={onSubmit}
       error={error}
       loading={loading}
+      onGoogleAuth={handleGoogleAuth}
+      googleLoading={googleLoading}
       cta="Create Account"
     >
       <input className={inputClass} name="username" placeholder="Username *" required />

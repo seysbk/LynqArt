@@ -6,7 +6,7 @@ import { api } from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
 import { shareLink, sharePreviewUrl } from '../../lib/sharing'
 import { Button } from '../../components/ui/Button'
-import { ArtworkCard, formatAttribution } from '../../components/ui/ArtworkCard'
+import { ArtworkCard, formatAttribution, formatCopyrightHolders } from '../../components/ui/ArtworkCard'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { LoadingState } from '../../components/ui/LoadingState'
 import { Heart, QrCode, Share2, Award, MessageSquare, Mail, Flag, Eye } from 'lucide-react'
@@ -73,6 +73,8 @@ export function ArtworkDetailPage({ session }) {
   const [commentText, setCommentText] = useState('')
   const [editingCommentId, setEditingCommentId] = useState(null)
   const [editingText, setEditingText] = useState('')
+  const [replyingCommentId, setReplyingCommentId] = useState(null)
+  const [replyText, setReplyText] = useState('')
   const [reviewTitle, setReviewTitle] = useState('')
   const [reviewText, setReviewText] = useState('')
   const [reviewRating, setReviewRating] = useState(0)
@@ -143,18 +145,25 @@ export function ArtworkDetailPage({ session }) {
     [artwork],
   )
 
-  const submitComment = async (event) => {
-    event.preventDefault()
-    if (!commentText.trim() || !artwork.allow_comments) return
+  const submitComment = async (event, parentCommentId = null) => {
+    if (event) event.preventDefault()
+    const content = parentCommentId ? replyText : commentText
+    if (!content.trim() || !artwork.allow_comments) return
     try {
-      const { data } = await api.post('/comments/', { artwork: artwork.id, comment: commentText })
-      setComments([data, ...comments])
-      setCommentText('')
-      setMessage('Comment posted.')
-      // Refetch to ensure we have fresh comment count and any other updates
+      const payload = { artwork: artwork.id, comment: content.trim() }
+      if (parentCommentId) payload.parent_comment = parentCommentId
+      await api.post('/comments/', payload)
+      if (parentCommentId) {
+        setReplyText('')
+        setReplyingCommentId(null)
+        setMessage('Reply posted.')
+      } else {
+        setCommentText('')
+        setMessage('Comment posted.')
+      }
       fetchCommentsAndReviews()
-    } catch {
-      setMessage('Could not post comment.')
+    } catch (err) {
+      setMessage(err?.response?.data?.detail || 'Could not post comment.')
     }
   }
 
@@ -276,9 +285,14 @@ export function ArtworkDetailPage({ session }) {
         {/* Right: Artwork Metadata & Artist Statement (Section 36 Layout) */}
         <div className="space-y-8 lg:col-span-6">
           <div className="space-y-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400">
-              {artwork.category_detail?.name || 'Artwork Catalogue'}
-            </span>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400">
+                {artwork.category_detail?.name || 'Artwork Catalogue'}
+              </span>
+              <span className="text-xs text-[#A1A1AA] bg-white/[0.05] px-2.5 py-1 rounded-full border border-white/[0.08]">
+                Published on {formatDate(artwork.published_at)}
+              </span>
+            </div>
             <h1 className="text-3xl sm:text-4xl font-extrabold text-[#F4F4F5]">{artwork.title}</h1>
             <p className="text-base text-[#A1A1AA]">
               By{' '}
@@ -372,7 +386,7 @@ export function ArtworkDetailPage({ session }) {
                 <dd className="text-[#F4F4F5] font-medium mt-0.5">{artwork.medium || 'Not specified'}</dd>
               </div>
               <div>
-                <dt className="text-[#71717A]">Year Created</dt>
+                <dt className="text-[#71717A]">Date / Year Completed</dt>
                 <dd className="text-[#F4F4F5] font-medium mt-0.5">{artwork.year_created || 'Not specified'}</dd>
               </div>
               <div>
@@ -380,17 +394,15 @@ export function ArtworkDetailPage({ session }) {
                 <dd className="text-[#F4F4F5] font-medium mt-0.5">{artwork.dimensions || 'Not specified'}</dd>
               </div>
               <div>
-                <dt className="text-[#71717A]">Published</dt>
+                <dt className="text-[#71717A]">Published On</dt>
                 <dd className="text-[#F4F4F5] font-medium mt-0.5">{formatDate(artwork.published_at)}</dd>
               </div>
             </dl>
-            {(artwork.copyright_holder || artwork.license_type || artwork.provenance_notes) && (
-              <div className="border-t border-white/[0.06] pt-3 space-y-2 text-xs">
-                <p className="text-[#A1A1AA]">Copyright holder: <span className="text-[#F4F4F5]">{artwork.copyright_holder || 'Not specified'}</span></p>
-                {artwork.license_type && <p className="text-[#A1A1AA]">Licence: <span className="text-[#F4F4F5]">{licenseDetails[artwork.license_type] || artwork.license_type.replaceAll('_', ' ')}</span></p>}
-                {artwork.provenance_notes && <div className="space-y-1"><p className="text-[#A1A1AA]">Provenance / ownership history</p><p className="text-[#F4F4F5] leading-relaxed">{artwork.provenance_notes}</p></div>}
-              </div>
-            )}
+            <div className="border-t border-white/[0.06] pt-3 space-y-2 text-xs">
+              <p className="text-[#A1A1AA]">Copyright holder(s): <span className="text-[#F4F4F5] font-medium">{formatCopyrightHolders(artwork)}</span></p>
+              {artwork.license_type && <p className="text-[#A1A1AA]">Licence: <span className="text-[#F4F4F5]">{licenseDetails[artwork.license_type] || artwork.license_type.replaceAll('_', ' ')}</span></p>}
+              {artwork.provenance_notes && <div className="space-y-1"><p className="text-[#A1A1AA]">Provenance / ownership history</p><p className="text-[#F4F4F5] leading-relaxed">{artwork.provenance_notes}</p></div>}
+            </div>
           </div>
         </div>
       </div>
@@ -561,6 +573,13 @@ export function ArtworkDetailPage({ session }) {
               {comments.map((item) => {
                 const isOwner = session.user?.id === item.user?.id
                 const isEditing = editingCommentId === item.id
+                const canReply = session.user && (
+                  artwork.artist?.id === session.user.id ||
+                  artwork.accepted_contributors?.some(c => c.user?.id === session.user.id) ||
+                  session.user.is_staff ||
+                  session.user.is_superuser
+                )
+                const isReplying = replyingCommentId === item.id
 
                 return (
                   <div key={item.id} className="surface-card p-4 space-y-2 text-xs border border-white/[0.08]">
@@ -569,6 +588,12 @@ export function ArtworkDetailPage({ session }) {
                         <span className="font-semibold text-[#F4F4F5]">
                           {item.user?.full_name || item.user?.username || 'Visitor'}
                         </span>
+                        {item.user?.id === artwork.artist?.id && (
+                          <span className="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold text-[9px]">Lead Artist</span>
+                        )}
+                        {artwork.accepted_contributors?.some(c => c.user?.id === item.user?.id) && (
+                          <span className="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold text-[9px]">Collaborator</span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-[#71717A] text-[10px]">{formatDate(item.created_at)}</span>
@@ -581,8 +606,20 @@ export function ArtworkDetailPage({ session }) {
                         >
                           <Flag className="h-3.5 w-3.5" />
                         </button>
+                        {canReply && !isEditing && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReplyingCommentId(isReplying ? null : item.id)
+                              setReplyText('')
+                            }}
+                            className="text-indigo-400 hover:underline font-medium text-[11px]"
+                          >
+                            Reply
+                          </button>
+                        )}
                         {isOwner && !isEditing && (
-                          <div className="flex items-center gap-1.5 text-[11px] ml-2">
+                          <div className="flex items-center gap-1.5 text-[11px] ml-1">
                             <button
                               type="button"
                               onClick={() => handleEditComment(item)}
@@ -632,6 +669,57 @@ export function ArtworkDetailPage({ session }) {
                       </div>
                     ) : (
                       <p className="text-[#A1A1AA] leading-relaxed">{item.comment}</p>
+                    )}
+
+                    {/* Reply Form for Lead Artist or Collaborator */}
+                    {isReplying && (
+                      <form onSubmit={(e) => submitComment(e, item.id)} className="space-y-2 pt-2 border-t border-white/[0.06]">
+                        <textarea
+                          required
+                          rows={2}
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          placeholder="Write a reply as an artist/collaborator..."
+                          className="w-full rounded-[8px] bg-[#0D0F14] border border-white/[0.12] p-2 text-xs text-[#F4F4F5] outline-none focus:border-indigo-400"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setReplyingCommentId(null)}
+                            className="!py-1 !px-2.5 text-[11px]"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="submit"
+                            variant="primary"
+                            className="!py-1 !px-2.5 text-[11px]"
+                          >
+                            Post Reply
+                          </Button>
+                        </div>
+                      </form>
+                    )}
+
+                    {/* Nested Replies */}
+                    {item.replies?.length > 0 && (
+                      <div className="space-y-2 pl-4 border-l-2 border-indigo-500/30 mt-2">
+                        {item.replies.map((reply) => (
+                          <div key={reply.id} className="space-y-1 bg-white/[0.02] p-2.5 rounded-[8px]">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-semibold text-[#F4F4F5]">
+                                  {reply.user?.full_name || reply.user?.username || 'Artist'}
+                                </span>
+                                <span className="px-1.5 py-0.2 rounded bg-indigo-500/30 text-indigo-200 font-bold text-[8px]">Artist Response</span>
+                              </div>
+                              <span className="text-[#71717A] text-[9px]">{formatDate(reply.created_at)}</span>
+                            </div>
+                            <p className="text-[#A1A1AA] leading-relaxed">{reply.comment}</p>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                 )
