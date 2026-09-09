@@ -2,7 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 
-from .auth_views import ArtistProfileSelfView, BecomeArtistView, CurrentUserView, RegisterView, ThrottledTokenObtainPairView
+from .auth_views import ArtistProfileSelfView, BecomeArtistView, CurrentUserView, GoogleAuthView, RegisterView, ThrottledTokenObtainPairView
 from .api_views import ArtistProfileViewSet, ContactMessageViewSet, FeedbackMessageViewSet, UserViewSet
 from .views import healthcheck
 
@@ -15,6 +15,7 @@ router.register(r'feedback', FeedbackMessageViewSet, basename='feedback')
 urlpatterns = [
     path('', healthcheck, name='accounts-healthcheck'),
     path('register/', RegisterView.as_view(), name='register'),
+    path('google/', GoogleAuthView.as_view(), name='google-auth'),
     path('profile/', CurrentUserView.as_view(), name='current-user'),
     path('become-artist/', BecomeArtistView.as_view(), name='become-artist'),
     path('artist-profile/', ArtistProfileSelfView.as_view(), name='artist-profile-self'),

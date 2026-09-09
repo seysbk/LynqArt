@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from .models import Artwork, ArtworkImage, ArtworkTag, ArtworkVersion, Category, Tag
+from .models import Artwork, ArtworkContributor, ArtworkImage, ArtworkTag, ArtworkVersion, Category, Tag
+
+
+class ArtworkContributorInline(admin.TabularInline):
+    model = ArtworkContributor
+    extra = 0
+    fields = ('user', 'contribution_role', 'is_lead', 'status', 'created_at', 'responded_at')
+    readonly_fields = ('created_at', 'responded_at')
+    autocomplete_fields = ('user',)
 
 
 class ArtworkImageInline(admin.TabularInline):
@@ -59,7 +67,7 @@ class ArtworkAdmin(admin.ModelAdmin):
     )
     autocomplete_fields = ('artist', 'category', 'current_version')
     prepopulated_fields = {'slug': ('title',)}
-    inlines = (ArtworkVersionInline, ArtworkImageInline, ArtworkTagInline)
+    inlines = (ArtworkVersionInline, ArtworkImageInline, ArtworkTagInline, ArtworkContributorInline)
     ordering = ('-created_at',)
 
 
@@ -86,3 +94,12 @@ class ArtworkTagAdmin(admin.ModelAdmin):
     list_display = ('artwork', 'tag')
     search_fields = ('artwork__title', 'tag__name')
     autocomplete_fields = ('artwork', 'tag')
+
+
+@admin.register(ArtworkContributor)
+class ArtworkContributorAdmin(admin.ModelAdmin):
+    list_display = ('artwork', 'user', 'contribution_role', 'is_lead', 'status', 'created_at')
+    list_filter = ('status', 'is_lead', 'created_at')
+    search_fields = ('artwork__title', 'user__username', 'user__email', 'contribution_role')
+    autocomplete_fields = ('artwork', 'user')
+    ordering = ('-created_at',)

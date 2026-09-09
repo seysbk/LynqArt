@@ -77,6 +77,7 @@ class ArtworkContributorSerializer(serializers.ModelSerializer):
             'user',
             'user_id',
             'contribution_role',
+            'is_lead',
             'status',
             'created_at',
             'responded_at',
@@ -153,6 +154,7 @@ class ArtworkSerializer(serializers.ModelSerializer):
                 'id': c.id,
                 'user': user_data,
                 'contribution_role': c.contribution_role,
+                'is_lead': c.is_lead,
                 'status': c.status,
                 'created_at': c.created_at,
             })
@@ -176,6 +178,7 @@ class ArtworkSerializer(serializers.ModelSerializer):
                 'id': c.id,
                 'user': user_data,
                 'contribution_role': c.contribution_role,
+                'is_lead': c.is_lead,
                 'status': c.status,
                 'created_at': c.created_at,
                 'responded_at': c.responded_at,

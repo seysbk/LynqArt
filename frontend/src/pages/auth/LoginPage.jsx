@@ -12,7 +12,48 @@ export function LoginPage({ session }) {
   const location = useLocation()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+
+  const handleGoogleAuth = async () => {
+    setError('')
+    setGoogleLoading(true)
+    try {
+      if (window.google?.accounts?.id) {
+        window.google.accounts.id.initialize({
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
+          callback: async (response) => {
+            if (response.credential) {
+              await session.signInWithGoogle({ credential: response.credential })
+              const nextPath = new URLSearchParams(location.search).get('next')
+              navigate(nextPath?.startsWith('/') ? nextPath : '/dashboard')
+            }
+          },
+        })
+        window.google.accounts.id.prompt((notification) => {
+          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+            promptGoogleCredentialToken()
+          }
+        })
+      } else {
+        await promptGoogleCredentialToken()
+      }
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Google authentication failed.'))
+      setGoogleLoading(false)
+    }
+  }
+
+  const promptGoogleCredentialToken = async () => {
+    const credential = window.prompt('Enter your Google ID token to authenticate with Google:')
+    if (!credential) {
+      setGoogleLoading(false)
+      return
+    }
+    await session.signInWithGoogle({ credential })
+    const nextPath = new URLSearchParams(location.search).get('next')
+    navigate(nextPath?.startsWith('/') ? nextPath : '/dashboard')
+  }
 
   const onSubmit = async (event) => {
     event.preventDefault()
@@ -40,6 +81,8 @@ export function LoginPage({ session }) {
       onSubmit={onSubmit}
       error={error}
       loading={loading}
+      onGoogleAuth={handleGoogleAuth}
+      googleLoading={googleLoading}
       cta="Sign In"
     >
       <input

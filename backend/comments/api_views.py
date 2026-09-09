@@ -26,10 +26,18 @@ class CommentViewSet(viewsets.ModelViewSet):
         artwork = serializer.validated_data['artwork']
         if not artwork.allow_comments:
             raise ValidationError({'artwork': 'Comments are disabled for this artwork.'})
-        if serializer.validated_data.get('parent_comment') and artwork.artist != self.request.user and not (
-            self.request.user.is_staff or self.request.user.is_superuser
-        ):
-            raise PermissionDenied('Only the artist can reply to visitor comments on this artwork.')
+        parent = serializer.validated_data.get('parent_comment')
+        if parent:
+            if parent.artwork_id != artwork.id:
+                raise ValidationError({'parent_comment': 'Parent comment belongs to a different artwork.'})
+            is_artist = artwork.artist == self.request.user
+            is_collaborator = artwork.contributors.filter(
+                user=self.request.user,
+                status='accepted'
+            ).exists()
+            is_staff = self.request.user.is_staff or self.request.user.is_superuser
+            if not (is_artist or is_collaborator or is_staff):
+                raise PermissionDenied('Only the lead artist or accepted collaborators can reply to comments on this artwork.')
         serializer.save(user=self.request.user)
 
     def get_queryset(self):
