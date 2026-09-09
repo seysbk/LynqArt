@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { api } from '../../lib/api'
 import { Bell, Check, CheckCheck, ChevronDown, ChevronUp, Mail, Copy, ExternalLink, X } from 'lucide-react'
+import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus'
 
 export function NotificationsCenter({ session }) {
   const user = session?.user
@@ -11,7 +13,7 @@ export function NotificationsCenter({ session }) {
   const [replyModalItem, setReplyModalItem] = useState(null)
   const [copied, setCopied] = useState(false)
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (!user) return
     setLoading(true)
     try {
@@ -22,18 +24,22 @@ export function NotificationsCenter({ session }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
+
+  // Refetch notifications on window focus
+  useRefetchOnFocus(fetchNotifications, Boolean(user))
 
   useEffect(() => {
     if (user) {
-      const initialFetch = window.setTimeout(fetchNotifications, 0)
-      const interval = window.setInterval(fetchNotifications, 45000)
+      // Initial fetch immediately
+      fetchNotifications()
+      // Poll every 15 seconds (was 45 seconds)
+      const interval = window.setInterval(fetchNotifications, 15000)
       return () => {
-        window.clearTimeout(initialFetch)
         window.clearInterval(interval)
       }
     }
-  }, [user])
+  }, [user, fetchNotifications])
 
   const unreadCount = notifications.filter((n) => !n.is_read).length
 
@@ -100,8 +106,12 @@ export function NotificationsCenter({ session }) {
       <button
         type="button"
         onClick={() => {
-          setIsOpen(!isOpen)
-          if (!isOpen) fetchNotifications()
+          const newOpenState = !isOpen
+          setIsOpen(newOpenState)
+          // Refetch notifications when opening the dropdown
+          if (newOpenState) {
+            fetchNotifications()
+          }
         }}
         className="relative h-10 w-10 rounded-full bg-slate-900 border border-white/[0.09] flex items-center justify-center text-slate-300 hover:text-white transition-all"
         title="Notifications"
@@ -116,27 +126,32 @@ export function NotificationsCenter({ session }) {
       </button>
 
       {isOpen && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-[12px] bg-[#141720] border border-white/[0.1] shadow-2xl z-50 overflow-hidden text-xs">
+        createPortal(<>
+          <div className="fixed inset-0 z-[9990]" onClick={() => setIsOpen(false)} />
+          <div className="fixed inset-x-3 top-[70px] z-[9991] max-h-[calc(100dvh-5.5rem)] overflow-hidden rounded-[12px] border border-white/[0.1] bg-[#141720] text-xs shadow-2xl sm:left-auto sm:right-4 sm:top-20 sm:w-96">
             <div className="p-3.5 border-b border-white/[0.08] flex items-center justify-between bg-[#191C27]">
               <div className="flex items-center gap-2">
                 <Bell className="h-4 w-4 text-indigo-400" />
                 <span className="font-bold text-[#F4F4F5]">Notifications Center</span>
               </div>
-              {unreadCount > 0 && (
-                <button
-                  type="button"
-                  onClick={markAllAsRead}
-                  className="text-[11px] text-indigo-400 hover:underline flex items-center gap-1 font-medium"
-                >
-                  <CheckCheck className="h-3 w-3" />
-                  <span>Mark all as read</span>
+              <div className="flex items-center gap-2">
+                {unreadCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={markAllAsRead}
+                    className="text-[11px] text-indigo-400 hover:underline flex items-center gap-1 font-medium"
+                  >
+                    <CheckCheck className="h-3 w-3" />
+                    <span>Mark all as read</span>
+                  </button>
+                )}
+                <button type="button" onClick={() => setIsOpen(false)} className="rounded p-1 text-slate-400 hover:text-white" aria-label="Close notifications">
+                  <X className="h-4 w-4" />
                 </button>
-              )}
+              </div>
             </div>
 
-            <div className="max-h-96 overflow-y-auto divide-y divide-white/[0.04]">
+            <div className="max-h-[calc(100dvh-9.75rem)] overflow-y-auto divide-y divide-white/[0.04] sm:max-h-96">
               {loading ? (
                 <p className="p-4 text-center text-[#71717A]">Loading notifications...</p>
               ) : notifications.length > 0 ? (
@@ -235,13 +250,14 @@ export function NotificationsCenter({ session }) {
               )}
             </div>
           </div>
-        </>
+        </>, document.body)
       )}
 
       {/* Reply Draft Modal */}
       {replyModalItem && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="surface-card w-full max-w-lg p-5 space-y-4 border border-white/10 shadow-2xl">
+        createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-start justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm sm:items-center" onMouseDown={() => setReplyModalItem(null)} role="dialog" aria-modal="true" aria-label="Reply email draft">
+          <div className="surface-card my-auto max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto border border-white/10 p-5 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
               <div className="flex items-center gap-2 text-indigo-400 font-bold text-sm">
                 <Mail className="h-4 w-4" />
@@ -251,6 +267,7 @@ export function NotificationsCenter({ session }) {
                 type="button"
                 onClick={() => setReplyModalItem(null)}
                 className="text-slate-400 hover:text-white p-1 rounded"
+                aria-label="Close reply draft"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -275,7 +292,14 @@ export function NotificationsCenter({ session }) {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/[0.08]">
+            <div className="flex flex-col-reverse gap-2 border-t border-white/[0.08] pt-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setReplyModalItem(null)}
+                className="px-3 py-1.5 rounded border border-white/[0.09] text-slate-300 hover:bg-white/[0.06] text-xs"
+              >
+                Cancel
+              </button>
               <button
                 type="button"
                 onClick={() => handleCopyDraft(replyModalItem)}
@@ -297,7 +321,9 @@ export function NotificationsCenter({ session }) {
               </a>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
+        )
       )}
     </div>
   )

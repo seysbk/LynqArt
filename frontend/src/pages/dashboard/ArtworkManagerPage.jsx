@@ -10,6 +10,7 @@ import { AIAssistantModal } from '../../components/ai/AIAssistantModal'
 import { Modal } from '../../components/ui/Modal'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useDataRefresh } from '../../hooks/useDataRefresh'
 
 const empty = {
   title: '',
@@ -20,16 +21,25 @@ const empty = {
   status: 'draft',
   category_id: '',
   tag_ids: [],
-  allow_comments: true,
+  allow_comments: false,
   is_featured: false,
   is_artist_featured: false,
   availability_status: 'available_for_enquiry',
   copyright_holder: '',
+  copyright_holder_choice: 'self',
+  copyright_confirmed: false,
   license_type: 'all_rights_reserved',
   provenance_notes: '',
   markdown_statement: '',
   change_note: '',
 }
+
+const licenseOptions = [
+  { value: 'all_rights_reserved', label: 'All rights reserved', help: 'You keep all rights. Others may view this archive entry but may not reuse the work without your permission.' },
+  { value: 'cc_by_nc_nd', label: 'CC BY-NC-ND — credit, non-commercial, no changes', help: 'Others may share it with credit for non-commercial purposes, but cannot alter it.' },
+  { value: 'cc_by_sa', label: 'CC BY-SA — credit and same licence', help: 'Others may reuse and adapt it with credit, including commercially, if they share adaptations under this licence.' },
+  { value: 'public_domain', label: 'Public domain — no exclusive rights claimed', help: 'You are indicating that this work is free of exclusive copyright restrictions.' },
+]
 
 const inputClass =
   'w-full rounded-[9px] border border-white/[0.09] bg-[#0D0F14] px-3.5 py-2.5 text-xs text-[#F4F4F5] outline-none transition focus:border-indigo-400 placeholder:text-[#71717A]'
@@ -46,11 +56,12 @@ const errorText = (error) =>
     .flat()
     .join(' ') || 'Could not save artwork. Please check form details.'
 
-export function ArtworkManagerPage() {
+export function ArtworkManagerPage({ session }) {
   const { artworkSlug } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams] = useSearchParams()
+  const { refetchAllArtworks } = useDataRefresh()
   const initialStep = parseInt(searchParams.get('step') || location.state?.step || 1, 10)
   const [activeStep, setActiveStep] = useState(initialStep)
   const [form, setForm] = useState(empty)
@@ -91,6 +102,8 @@ export function ArtworkManagerPage() {
       tag_ids: data.tags?.map((tag) => tag.id) || [],
       markdown_statement: data.current_version_detail?.markdown_statement || '',
       change_note: '',
+      copyright_holder_choice: data.copyright_holder && data.copyright_holder === (data.artist?.full_name || data.artist?.username) ? 'self' : data.copyright_holder ? 'other' : 'self',
+      copyright_confirmed: data.copyright_confirmed ?? Boolean(data.copyright_holder && data.copyright_holder === (data.artist?.full_name || data.artist?.username)),
     })
 
     const exhLinksRes = await api.get('/exhibitions/artworks/', { params: { artwork: data.id } }).catch(() => ({ data: [] }))
@@ -147,9 +160,34 @@ export function ArtworkManagerPage() {
     setForm({ ...form, markdown_statement: current + addition })
   }
 
+  const currentUserName = session?.user?.full_name || session?.user?.username || artwork?.artist?.full_name || artwork?.artist?.username || ''
+
+  const handleCopyrightChoice = (event) => {
+    const choice = event.target.value
+    setForm({
+      ...form,
+      copyright_holder_choice: choice,
+      copyright_confirmed: choice === 'self' ? form.copyright_confirmed : false,
+      copyright_holder: choice === 'self' && form.copyright_confirmed ? currentUserName : choice === 'none' ? '' : form.copyright_holder,
+    })
+  }
+
+  const handleCopyrightConfirmation = (event) => {
+    const confirmed = event.target.checked
+    setForm({
+      ...form,
+      copyright_confirmed: confirmed,
+      copyright_holder: confirmed ? currentUserName : '',
+    })
+  }
+
   const saveArtworkData = async (nextStep = null) => {
     setSaving(true)
     try {
+      if (form.copyright_holder_choice === 'self' && !form.copyright_confirmed) {
+        setModalState({ isOpen: true, title: 'Copyright Confirmation Required', message: 'Confirm that you are the copyright holder, or choose another copyright-holder option before saving.', type: 'warning' })
+        return null
+      }
       const payload = {
         ...form,
         year_created: form.year_created ? parseInt(form.year_created, 10) : null,
@@ -157,6 +195,13 @@ export function ArtworkManagerPage() {
       }
       delete payload.markdown_statement
       delete payload.change_note
+      delete payload.copyright_holder_choice
+      if (form.copyright_holder_choice === 'self') payload.copyright_holder = currentUserName
+      if (form.copyright_holder_choice === 'none') {
+        payload.copyright_holder = ''
+        payload.copyright_confirmed = false
+      }
+      if (form.copyright_holder_choice === 'other') payload.copyright_confirmed = false
 
       const { data } = artwork
         ? await api.patch(`/artworks/${artwork.slug}/`, payload)
@@ -189,6 +234,9 @@ export function ArtworkManagerPage() {
       }
 
       await loadArtwork(data.slug)
+
+      // Trigger refetch for all pages listening to artwork changes
+      refetchAllArtworks()
 
       if (nextStep) {
         setActiveStep(nextStep)
@@ -492,9 +540,54 @@ export function ArtworkManagerPage() {
                 <option value="sold">Acquired / Sold</option>
               </select>
             </div>
+
+            <label className="flex min-h-11 items-start gap-2 pt-2 text-xs text-[#A1A1AA] sm:col-span-2">
+              <input type="checkbox" name="allow_comments" checked={Boolean(form.allow_comments)} onChange={change} className="mt-0.5 h-4 w-4 accent-indigo-500" />
+              <span><strong className="text-[#F4F4F5]">Allow comments on this artwork</strong><span className="block text-[11px] font-normal text-[#71717A]">Leave unchecked to limit comments. You can edit this setting later.</span></span>
+            </label>
           </div>
 
           <label className="flex min-h-11 items-center gap-2 text-xs text-[#A1A1AA]"><input type="checkbox" name="is_artist_featured" checked={form.is_artist_featured} onChange={change} /> Feature this artwork on my profile</label>
+
+          <div className="space-y-3 border-t border-white/[0.06] pt-4">
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#A1A1AA]">Copyright &amp; reuse</h3>
+              <p className="mt-1 text-[11px] text-[#71717A]">Tell visitors who owns the rights and how this archived work may be reused. This does not transfer ownership to LynqArt.</p>
+            </div>
+            <label className="block space-y-1 text-xs font-medium text-[#A1A1AA]">
+              Copyright holder
+              <select name="copyright_holder_choice" value={form.copyright_holder_choice || 'self'} onChange={handleCopyrightChoice} className={inputClass}>
+                <option value="self">I am the copyright holder</option>
+                <option value="other">Another person or organisation</option>
+                <option value="none">No exclusive copyright holder / public domain</option>
+              </select>
+            </label>
+            {form.copyright_holder_choice === 'self' ? (
+              <label className="flex min-h-11 items-start gap-2 text-xs text-[#A1A1AA]">
+                <input type="checkbox" checked={Boolean(form.copyright_confirmed)} onChange={handleCopyrightConfirmation} className="mt-0.5 h-4 w-4 accent-indigo-500" />
+                <span><strong className="text-[#F4F4F5]">I confirm I am the copyright holder for this work</strong><span className="block text-[11px] font-normal text-[#71717A]">The public page will list {currentUserName || 'your account name'} as the copyright holder.</span></span>
+              </label>
+            ) : form.copyright_holder_choice === 'other' ? (
+              <label className="block space-y-1 text-xs font-medium text-[#A1A1AA]">
+                Name of copyright holder
+                <input name="copyright_holder" value={form.copyright_holder || ''} onChange={change} placeholder="Person, studio, estate, or organisation" className={inputClass} />
+              </label>
+            ) : null}
+
+            <label className="block space-y-1 text-xs font-medium text-[#A1A1AA]">
+              Licence for reuse
+              <select name="license_type" value={form.license_type || 'all_rights_reserved'} onChange={change} className={inputClass}>
+                {licenseOptions.map((license) => <option key={license.value} value={license.value}>{license.label}</option>)}
+              </select>
+              <span className="block text-[11px] font-normal text-[#71717A]">{licenseOptions.find((license) => license.value === form.license_type)?.help}</span>
+            </label>
+
+            <label className="block space-y-1 text-xs font-medium text-[#A1A1AA]">
+              Provenance / ownership history (optional)
+              <span className="block text-[11px] font-normal text-[#71717A]">Record where the work came from, previous owners, exhibitions, or other documented history.</span>
+              <textarea name="provenance_notes" rows={3} value={form.provenance_notes || ''} onChange={change} placeholder="e.g. Exhibited at...; acquired from..." className={inputClass} />
+            </label>
+          </div>
 
           {/* Tag Selection Multi-Input */}
           <div className="space-y-2 pt-2">

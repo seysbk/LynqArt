@@ -75,3 +75,33 @@ class ContactMessage(models.Model):
 
     class Meta:
         ordering = ('-created_at',)
+
+
+class FeedbackMessage(models.Model):
+    CATEGORY_CHOICES = [
+        ('general', 'General feedback'),
+        ('bug', 'Report a problem'),
+        ('idea', 'Feature idea'),
+        ('content', 'Content or accessibility feedback'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='feedback_messages',
+    )
+    sender_name = models.CharField(max_length=150, blank=True, default='')
+    sender_email = models.EmailField(blank=True, default='')
+    category = models.CharField(max_length=32, choices=CATEGORY_CHOICES, default='general')
+    message = models.TextField()
+    page_url = models.CharField(max_length=500, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return f'{self.get_category_display()} from {self.sender_name or "Anonymous"}'

@@ -8,8 +8,8 @@ from .models import ArtistProfile
 from .permissions import IsArtistProfileOwnerOrAdmin, IsSelfOrAdmin
 from notifications.models import Notification
 
-from .models import ArtistProfile, ContactMessage
-from .serializers import ArtistProfileSerializer, ContactMessageSerializer, UserSerializer
+from .models import ArtistProfile, ContactMessage, FeedbackMessage
+from .serializers import ArtistProfileSerializer, ContactMessageSerializer, FeedbackMessageSerializer, UserSerializer
 
 User = get_user_model()
 
@@ -120,3 +120,38 @@ class ContactMessageViewSet(viewsets.ModelViewSet):
             import logging
             logging.getLogger(__name__).error(f"Failed to dispatch inquiry email to {inquiry.artist.email}: {exc}")
 
+
+class FeedbackMessageViewSet(viewsets.ModelViewSet):
+    queryset = FeedbackMessage.objects.select_related('user').all()
+    serializer_class = FeedbackMessageSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'contact'
+
+    def get_permissions(self):
+        if self.action == 'create':
+            return [permissions.AllowAny()]
+        return [permissions.IsAdminUser()]
+
+    def perform_create(self, serializer):
+        feedback = serializer.save(
+            user=self.request.user if self.request.user.is_authenticated else None,
+            sender_name=serializer.validated_data.get('sender_name') or (
+                self.request.user.get_full_name() if self.request.user.is_authenticated else ''
+            ),
+            sender_email=serializer.validated_data.get('sender_email') or (
+                self.request.user.email if self.request.user.is_authenticated else ''
+            ),
+        )
+        for staff_user in User.objects.filter(is_staff=True, is_active=True):
+            Notification.objects.create(
+                user=staff_user,
+                title=f'New {feedback.get_category_display().lower()}',
+                message=(
+                    f'From: {feedback.sender_name or "Anonymous"}'
+                    f'{f" ({feedback.sender_email})" if feedback.sender_email else ""}\n\n'
+                    f'{feedback.message}'
+                    f'{f"\n\nPage: {feedback.page_url}" if feedback.page_url else ""}'
+                ),
+                type='feedback',
+                sender_email=feedback.sender_email,
+            )

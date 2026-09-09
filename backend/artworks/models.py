@@ -68,6 +68,7 @@ class Artwork(models.Model):
     is_artist_featured = models.BooleanField(default=False)
     availability_status = models.CharField(max_length=30, choices=AVAILABILITY_CHOICES, default=AVAILABILITY_AVAILABLE)
     copyright_holder = models.CharField(max_length=255, blank=True, default='')
+    copyright_confirmed = models.BooleanField(default=False)
     license_type = models.CharField(max_length=50, choices=LICENSE_CHOICES, default='all_rights_reserved')
     provenance_notes = models.TextField(blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)

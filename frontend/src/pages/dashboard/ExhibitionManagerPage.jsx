@@ -10,6 +10,7 @@ import { AIAssistantModal } from '../../components/ai/AIAssistantModal'
 import { Modal } from '../../components/ui/Modal'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useDataRefresh } from '../../hooks/useDataRefresh'
 
 const empty = {
   title: '',
@@ -36,6 +37,7 @@ export function ExhibitionManagerPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams] = useSearchParams()
+  const { refetchAllExhibitions } = useDataRefresh()
   const initialStep = parseInt(searchParams.get('step') || location.state?.step || 1, 10)
   const [activeStep, setActiveStep] = useState(initialStep)
   const [form, setForm] = useState(empty)
@@ -117,6 +119,9 @@ export function ExhibitionManagerPage() {
       }
 
       await refresh(data.slug)
+
+      // Trigger refetch for all pages listening to exhibition changes
+      refetchAllExhibitions()
 
       if (nextStep) {
         setActiveStep(nextStep)

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
@@ -7,6 +7,8 @@ import { ExhibitionCard } from '../../components/ui/ExhibitionCard'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { LoadingState } from '../../components/ui/LoadingState'
+import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus'
+import { useDataRefresh } from '../../hooks/useDataRefresh'
 
 function isUpcoming(exhibition) {
   if (!exhibition?.start_date) return true
@@ -18,28 +20,44 @@ export function HomePage({ session }) {
   const [exhibitions, setExhibitions] = useState([])
   const [artworks, setArtworks] = useState([])
   const [loading, setLoading] = useState(true)
+  const { registerArtworksRefetchListener, registerExhibitionsRefetchListener } = useDataRefresh()
 
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
     let alive = true
-    Promise.all([
-      api.get('/exhibitions/', { params: { ordering: '-created_at' } }),
-      api.get('/artworks/', { params: { status: 'published', ordering: '-created_at' } }),
-    ])
-      .then(([exhibitionsRes, artworksRes]) => {
-        if (!alive) return
-        setExhibitions(exhibitionsRes.data.results || exhibitionsRes.data || [])
-        setArtworks(artworksRes.data.results || artworksRes.data || [])
-        setLoading(false)
-      })
-      .catch(() => {
-        if (!alive) return
-        setLoading(false)
-      })
-
+    try {
+      const [exhibitionsRes, artworksRes] = await Promise.all([
+        api.get('/exhibitions/', { params: { ordering: '-created_at' } }),
+        api.get('/artworks/', { params: { status: 'published', ordering: '-created_at' } }),
+      ])
+      if (!alive) return
+      setExhibitions(exhibitionsRes.data.results || exhibitionsRes.data || [])
+      setArtworks(artworksRes.data.results || artworksRes.data || [])
+      setLoading(false)
+    } catch {
+      if (!alive) return
+      setLoading(false)
+    }
     return () => {
       alive = false
     }
   }, [])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  // Refetch artworks when browser regains focus
+  useRefetchOnFocus(fetchData)
+
+  // Register this component as a listener for artwork and exhibition refetch events
+  useEffect(() => {
+    const unsubscribeArtworks = registerArtworksRefetchListener(fetchData)
+    const unsubscribeExhibitions = registerExhibitionsRefetchListener(fetchData)
+    return () => {
+      unsubscribeArtworks()
+      unsubscribeExhibitions()
+    }
+  }, [fetchData, registerArtworksRefetchListener, registerExhibitionsRefetchListener])
 
   // Published exhibitions logic (Section 28)
   const publishedExhibitions = useMemo(() => {

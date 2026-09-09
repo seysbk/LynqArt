@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, permissions, status, viewsets
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -33,6 +34,11 @@ class CommentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        user = self.request.user
+        if not user.is_authenticated:
+            queryset = queryset.filter(artwork__status='published')
+        elif not (user.is_staff or user.is_superuser):
+            queryset = queryset.filter(Q(artwork__status='published') | Q(artwork__artist=user))
         if self.action in {'update', 'partial_update', 'destroy'} and self.request.user.is_authenticated:
             return queryset.filter(user=self.request.user)
         return queryset
@@ -69,10 +75,17 @@ class FavoriteViewSet(viewsets.ModelViewSet):
 
 
 class ReportViewSet(viewsets.ModelViewSet):
-    queryset = Report.objects.select_related('reporter', 'target_comment', 'target_artwork', 'target_exhibition', 'target_user').all()
+    queryset = Report.objects.select_related(
+        'reporter', 'target_comment', 'target_artwork', 'target_exhibition', 'target_expert_review', 'target_user'
+    ).all()
     serializer_class = ReportSerializer
     permission_classes = [permissions.AllowAny]
-    http_method_names = ['post', 'get', 'head', 'options']
+    http_method_names = ['post', 'get', 'patch', 'head', 'options']
+
+    def get_permissions(self):
+        if self.action in {'list', 'retrieve', 'partial_update'}:
+            return [permissions.IsAdminUser()]
+        return [permissions.AllowAny()]
 
     def get_queryset(self):
         if self.request.user.is_authenticated and (self.request.user.is_staff or self.request.user.is_superuser):

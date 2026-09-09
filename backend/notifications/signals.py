@@ -1,7 +1,7 @@
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
-from comments.models import Comment, Favorite
+from comments.models import Comment, Favorite, Report
 from exhibitions.models import ExhibitionArtwork
 from reviews.models import ExpertReview
 
@@ -85,3 +85,38 @@ def notify_on_exhibition_link(sender, instance, created, **kwargs):
                 type='exhibition',
                 sender_email=getattr(organizer, 'email', ''),
             )
+
+
+@receiver(pre_save, sender=Report)
+def capture_report_moderation_changes(sender, instance, **kwargs):
+    if not instance.pk:
+        instance._moderation_changed = False
+        return
+
+    previous = sender.objects.filter(pk=instance.pk).values('status', 'moderator_notes').first()
+    instance._moderation_changed = bool(
+        previous and (
+            previous['status'] != instance.status
+            or previous['moderator_notes'] != instance.moderator_notes
+        )
+    )
+
+
+@receiver(post_save, sender=Report)
+def notify_reporter_on_moderation(sender, instance, created, **kwargs):
+    if created or not instance.reporter_id or not getattr(instance, '_moderation_changed', False):
+        return
+
+    target = instance.target_artwork or instance.target_exhibition or instance.target_comment or instance.target_expert_review or instance.target_user
+    target_name = getattr(target, 'title', None) or getattr(target, 'comment', None) or _display_name(target) if target else 'reported content'
+    status_label = instance.get_status_display()
+    notes = instance.moderator_notes.strip() or 'No additional moderator notes were provided.'
+    Notification.objects.create(
+        user=instance.reporter,
+        title=f'Report update: {status_label}',
+        message=(
+            f'Your report about {target_name} has been marked {status_label.lower()}.'
+            f'\n\nModerator notes:\n{notes}'
+        ),
+        type='report',
+    )

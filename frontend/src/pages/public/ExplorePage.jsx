@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { ArtworkCard } from '../../components/ui/ArtworkCard'
@@ -7,18 +7,21 @@ import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { LoadingState } from '../../components/ui/LoadingState'
 import { Search, Filter } from 'lucide-react'
+import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus'
+import { useDataRefresh } from '../../hooks/useDataRefresh'
 
 export function ExplorePage() {
   const [items, setItems] = useState([])
   const [exhibitions, setExhibitions] = useState([])
   const [status, setStatus] = useState('loading')
   const [query, setQuery] = useSearchParams()
+  const { registerArtworksRefetchListener, registerExhibitionsRefetchListener } = useDataRefresh()
   const search = query.get('search') || ''
   const filterType = query.get('type') || 'artworks'
   const filterStatus = query.get('status') || 'published'
   const sort = query.get('sort') || '-created_at'
 
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
     let alive = true
 
     if (filterType === 'exhibitions') {
@@ -45,6 +48,23 @@ export function ExplorePage() {
       alive = false
     }
   }, [search, sort, filterType])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  // Refetch when browser regains focus
+  useRefetchOnFocus(fetchData)
+
+  // Register this component as a listener for artwork and exhibition refetch events
+  useEffect(() => {
+    const unsubscribeArtworks = registerArtworksRefetchListener(fetchData)
+    const unsubscribeExhibitions = registerExhibitionsRefetchListener(fetchData)
+    return () => {
+      unsubscribeArtworks()
+      unsubscribeExhibitions()
+    }
+  }, [fetchData, registerArtworksRefetchListener, registerExhibitionsRefetchListener])
 
   const filteredItems = useMemo(() => {
     if (filterStatus === 'all') return items

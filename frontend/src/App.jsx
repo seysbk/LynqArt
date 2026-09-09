@@ -55,8 +55,8 @@ function App() {
         />
       </Route>
       <Route element={<AppLayout session={session} />}>
-        <Route path="dashboard/artworks/new" element={<ProtectedRoute session={session}><ArtworkManagerPage /></ProtectedRoute>} />
-        <Route path="dashboard/artworks/:artworkSlug/edit" element={<ProtectedRoute session={session}><ArtworkManagerPage /></ProtectedRoute>} />
+        <Route path="dashboard/artworks/new" element={<ProtectedRoute session={session}><ArtworkManagerPage session={session} /></ProtectedRoute>} />
+        <Route path="dashboard/artworks/:artworkSlug/edit" element={<ProtectedRoute session={session}><ArtworkManagerPage session={session} /></ProtectedRoute>} />
         <Route path="dashboard/exhibitions/new" element={<ProtectedRoute session={session}><ExhibitionManagerPage /></ProtectedRoute>} />
         <Route path="dashboard/exhibitions/:exhibitionSlug/edit" element={<ProtectedRoute session={session}><ExhibitionManagerPage /></ProtectedRoute>} />
       </Route>

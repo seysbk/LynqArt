@@ -20,6 +20,7 @@ class ArtworkUploadTests(APITestCase):
             category=self.category,
             title='Sunset',
             slug=f'sunset-{uuid4().hex[:8]}',
+            status=Artwork.STATUS_PUBLISHED,
         )
 
     @override_settings(MEDIA_ROOT=tempfile.mkdtemp())
@@ -80,5 +81,12 @@ class ArtworkUploadTests(APITestCase):
 
     def _image_file(self, name='test.png'):
         from django.core.files.uploadedfile import SimpleUploadedFile
+        from io import BytesIO
 
-        return SimpleUploadedFile(name, b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR', content_type='image/png')
+        from PIL import Image
+
+        buffer = BytesIO()
+        image = Image.new('RGB', (1, 1), color='white')
+        image.save(buffer, format='PNG')
+        buffer.seek(0)
+        return SimpleUploadedFile(name, buffer.read(), content_type='image/png')

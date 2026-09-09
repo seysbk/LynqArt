@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useLocation, useNavigate, Link } from 'react-router-dom'
+import { Eye, EyeOff } from 'lucide-react'
 import { AuthForm } from '../../components/ui/AuthForm'
 import { getApiErrorMessage } from '../../lib/errors'
 
@@ -8,8 +9,10 @@ const inputClass =
 
 export function LoginPage({ session }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const onSubmit = async (event) => {
     event.preventDefault()
@@ -22,7 +25,8 @@ export function LoginPage({ session }) {
         username: form.get('identifier'),
         password: form.get('password'),
       })
-      navigate('/dashboard')
+      const nextPath = new URLSearchParams(location.search).get('next')
+      navigate(nextPath?.startsWith('/') ? nextPath : '/dashboard')
     } catch (error) {
       setError(getApiErrorMessage(error, 'Please check your credentials and try again.'))
       setLoading(false)
@@ -44,13 +48,23 @@ export function LoginPage({ session }) {
         placeholder="Username or Email address"
         required
       />
-      <input
-        className={inputClass}
-        name="password"
-        type="password"
-        placeholder="Password"
-        required
-      />
+      <div className="relative">
+        <input
+          className={`${inputClass} pr-12`}
+          name="password"
+          type={showPassword ? 'text' : 'password'}
+          placeholder="Password"
+          required
+        />
+        <button
+          type="button"
+          onClick={() => setShowPassword((current) => !current)}
+          className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          aria-label={showPassword ? 'Hide password' : 'Show password'}
+        >
+          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+      </div>
       <p className="text-xs text-slate-400 text-center pt-2">
         Don't have an account yet?{' '}
         <Link className="text-indigo-400 font-semibold hover:underline" to="/register">

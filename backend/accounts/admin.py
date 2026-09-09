@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
-from .models import ArtistProfile, User
+from .models import ArtistProfile, FeedbackMessage, User
 
 
 @admin.register(User)
@@ -33,3 +33,11 @@ class ArtistProfileAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'user__email', 'bio', 'location')
     autocomplete_fields = ('user',)
     readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(FeedbackMessage)
+class FeedbackMessageAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'category', 'sender_name', 'sender_email', 'user')
+    list_filter = ('category', 'created_at')
+    search_fields = ('sender_name', 'sender_email', 'message', 'page_url')
+    readonly_fields = ('id', 'user', 'created_at')

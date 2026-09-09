@@ -4,6 +4,7 @@ import { api } from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
 import { Button } from '../../components/ui/Button'
 import { LoadingState } from '../../components/ui/LoadingState'
+import { ReportModerationPanel } from '../../components/ui/ReportModerationPanel'
 import {
   Image,
   QrCode,
@@ -174,6 +175,8 @@ export function DashboardPage({ session }) {
           {statusMessage}
         </div>
       )}
+
+      {user.is_staff && <ReportModerationPanel />}
 
       {/* Account Info Bar */}
       <div className="surface-card p-5 flex flex-wrap items-center justify-between gap-4">

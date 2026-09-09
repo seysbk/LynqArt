@@ -101,6 +101,7 @@ class ArtworkSerializer(serializers.ModelSerializer):
             'is_artist_featured',
             'availability_status',
             'copyright_holder',
+            'copyright_confirmed',
             'license_type',
             'provenance_notes',
             'created_at',

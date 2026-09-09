@@ -39,17 +39,43 @@ class FavoriteSerializer(serializers.ModelSerializer):
 
 
 class ReportSerializer(serializers.ModelSerializer):
+    target_label = serializers.SerializerMethodField()
+
     class Meta:
         model = Report
         fields = (
             'id', 'reporter', 'reporter_ip', 'target_comment', 'target_artwork',
-            'target_exhibition', 'target_user', 'reason', 'details', 'status',
-            'moderator_notes', 'created_at',
+            'target_exhibition', 'target_expert_review', 'target_user', 'reason', 'details', 'status',
+            'moderator_notes', 'target_label', 'created_at',
         )
         read_only_fields = ('id', 'reporter', 'reporter_ip', 'status', 'moderator_notes', 'created_at')
 
+    def get_fields(self):
+        fields = super().get_fields()
+        request = self.context.get('request')
+        if request and request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser):
+            fields['status'].read_only = False
+            fields['moderator_notes'].read_only = False
+        return fields
+
     def validate(self, attrs):
-        targets = [attrs.get(field) for field in ('target_comment', 'target_artwork', 'target_exhibition', 'target_user')]
+        targets = [
+            attrs.get(field, getattr(self.instance, field, None))
+            for field in ('target_comment', 'target_artwork', 'target_exhibition', 'target_expert_review', 'target_user')
+        ]
         if sum(target is not None for target in targets) != 1:
             raise serializers.ValidationError('Select exactly one piece of content to report.')
         return attrs
+
+    def get_target_label(self, obj):
+        if obj.target_artwork:
+            return f'Artwork: {obj.target_artwork.title}'
+        if obj.target_exhibition:
+            return f'Exhibition: {obj.target_exhibition.title}'
+        if obj.target_comment:
+            return f'Comment: {obj.target_comment.comment[:120]}'
+        if obj.target_expert_review:
+            return f'Expert review: {obj.target_expert_review.title}'
+        if obj.target_user:
+            return f'User: {obj.target_user.get_full_name() or obj.target_user.username}'
+        return 'Unknown content'

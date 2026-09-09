@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { Eye, EyeOff } from 'lucide-react'
 import { AuthForm } from '../../components/ui/AuthForm'
 import { getApiErrorMessage } from '../../lib/errors'
 
@@ -10,6 +11,8 @@ export function RegisterPage({ session }) {
   const navigate = useNavigate()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false)
 
   const onSubmit = async (event) => {
     event.preventDefault()
@@ -48,8 +51,18 @@ export function RegisterPage({ session }) {
         <input className={inputClass} name="first_name" placeholder="First name" />
         <input className={inputClass} name="last_name" placeholder="Last name" />
       </div>
-      <input className={inputClass} name="password" type="password" placeholder="Password *" required />
-      <input className={inputClass} name="password_confirm" type="password" placeholder="Confirm password *" required />
+      <div className="relative">
+        <input className={`${inputClass} pr-12`} name="password" type={showPassword ? 'text' : 'password'} placeholder="Password *" required />
+        <button type="button" onClick={() => setShowPassword((current) => !current)} className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" aria-label={showPassword ? 'Hide password' : 'Show password'}>
+          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+      </div>
+      <div className="relative">
+        <input className={`${inputClass} pr-12`} name="password_confirm" type={showPasswordConfirmation ? 'text' : 'password'} placeholder="Confirm password *" required />
+        <button type="button" onClick={() => setShowPasswordConfirmation((current) => !current)} className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" aria-label={showPasswordConfirmation ? 'Hide password confirmation' : 'Show password confirmation'}>
+          {showPasswordConfirmation ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+      </div>
       <p className="text-xs text-slate-400 text-center pt-2">
         Already registered?{' '}
         <Link className="text-indigo-400 font-semibold hover:underline" to="/login">

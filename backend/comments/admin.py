@@ -5,7 +5,7 @@ from .models import Report
 
 @admin.register(Report)
 class ReportAdmin(admin.ModelAdmin):
-    list_display = ('created_at', 'reason', 'status', 'reporter', 'target_comment', 'target_artwork')
+    list_display = ('created_at', 'reason', 'status', 'reporter', 'target_comment', 'target_artwork', 'target_expert_review')
     list_filter = ('status', 'reason', 'created_at')
     search_fields = ('details', 'moderator_notes', 'reporter__username')
 from django.contrib import admin

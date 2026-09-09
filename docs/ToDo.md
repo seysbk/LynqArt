@@ -118,8 +118,11 @@
 
 ---
 
+<<<<<<< ours
 ## 4. Phase 6: Core Launch Blockers & Missing Subsystems (Immediate Pre-Launch)
-## 4. Phase 6: Core Launch Blockers & Missing Subsystems (Completed Pre-Launch)
+
+This phase is complete and kept here as a record of launch-critical work that has already shipped.
+>>>>>>> theirs
 
 - [ ] **6.1. Complete the Notification Dispatch Pipeline & Real-Time Sync**
   - [ ] Connect Django `post_save` signals to dispatch `Notification` records for platform events:
@@ -303,6 +306,21 @@ Features that add tremendous value once LynqArt has established active artists, 
 - [ ] **Multi-Lingual Artist Statement Translation**
   - *Problem*: International gallery attendees require statements in multiple languages.
   - *Solution*: Use AI translation to generate verified translations (e.g. French, Spanish, German) switchable on the public artwork page.
+<<<<<<< ours
+=======
+- [ ] **Visitor Analytics Dashboard**
+  - *Problem*: Raw counts are useful, but artists and organizers need a clearer way to understand engagement patterns.
+  - *Solution*: Add charts for views, scans, favorites, comments, and inquiries by artwork, exhibition, and date range.
+- [ ] **Exhibition Attendance & QR Scan Reports**
+  - *Problem*: Organizers need evidence of exhibition reach beyond individual artwork interactions.
+  - *Solution*: Add exhibition-level attendance summaries, QR scan rollups, and exportable reports for curators and departments.
+- [ ] **Archive and Department Browsing**
+  - *Problem*: Visitors need better ways to browse institutional history as the archive grows.
+  - *Solution*: Add browsing by year, department, exhibition type, and collection to strengthen preservation and discovery.
+- [ ] **Public API for Integrations**
+  - *Problem*: Universities, galleries, and future apps may want to reuse LynqArt data without custom scraping.
+  - *Solution*: Provide a read-only public API for published artworks, exhibitions, artist profiles, and QR destinations with rate limits.
+>>>>>>> theirs
 
 ---
 

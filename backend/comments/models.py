@@ -51,6 +51,7 @@ class Report(models.Model):
     target_comment = models.ForeignKey(Comment, on_delete=models.CASCADE, null=True, blank=True, related_name='reports')
     target_artwork = models.ForeignKey('artworks.Artwork', on_delete=models.CASCADE, null=True, blank=True, related_name='reports')
     target_exhibition = models.ForeignKey('exhibitions.Exhibition', on_delete=models.CASCADE, null=True, blank=True, related_name='reports')
+    target_expert_review = models.ForeignKey('reviews.ExpertReview', on_delete=models.CASCADE, null=True, blank=True, related_name='reports')
     target_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='reported_as_target')
     reason = models.CharField(max_length=32, choices=REASON_CHOICES)
     details = models.TextField(blank=True, default='')

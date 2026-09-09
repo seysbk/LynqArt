@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { api, mediaUrl } from '../../lib/api'
 import { ArtworkCard } from '../../components/ui/ArtworkCard'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { LoadingState } from '../../components/ui/LoadingState'
+import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus'
 import { MapPin, Globe, Video, Mail } from 'lucide-react'
 import { ContactArtistModal } from '../../components/ui/ContactArtistModal'
 
@@ -63,28 +64,39 @@ export function ArtistProfilePage() {
   const [artworks, setArtworks] = useState([])
   const [loading, setLoading] = useState(true)
   const [contactOpen, setContactOpen] = useState(false)
+  const { registerArtworksRefetchListener } = useDataRefresh()
 
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
     let alive = true
-    Promise.all([
-      api.get(`/accounts/artist-profiles/${artistIdentifier}/`),
-      api.get('/artworks/', { params: { artist: artistIdentifier, status: 'published', ordering: '-created_at' } }),
-    ])
-      .then(([profileRes, artworksRes]) => {
-        if (!alive) return
-        setProfile(profileRes.data)
-        setArtworks(artworksRes.data.results || artworksRes.data || [])
-        setLoading(false)
-      })
-      .catch(() => {
-        if (!alive) return
-        setLoading(false)
-      })
-
+    try {
+      const [profileRes, artworksRes] = await Promise.all([
+        api.get(`/accounts/artist-profiles/${artistIdentifier}/`),
+        api.get('/artworks/', { params: { artist: artistIdentifier, status: 'published', ordering: '-created_at' } }),
+      ])
+      if (!alive) return
+      setProfile(profileRes.data)
+      setArtworks(artworksRes.data.results || artworksRes.data || [])
+      setLoading(false)
+    } catch {
+      if (!alive) return
+      setLoading(false)
+    }
     return () => {
       alive = false
     }
   }, [artistIdentifier])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  // Refetch when browser regains focus
+  useRefetchOnFocus(fetchData)
+
+  // Register this component as a listener for artwork refetch events
+  useEffect(() => {
+    return registerArtworksRefetchListener(fetchData)
+  }, [fetchData, registerArtworksRefetchListener])
 
   if (loading) return <LoadingState title="Loading Artist Portfolio" description="Fetching bio and artworks..." />
   if (!profile) return <EmptyState title="Artist Profile Not Found" description="This artist profile is not available." />
@@ -220,22 +232,20 @@ export function ArtistProfilePage() {
         )}
       </div>
 
-      {featuredArtworks.length > 0 && <section className="space-y-5"><h2 className="text-2xl font-bold text-white">Selected works</h2><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{featuredArtworks.map((artwork) => <ArtworkCard key={artwork.id} artwork={artwork} source="artist_featured" />)}</div></section>}
-
-      {/* Published Portfolio Artworks (Section 39) */}
+      {/* Featured Portfolio Artworks */}
       <section className="space-y-6">
         <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
-          <h2 className="text-2xl font-bold text-[#F4F4F5]">Portfolio Artworks ({artworks.length})</h2>
+          <h2 className="text-2xl font-bold text-[#F4F4F5]">Featured Artworks ({featuredArtworks.length})</h2>
         </div>
 
-        {artworks.length > 0 ? (
+        {featuredArtworks.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {artworks.map((artwork) => (
+            {featuredArtworks.map((artwork) => (
               <ArtworkCard key={artwork.id} artwork={artwork} source="artist_profile" />
             ))}
           </div>
         ) : (
-          <EmptyState title="No Public Artworks" description="This artist has not published any public portfolio works yet." />
+          <EmptyState title="No Featured Artworks" description="This artist has not selected any artworks to display on their public profile yet." />
         )}
       </section>
       {contactOpen && <ContactArtistModal artist={profile.user} onClose={() => setContactOpen(false)} />}

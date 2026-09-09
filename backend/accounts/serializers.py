@@ -5,7 +5,7 @@ from django.db import transaction
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import ArtistProfile, ContactMessage
+from .models import ArtistProfile, ContactMessage, FeedbackMessage
 
 User = get_user_model()
 
@@ -39,6 +39,7 @@ class UserSerializer(serializers.ModelSerializer):
             'is_artist',
             'is_expert',
             'is_verified',
+            'is_staff',
             'can_manage_exhibitions',
             'is_active',
             'date_joined',
@@ -231,3 +232,15 @@ class ContactMessageSerializer(serializers.ModelSerializer):
         if artwork and artwork.artist_id != artist.id:
             raise serializers.ValidationError({'artwork': 'This artwork does not belong to the selected artist.'})
         return attrs
+
+
+class FeedbackMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FeedbackMessage
+        fields = ('id', 'sender_name', 'sender_email', 'category', 'message', 'page_url', 'created_at')
+        read_only_fields = ('id', 'created_at')
+
+    def validate_message(self, value):
+        if len(value.strip()) < 10:
+            raise serializers.ValidationError('Please provide at least 10 characters.')
+        return value

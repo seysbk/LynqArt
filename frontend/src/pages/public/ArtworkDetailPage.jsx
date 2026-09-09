@@ -1,17 +1,52 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { api } from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
+import { shareLink, sharePreviewUrl } from '../../lib/sharing'
 import { Button } from '../../components/ui/Button'
 import { ArtworkCard } from '../../components/ui/ArtworkCard'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { LoadingState } from '../../components/ui/LoadingState'
-import { Heart, QrCode, Share2, Award, MessageSquare, Mail } from 'lucide-react'
+import { Heart, QrCode, Share2, Award, MessageSquare, Mail, Flag, Eye } from 'lucide-react'
 import { ContactArtistModal } from '../../components/ui/ContactArtistModal'
+import { ReportContentModal } from '../../components/ui/ReportContentModal'
+import { MarkdownTips } from '../../components/ui/MarkdownTips'
+import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus'
 
 const list = (data) => data?.results || data || []
+
+const licenseDetails = {
+  all_rights_reserved: 'All rights reserved — reuse requires the copyright holder’s permission.',
+  cc_by_nc_nd: 'CC BY-NC-ND — sharing with credit is allowed for non-commercial use, but changes are not allowed.',
+  cc_by_sa: 'CC BY-SA — reuse and adaptations with credit are allowed when the same licence is used.',
+  public_domain: 'Public domain — no exclusive copyright restrictions are claimed.',
+}
+
+const setMeta = (selector, attribute, value) => {
+  const element = document.querySelector(selector) || document.head.appendChild(Object.assign(document.createElement('meta'), { [attribute]: selector.includes('property=') ? selector.match(/"([^"]+)"/)[1] : selector.match(/"([^"]+)"/)[1] }))
+  element.setAttribute(attribute, value || '')
+}
+
+const updateSocialMetadata = (artwork) => {
+  const description = (artwork.description || `About this work: ${artwork.title}`).slice(0, 200)
+  const image = mediaUrl(artwork.banner_image)
+  const url = window.location.href
+  setMeta('meta[name="description"]', 'name', description)
+  setMeta('meta[property="og:title"]', 'property', artwork.title)
+  setMeta('meta[property="og:description"]', 'property', description)
+  setMeta('meta[property="og:type"]', 'property', 'article')
+  setMeta('meta[property="og:url"]', 'property', url)
+  setMeta('meta[property="og:image"]', 'property', image)
+  setMeta('meta[property="og:image:alt"]', 'property', artwork.title)
+  setMeta('meta[name="twitter:card"]', 'name', 'summary_large_image')
+  setMeta('meta[name="twitter:title"]', 'name', artwork.title)
+  setMeta('meta[name="twitter:description"]', 'name', description)
+  setMeta('meta[name="twitter:image"]', 'name', image)
+  const icon = document.querySelector('link[rel="apple-touch-icon"]') || document.head.appendChild(Object.assign(document.createElement('link'), { rel: 'apple-touch-icon' }))
+  icon.setAttribute('href', image)
+}
 
 const formatDate = (value) => {
   if (!value) return 'Date pending'
@@ -41,10 +76,28 @@ export function ArtworkDetailPage({ session }) {
   const [reviewTitle, setReviewTitle] = useState('')
   const [reviewText, setReviewText] = useState('')
   const [reviewRating, setReviewRating] = useState(0)
+  const [reviewPreview, setReviewPreview] = useState(false)
   const [submittingReview, setSubmittingReview] = useState(false)
   const [message, setMessage] = useState('')
   const [otherArtworks, setOtherArtworks] = useState([])
   const [contactOpen, setContactOpen] = useState(false)
+  const [reportTarget, setReportTarget] = useState(null)
+
+  const fetchCommentsAndReviews = useCallback(async () => {
+    if (!artwork?.id) return
+    try {
+      const [reviewsRes, commentsRes, favRes] = await Promise.all([
+        api.get('/reviews/', { params: { artwork: artwork.id } }),
+        api.get('/comments/', { params: { artwork: artwork.id } }),
+        session.user ? api.get('/comments/favorites/') : Promise.resolve({ data: [] }),
+      ])
+      setReviews(list(reviewsRes.data))
+      setComments(list(commentsRes.data).filter((item) => !item.parent_comment))
+      if (session.user) setFavorite(list(favRes.data).some((item) => item.artwork === artwork.id))
+    } catch {
+      // Silently fail on background refetch
+    }
+  }, [artwork?.id, session.user])
 
   useEffect(() => {
     let active = true
@@ -61,9 +114,7 @@ export function ArtworkDetailPage({ session }) {
         if (!active) return
         setArtwork(data)
         document.title = `${data.title} by ${data.artist?.full_name || data.artist?.username || 'Artist'} | LynqArt`
-        const description = data.description || `About this work: ${data.title}`
-        const meta = document.querySelector('meta[name="description"]') || document.head.appendChild(Object.assign(document.createElement('meta'), { name: 'description' }))
-        meta.setAttribute('content', description.slice(0, 160))
+        updateSocialMetadata(data)
         const related = await api.get('/artworks/', { params: { artist_id: data.artist?.id, status: 'published', ordering: '-created_at' } }).catch(() => ({ data: [] }))
         setOtherArtworks(list(related.data).filter((item) => item.id !== data.id).slice(0, 4))
         api.post('/analytics/views/', {
@@ -83,6 +134,9 @@ export function ArtworkDetailPage({ session }) {
     }
   }, [artworkSlug, searchParams, session.user])
 
+  // Refetch comments and reviews when browser regains focus
+  useRefetchOnFocus(fetchCommentsAndReviews)
+
   const statement = artwork?.current_version_detail?.markdown_statement || artwork?.versions?.[0]?.markdown_statement
   const images = useMemo(
     () => artwork?.images?.slice().sort((a, b) => a.display_order - b.display_order) || [],
@@ -91,12 +145,14 @@ export function ArtworkDetailPage({ session }) {
 
   const submitComment = async (event) => {
     event.preventDefault()
-    if (!commentText.trim()) return
+    if (!commentText.trim() || !artwork.allow_comments) return
     try {
       const { data } = await api.post('/comments/', { artwork: artwork.id, comment: commentText })
       setComments([data, ...comments])
       setCommentText('')
       setMessage('Comment posted.')
+      // Refetch to ensure we have fresh comment count and any other updates
+      fetchCommentsAndReviews()
     } catch {
       setMessage('Could not post comment.')
     }
@@ -118,6 +174,8 @@ export function ArtworkDetailPage({ session }) {
       setReviewText('')
       setReviewRating(0)
       setMessage('Expert review published.')
+      // Refetch to ensure fresh data
+      fetchCommentsAndReviews()
     } catch {
       setMessage('Could not publish expert review.')
     } finally {
@@ -138,6 +196,8 @@ export function ArtworkDetailPage({ session }) {
       setEditingCommentId(null)
       setEditingText('')
       setMessage('Comment updated.')
+      // Refetch to ensure consistency
+      fetchCommentsAndReviews()
     } catch {
       setMessage('Could not update comment.')
     }
@@ -148,6 +208,8 @@ export function ArtworkDetailPage({ session }) {
       await api.delete(`/comments/${commentId}/`)
       setComments(comments.filter((item) => item.id !== commentId))
       setMessage('Comment deleted.')
+      // Refetch to ensure consistency
+      fetchCommentsAndReviews()
     } catch {
       setMessage('Could not delete comment.')
     }
@@ -161,24 +223,27 @@ export function ArtworkDetailPage({ session }) {
         await api.post('/comments/favorites/by_artwork/', { artwork_id: artwork.id })
       }
       setFavorite(!favorite)
+      // Refetch to ensure consistency
+      fetchCommentsAndReviews()
     } catch {
       setMessage('Could not update bookmark.')
     }
   }
 
-  const shareQr = async () => {
-    if (!qrCode) return
-    const url = `${window.location.origin}/qr/${qrCode.qr_slug}`
+  const shareArtwork = async () => {
+    const url = sharePreviewUrl('artworks', artwork.slug)
     try {
-      if (navigator.share) {
-        await navigator.share({ title: artwork.title, text: `View ${artwork.title} on LynqArt`, url })
-      } else {
-        await navigator.clipboard.writeText(url)
-        setMessage('QR link copied to clipboard!')
-      }
+      const result = await shareLink({ title: artwork.title, text: `View ${artwork.title} on LynqArt`, url })
+      if (result === 'copied') setMessage('Artwork link copied to clipboard.')
+      if (result === 'shared') setMessage('Artwork link ready to share.')
     } catch {
-      setMessage('Could not share link.')
+      setMessage('Could not share the artwork link. Please try again.')
     }
+  }
+
+  const handleReviewMarkdownInsert = (prefix, suffix, placeholder) => {
+    const addition = `${prefix}${placeholder}${suffix}`
+    setReviewText((current) => `${current}${addition}`)
   }
 
   if (loading) return <LoadingState title="Loading Artwork" description="Fetching statement and artwork catalogue..." />
@@ -248,13 +313,14 @@ export function ArtworkDetailPage({ session }) {
                     <span>View QR Tag</span>
                   </Button>
                 </a>
-                <Button variant="secondary" onClick={shareQr} className="!py-1.5 !px-3 text-xs">
-                  <Share2 className="h-4 w-4" />
-                  <span>Share Link</span>
-                </Button>
               </>
             )}
+            <Button variant="secondary" onClick={shareArtwork} className="!py-1.5 !px-3 text-xs">
+              <Share2 className="h-4 w-4" />
+              <span>Share Link</span>
+            </Button>
           </div>
+          {message && <p role="status" aria-live="polite" className="text-xs text-emerald-300">{message}</p>}
 
           {/* Artist Statement Section (Editorial Typography - Section 37) */}
           <div className="space-y-3">
@@ -293,6 +359,13 @@ export function ArtworkDetailPage({ session }) {
                 <dd className="text-[#F4F4F5] font-medium mt-0.5">{formatDate(artwork.published_at)}</dd>
               </div>
             </dl>
+            {(artwork.copyright_holder || artwork.license_type || artwork.provenance_notes) && (
+              <div className="border-t border-white/[0.06] pt-3 space-y-2 text-xs">
+                <p className="text-[#A1A1AA]">Copyright holder: <span className="text-[#F4F4F5]">{artwork.copyright_holder || 'Not specified'}</span></p>
+                {artwork.license_type && <p className="text-[#A1A1AA]">Licence: <span className="text-[#F4F4F5]">{licenseDetails[artwork.license_type] || artwork.license_type.replaceAll('_', ' ')}</span></p>}
+                {artwork.provenance_notes && <div className="space-y-1"><p className="text-[#A1A1AA]">Provenance / ownership history</p><p className="text-[#F4F4F5] leading-relaxed">{artwork.provenance_notes}</p></div>}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -342,9 +415,15 @@ export function ArtworkDetailPage({ session }) {
 
         {session.user?.is_expert && (
           <form onSubmit={submitExpertReview} className="surface-card max-w-2xl space-y-3 border-amber-500/30 bg-amber-500/5 p-5">
-            <div>
+            <div className="flex items-start justify-between gap-3">
+              <div>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-400">Write an Expert Review</h3>
               <p className="mt-1 text-[11px] text-[#A1A1AA]">This critique is stored separately from visitor comments and displayed as an expert review.</p>
+              </div>
+              <Button type="button" variant="secondary" onClick={() => setReviewPreview(!reviewPreview)} className="!py-1.5 !px-3 text-xs">
+                <Eye className="h-4 w-4" />
+                <span>{reviewPreview ? 'Editor' : 'Preview'}</span>
+              </Button>
             </div>
             <input
               required
@@ -353,14 +432,21 @@ export function ArtworkDetailPage({ session }) {
               placeholder="Review title"
               className="w-full rounded-[10px] bg-[#141720] border border-white/[0.09] p-3 text-xs text-[#F4F4F5] outline-none focus:border-amber-400"
             />
-            <textarea
-              required
-              rows={4}
-              value={reviewText}
-              onChange={(event) => setReviewText(event.target.value)}
-              placeholder="Write your academic or lecturer critique in Markdown..."
-              className="w-full rounded-[10px] bg-[#141720] border border-white/[0.09] p-3 text-xs text-[#F4F4F5] outline-none focus:border-amber-400"
-            />
+            {!reviewPreview && <MarkdownTips onInsert={handleReviewMarkdownInsert} value={reviewText} />}
+            {reviewPreview ? (
+              <div className="surface-card min-h-[120px] p-4 prose prose-invert max-w-none text-xs text-[#F4F4F5]">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{reviewText || '*No review written.*'}</ReactMarkdown>
+              </div>
+            ) : (
+              <textarea
+                required
+                rows={4}
+                value={reviewText}
+                onChange={(event) => setReviewText(event.target.value)}
+                placeholder="Write your academic or lecturer critique in Markdown..."
+                className="w-full rounded-[10px] bg-[#141720] border border-white/[0.09] p-3 text-xs text-[#F4F4F5] outline-none focus:border-amber-400"
+              />
+            )}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <label className="flex items-center gap-2 text-xs text-[#A1A1AA]">
                 Rating
@@ -390,7 +476,18 @@ export function ArtworkDetailPage({ session }) {
               {reviews.map((review) => (
                 <div key={review.id} className="surface-card p-5 space-y-2 border-amber-500/30 bg-amber-500/5">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-[#F4F4F5]">{review.title}</span>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="text-sm font-semibold text-[#F4F4F5]">{review.title}</span>
+                      <button
+                        type="button"
+                        onClick={() => setReportTarget({ target_expert_review: review.id })}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded text-[#94A3B8] hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                        title="Report expert review"
+                        aria-label="Report expert review"
+                      >
+                        <Flag className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                     <span className="text-xs text-amber-400 font-bold">★ {review.rating}/5</span>
                   </div>
                   <p className="text-xs text-[#A1A1AA] flex items-center gap-1.5">
@@ -412,7 +509,7 @@ export function ArtworkDetailPage({ session }) {
         <div className="space-y-4">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-[#A1A1AA]">Community Feedback &amp; Visitor Responses</h3>
 
-          {session.user ? (
+          {artwork.allow_comments ? session.user ? (
             <form onSubmit={submitComment} className="space-y-3 max-w-xl">
               <textarea
                 required
@@ -430,6 +527,8 @@ export function ArtworkDetailPage({ session }) {
             <p className="text-xs text-[#71717A]">
               <Link to="/login" className="text-indigo-400 hover:underline">Sign in</Link> to participate in discussions.
             </p>
+          ) : (
+            <p className="rounded-[9px] border border-white/[0.06] bg-[#0D0F14] p-3 text-xs text-[#A1A1AA]">Comments on this artwork have been limited.</p>
           )}
 
           {comments.length ? (
@@ -448,6 +547,15 @@ export function ArtworkDetailPage({ session }) {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-[#71717A] text-[10px]">{formatDate(item.created_at)}</span>
+                        <button
+                          type="button"
+                          onClick={() => setReportTarget({ target_comment: item.id })}
+                          className="flex h-11 w-11 items-center justify-center rounded text-[#94A3B8] hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                          title="Report comment"
+                          aria-label="Report comment"
+                        >
+                          <Flag className="h-3.5 w-3.5" />
+                        </button>
                         {isOwner && !isEditing && (
                           <div className="flex items-center gap-1.5 text-[11px] ml-2">
                             <button
@@ -509,7 +617,17 @@ export function ArtworkDetailPage({ session }) {
           )}
         </div>
       </section>
+      <div className="flex justify-end border-t border-white/[0.08] pt-4">
+        <button
+          type="button"
+          onClick={() => setReportTarget({ target_artwork: artwork.id })}
+          className="inline-flex min-h-11 items-center gap-2 rounded px-3 text-xs text-[#94A3B8] hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+        >
+          <Flag className="h-3.5 w-3.5" /> Report artwork
+        </button>
+      </div>
       {contactOpen && <ContactArtistModal artist={artwork.artist} artwork={artwork} onClose={() => setContactOpen(false)} />}
+      {reportTarget && <ReportContentModal target={reportTarget} onClose={() => setReportTarget(null)} />}
     </div>
   )
 }
