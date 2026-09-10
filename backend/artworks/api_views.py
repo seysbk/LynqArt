@@ -121,6 +121,34 @@ class ArtworkViewSet(viewsets.ModelViewSet):
         _, url = validate_and_store_upload(uploaded_file, folder, max_size_mb=10)
         return url
 
+    def _store_process_video(self, uploaded_file):
+        allowed_extensions = {'.mp4', '.webm', '.mov'}
+        extension = os.path.splitext(uploaded_file.name)[1].lower()
+        if extension not in allowed_extensions:
+            raise serializers.ValidationError('Unsupported video format. Use MP4, WebM, or MOV.')
+        if uploaded_file.size > 10 * 1024 * 1024:
+            raise serializers.ValidationError('Process video must be 10 MB or smaller.')
+        content_type = (getattr(uploaded_file, 'content_type', '') or '').lower()
+        if content_type and not content_type.startswith('video/'):
+            raise serializers.ValidationError('The selected file must be a video.')
+        saved_path = default_storage.save(f'artwork-process-videos/{uuid4().hex}{extension}', ContentFile(uploaded_file.read()))
+        return default_storage.url(saved_path)
+
+    @action(detail=True, methods=['post', 'delete'], url_path='upload_process_video', parser_classes=[MultiPartParser, FormParser])
+    def upload_process_video(self, request, slug=None):
+        artwork = self.get_object()
+        if artwork.artist != request.user and not (getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False)):
+            raise PermissionDenied('You do not have permission to modify this artwork process video.')
+        if request.method == 'DELETE':
+            artwork.process_video_url = ''
+        else:
+            uploaded_file = request.FILES.get('video')
+            if not uploaded_file:
+                return Response({'video': 'This field is required.'}, status=status.HTTP_400_BAD_REQUEST)
+            artwork.process_video_url = self._store_process_video(uploaded_file)
+        artwork.save(update_fields=['process_video_url', 'updated_at'])
+        return Response({'id': artwork.id, 'process_video_url': artwork.process_video_url})
+
     @action(
         detail=True,
         methods=['post'],

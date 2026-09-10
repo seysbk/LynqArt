@@ -118,6 +118,7 @@ class ArtworkSerializer(serializers.ModelSerializer):
             'description',
             'medium',
             'banner_image',
+            'process_video_url',
             'year_created',
             'dimensions',
             'status',
@@ -139,7 +140,7 @@ class ArtworkSerializer(serializers.ModelSerializer):
             'accepted_contributors',
             'contributors',
         )
-        read_only_fields = ('id', 'slug', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'slug', 'created_at', 'updated_at', 'process_video_url')
 
     def get_accepted_contributors(self, obj):
         contributors = obj.contributors.filter(status=ArtworkContributor.STATUS_ACCEPTED).select_related('user', 'user__artist_profile')

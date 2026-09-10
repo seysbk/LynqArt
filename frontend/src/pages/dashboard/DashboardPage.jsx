@@ -49,7 +49,7 @@ export function DashboardPage({ session }) {
       api.get('/analytics/summary/').catch(() => ({ data: { total_views: 0, unique_visitors: 0, total_qr_scans: 0, unique_qr_visitors: 0, source_breakdown: [], artworks: [] } })),
       api.get('/comments/', { params: { ordering: '-created_at' } }).catch(() => ({ data: { results: [] } })),
       api.get('/comments/favorites/', { params: { ordering: '-created_at' } }).catch(() => ({ data: { results: [] } })),
-      api.get('/ai/generations/').catch(() => ({ data: { results: [] } })),
+      api.get('/ai/generations/', { params: { ordering: '-created_at' } }).catch(() => ({ data: { results: [] } })),
     ])
       .then(([profileRes, artistRes, artworksRes, exhRes, qrRes, summaryRes, commentsRes, favoritesRes, aiRes]) => {
         if (!alive) return
@@ -537,6 +537,21 @@ export function DashboardPage({ session }) {
                     {selectedArtwork.tags?.map((t) => t.name).join(', ') || 'No tags'}
                   </p>
                 </div>
+
+                <div className="sm:col-span-3 border-t border-white/[0.06] pt-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-2 text-[11px] font-medium text-[#71717A]"><Sparkles className="h-3.5 w-3.5 text-indigo-400" /> AI statement history</span>
+                    <span className="text-[10px] text-[#71717A]">{aiGenerations.filter((gen) => gen.artwork === selectedArtwork.id || gen.artwork_detail?.id === selectedArtwork.id).length} drafts</span>
+                  </div>
+                  <div className="mt-2 space-y-1.5">
+                    {aiGenerations.filter((gen) => gen.artwork === selectedArtwork.id || gen.artwork_detail?.id === selectedArtwork.id).slice(0, 3).map((gen) => (
+                      <div key={gen.id} className="flex items-center justify-between gap-2 rounded bg-[#141720] px-2.5 py-2 text-[10px]">
+                        <span className="truncate text-[#A1A1AA]">{gen.prompt || 'Draft statement'} · {gen.model_used || 'AI assistant'}</span>
+                        <span className={gen.accepted ? 'shrink-0 text-emerald-300' : 'shrink-0 text-[#71717A]'}>{gen.accepted ? 'Accepted' : 'Draft'}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -628,44 +643,6 @@ export function DashboardPage({ session }) {
         </div>
       </div>
 
-      {/* AI Generations Audit Log */}
-      {profile?.is_artist && (
-        <div className="surface-card p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
-            <div>
-              <h2 className="text-sm font-semibold text-[#F4F4F5] flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-indigo-400" />
-                <span>AI Writing History ({aiGenerations.length})</span>
-              </h2>
-              <p className="text-[11px] text-[#71717A]">Audit log of AI-assisted draft statement generations</p>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            {aiGenerations.length > 0 ? (
-              aiGenerations.slice(0, 5).map((gen) => (
-                <div key={gen.id} className="flex items-center justify-between gap-3 p-3 rounded-[9px] bg-[#0D0F14] border border-white/[0.06] text-xs">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-[#F4F4F5] truncate">
-                      {gen.artwork_detail?.title ? `Artwork: ${gen.artwork_detail.title}` : 'Statement Draft'}
-                    </p>
-                    <p className="text-[10px] text-[#71717A] truncate">
-                      Prompt: "{gen.prompt || 'Draft statement'}" · Model: {gen.model_used || 'AI Assistant'}
-                    </p>
-                  </div>
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded shrink-0 ${
-                    gen.accepted ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-[#A1A1AA]'
-                  }`}>
-                    {gen.accepted ? 'Accepted & Inserted' : 'Draft Generated'}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <p className="text-xs text-[#71717A] py-2">No AI statement generations drafted yet.</p>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

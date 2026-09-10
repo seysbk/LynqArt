@@ -19,40 +19,31 @@ export function LoginPage({ session }) {
     setError('')
     setGoogleLoading(true)
     try {
-      if (window.google?.accounts?.id) {
+      if (window.google?.accounts?.id && import.meta.env.VITE_GOOGLE_CLIENT_ID) {
         window.google.accounts.id.initialize({
           client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
           callback: async (response) => {
-            if (response.credential) {
-              await session.signInWithGoogle({ credential: response.credential })
+            if (!response.credential) return
+            session.signInWithGoogle({ credential: response.credential }).then(() => {
               const nextPath = new URLSearchParams(location.search).get('next')
               navigate(nextPath?.startsWith('/') ? nextPath : '/dashboard')
-            }
+            }).catch((err) => setError(getApiErrorMessage(err, 'Google authentication failed.'))).finally(() => setGoogleLoading(false))
           },
         })
         window.google.accounts.id.prompt((notification) => {
           if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            promptGoogleCredentialToken()
+          setError('Google Sign-In is not configured for this site. Add a Google OAuth client ID to enable it.')
+          setGoogleLoading(false)
           }
         })
       } else {
-        await promptGoogleCredentialToken()
+        setError('Google Sign-In is not configured for this site. Add a Google OAuth client ID to enable it.')
+        setGoogleLoading(false)
       }
     } catch (err) {
       setError(getApiErrorMessage(err, 'Google authentication failed.'))
       setGoogleLoading(false)
     }
-  }
-
-  const promptGoogleCredentialToken = async () => {
-    const credential = window.prompt('Enter your Google ID token to authenticate with Google:')
-    if (!credential) {
-      setGoogleLoading(false)
-      return
-    }
-    await session.signInWithGoogle({ credential })
-    const nextPath = new URLSearchParams(location.search).get('next')
-    navigate(nextPath?.startsWith('/') ? nextPath : '/dashboard')
   }
 
   const onSubmit = async (event) => {

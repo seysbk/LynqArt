@@ -60,6 +60,7 @@ class Artwork(models.Model):
     medium = models.CharField(max_length=255, blank=True, default='')
     current_version = models.ForeignKey('ArtworkVersion', on_delete=models.SET_NULL, null=True, blank=True, related_name='current_for_artwork')
     banner_image = models.CharField(max_length=500, blank=True, default='')
+    process_video_url = models.CharField(max_length=500, blank=True, default='')
     year_created = models.IntegerField(null=True, blank=True)
     dimensions = models.CharField(max_length=100, blank=True, default='')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_DRAFT)

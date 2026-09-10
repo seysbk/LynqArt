@@ -11,6 +11,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
 from accounts.permissions import IsCanManageExhibitionsOrReadOnly, IsOwnerOrReadOnly
+from artworks.models import ArtworkContributor
 from config.security import validate_and_store_upload
 
 from .models import Exhibition, ExhibitionArtwork
@@ -79,13 +80,19 @@ class ExhibitionArtworkViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         exhibition = serializer.validated_data.get('exhibition')
+        artwork = serializer.validated_data.get('artwork')
         user = self.request.user
-        if exhibition and exhibition.organizer_id != user.id and not (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)):
+        can_manage = getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False) or exhibition.organizer_id == user.id
+        can_manage_artwork = artwork and (artwork.artist_id == user.id or ArtworkContributor.objects.filter(artwork=artwork, user=user, status=ArtworkContributor.STATUS_ACCEPTED).exists())
+        if not can_manage and not can_manage_artwork:
             raise PermissionDenied('You do not have permission to add artworks to this exhibition.')
         serializer.save()
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        if not self.request.method in permissions.SAFE_METHODS and self.request.user.is_authenticated and not self.request.user.can_manage_exhibitions:
-            return queryset.none()
         return queryset
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated(), IsOwnerOrReadOnly()]

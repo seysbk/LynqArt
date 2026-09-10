@@ -97,7 +97,10 @@ class ReportViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         if self.request.user.is_authenticated and (self.request.user.is_staff or self.request.user.is_superuser):
-            return super().get_queryset()
+            queryset = super().get_queryset()
+            if self.request.query_params.get('status'):
+                queryset = queryset.filter(status=self.request.query_params['status'])
+            return queryset
         return Report.objects.none()
 
     def perform_create(self, serializer):

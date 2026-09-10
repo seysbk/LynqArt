@@ -71,6 +71,7 @@ export function ArtworkManagerPage({ session }) {
   const [newCategory, setNewCategory] = useState('')
   const [imageMeta, setImageMeta] = useState({ caption: '', display_order: 0 })
   const [pendingProcessImages, setPendingProcessImages] = useState([])
+  const [pendingProcessVideo, setPendingProcessVideo] = useState(null)
   const [processImageInputKey, setProcessImageInputKey] = useState(0)
   const [exhibitions, setExhibitions] = useState([])
   const [linkedExhibitionIds, setLinkedExhibitionIds] = useState(new Set())
@@ -434,6 +435,30 @@ export function ArtworkManagerPage({ session }) {
   const addProcessImages = () => {
     if (!artwork || pendingProcessImages.length === 0) return
     upload(pendingProcessImages, 'images')
+  }
+
+  const uploadProcessVideo = async () => {
+    if (!artwork || !pendingProcessVideo) return
+    const payload = new FormData()
+    payload.append('video', pendingProcessVideo)
+    try {
+      await api.post(`/artworks/${artwork.slug}/upload_process_video/`, payload, { headers: { 'Content-Type': 'multipart/form-data' } })
+      setPendingProcessVideo(null)
+      await loadArtwork(artwork.slug)
+      setModalState({ isOpen: true, title: 'Video Uploaded', message: 'Your process video was uploaded.', type: 'success' })
+    } catch (error) {
+      setModalState({ isOpen: true, title: 'Video Upload Failed', message: errorText(error), type: 'error' })
+    }
+  }
+
+  const deleteProcessVideo = async () => {
+    if (!artwork) return
+    try {
+      await api.delete(`/artworks/${artwork.slug}/upload_process_video/`)
+      await loadArtwork(artwork.slug)
+    } catch (error) {
+      setModalState({ isOpen: true, title: 'Error', message: errorText(error), type: 'error' })
+    }
   }
 
   const generateQr = async () => {
@@ -1134,6 +1159,22 @@ export function ArtworkManagerPage({ session }) {
                   Save primary specs first to enable contributor invitations for this artwork.
                 </p>
               )}
+
+              <div className="space-y-2 border-t border-white/[0.06] pt-4">
+                <h4 className="text-xs font-semibold text-[#F4F4F5]">Process Video (optional)</h4>
+                <p className="text-[11px] text-[#71717A]">Add one short video, up to 10 MB. MP4, WebM, or MOV.</p>
+                {artwork?.process_video_url ? (
+                  <div className="space-y-2">
+                    <video controls className="max-h-56 w-full rounded-[8px] bg-black" src={mediaUrl(artwork.process_video_url)} />
+                    <Button type="button" variant="secondary" onClick={deleteProcessVideo} className="!py-1 !px-2.5 text-xs text-red-400">Remove video</Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={(event) => setPendingProcessVideo(event.target.files?.[0] || null)} className="min-w-0 text-xs text-[#A1A1AA] file:mr-2 file:rounded file:border-0 file:bg-indigo-600 file:px-2.5 file:py-1.5 file:text-xs file:font-semibold file:text-white" />
+                    <Button type="button" variant="primary" onClick={uploadProcessVideo} disabled={!pendingProcessVideo} className="!py-1.5 text-xs">Upload video</Button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Exhibition Associations Surface */}

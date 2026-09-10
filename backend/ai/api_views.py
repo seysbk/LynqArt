@@ -76,7 +76,10 @@ class AIGenerationViewSet(viewsets.ModelViewSet):
                 artwork = Artwork.objects.get(id=artwork_id)
                 if not getattr(request.user, 'is_artist', False):
                     return Response({'error': 'Artist permission is required to generate AI artist statements.'}, status=status.HTTP_403_FORBIDDEN)
-                if artwork.artist != request.user:
+                can_edit_artwork = artwork.artist == request.user or artwork.contributors.filter(
+                    user=request.user, status='accepted'
+                ).exists()
+                if not can_edit_artwork:
                     return Response({'error': 'You do not have permission to generate AI statements for this artwork.'}, status=status.HTTP_403_FORBIDDEN)
             else:
                 exhibition = Exhibition.objects.get(id=exhibition_id)

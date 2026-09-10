@@ -408,11 +408,11 @@ export function ArtworkDetailPage({ session }) {
       </div>
 
       {/* Creation Documentation & Progress Images Section */}
-      {images.length > 0 && (
+      {(images.length > 0 || artwork.process_video_url) && (
         <section className="space-y-4 pt-6 border-t border-white/[0.08]">
           <div>
             <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400">Creation Documentation</span>
-            <h2 className="text-xl font-bold text-[#F4F4F5]">Progress Images &amp; Work-In-Progress ({images.length})</h2>
+          <h2 className="text-xl font-bold text-[#F4F4F5]">Progress Images &amp; Work-In-Progress ({images.length})</h2>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -436,6 +436,7 @@ export function ArtworkDetailPage({ session }) {
               </div>
             ))}
           </div>
+          {artwork.process_video_url && <div className="surface-card max-w-2xl overflow-hidden p-3.5"><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-indigo-400">Process video</p><video controls className="max-h-[480px] w-full rounded-[8px] bg-black" src={mediaUrl(artwork.process_video_url)} /></div>}
         </section>
       )}
 

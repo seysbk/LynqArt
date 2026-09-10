@@ -17,7 +17,7 @@ export function ReportModerationPanel() {
 
   const loadReports = async () => {
     try {
-      const { data } = await api.get('/comments/reports/', { params: { ordering: '-created_at' } })
+      const { data } = await api.get('/comments/reports/', { params: { status: 'pending', ordering: '-created_at' } })
       const items = data.results || data || []
       setReports(items)
       setDrafts(Object.fromEntries(items.map((report) => [report.id, {
@@ -46,7 +46,7 @@ export function ReportModerationPanel() {
     setMessage('')
     try {
       const { data } = await api.patch(`/comments/reports/${report.id}/`, draft)
-      setReports((current) => current.map((item) => (item.id === report.id ? data : item)))
+      setReports((current) => current.filter((item) => item.id !== report.id))
       setMessage('Report updated. The reporter has been notified with the moderator notes.')
     } catch (error) {
       setMessage(Object.values(error.response?.data || {}).flat().join(' ') || 'Could not update report.')

@@ -223,9 +223,11 @@ export function ExhibitionManagerPage() {
       )
       if (existingLink) {
         await api.delete(`/exhibitions/artworks/${existingLink.id}/`)
+        setItem((current) => current ? { ...current, artworks: (current.artworks || []).filter((link) => link.id !== existingLink.id) } : current)
         setModalState({ isOpen: true, title: 'Unlinked', message: 'Artwork unlinked from exhibition.', type: 'info' })
       } else {
-        await api.post('/exhibitions/artworks/', { exhibition: item.id, artwork: artworkId })
+        const { data } = await api.post('/exhibitions/artworks/', { exhibition: item.id, artwork: artworkId })
+        setItem((current) => current ? { ...current, artworks: [...(current.artworks || []), data] } : current)
         setModalState({ isOpen: true, title: 'Linked', message: 'Artwork linked to exhibition!', type: 'success' })
       }
       await refresh(item.slug)
