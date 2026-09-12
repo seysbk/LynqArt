@@ -428,7 +428,7 @@ export function DashboardPage({ session }) {
 
       {/* Detailed Artwork Analytics & Insights Section */}
       {artworks.length > 0 && (
-        <div className="surface-card p-6 space-y-6">
+        <div className="surface-card min-w-0 p-6 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.06] pb-4">
             <div>
               <h2 className="text-base font-bold text-[#F4F4F5] flex items-center gap-2">
@@ -454,7 +454,7 @@ export function DashboardPage({ session }) {
           </div>
 
           {selectedArtwork && (
-            <div className="grid gap-6 lg:grid-cols-12 items-start">
+            <div className="grid min-w-0 gap-6 lg:grid-cols-12 items-start">
               {/* Left Column: Artwork Thumbnail & Basic Specs */}
               <div className="lg:col-span-4 space-y-3">
                 <div className="aspect-[4/3] rounded-[10px] overflow-hidden bg-[#0D0F14] border border-white/[0.06]">
@@ -509,7 +509,7 @@ export function DashboardPage({ session }) {
               </div>
 
               {/* Right Column: Key Engagement Metrics */}
-              <div className="lg:col-span-8 grid gap-4 sm:grid-cols-3">
+              <div className="min-w-0 lg:col-span-8 grid gap-4 sm:grid-cols-3">
                 <div className="p-4 rounded-[10px] bg-[#0D0F14] border border-white/[0.06] space-y-1">
                   <span className="text-[11px] font-medium text-[#71717A]">QR Code Scans</span>
                   <p className="text-2xl font-extrabold text-[#F4F4F5]">{selectedArtworkQr?.scans || 0}</p>
@@ -538,14 +538,14 @@ export function DashboardPage({ session }) {
                   </p>
                 </div>
 
-                <div className="sm:col-span-3 border-t border-white/[0.06] pt-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-2 text-[11px] font-medium text-[#71717A]"><Sparkles className="h-3.5 w-3.5 text-indigo-400" /> AI statement history</span>
-                    <span className="text-[10px] text-[#71717A]">{aiGenerations.filter((gen) => gen.artwork === selectedArtwork.id || gen.artwork_detail?.id === selectedArtwork.id).length} drafts</span>
+                <div className="min-w-0 sm:col-span-3 border-t border-white/[0.06] pt-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-2 text-[11px] font-medium text-[#71717A]"><Sparkles className="h-3.5 w-3.5 shrink-0 text-indigo-400" /> <span className="break-words">AI statement history</span></span>
+                    <span className="shrink-0 text-[10px] text-[#71717A]">{aiGenerations.filter((gen) => gen.artwork === selectedArtwork.id || gen.artwork_detail?.id === selectedArtwork.id).length} drafts</span>
                   </div>
                   <div className="mt-2 space-y-1.5">
                     {aiGenerations.filter((gen) => gen.artwork === selectedArtwork.id || gen.artwork_detail?.id === selectedArtwork.id).slice(0, 3).map((gen) => (
-                      <div key={gen.id} className="flex items-center justify-between gap-2 rounded bg-[#141720] px-2.5 py-2 text-[10px]">
+                      <div key={gen.id} className="flex min-w-0 flex-col items-start gap-1 rounded bg-[#141720] px-2.5 py-2 text-[10px] sm:flex-row sm:items-center sm:justify-between sm:gap-2 [&>span:first-child]:max-w-full [&>span:first-child]:whitespace-normal [&>span:first-child]:break-words [&>span:first-child]:overflow-visible [&>span:first-child]:text-clip">
                         <span className="truncate text-[#A1A1AA]">{gen.prompt || 'Draft statement'} · {gen.model_used || 'AI assistant'}</span>
                         <span className={gen.accepted ? 'shrink-0 text-emerald-300' : 'shrink-0 text-[#71717A]'}>{gen.accepted ? 'Accepted' : 'Draft'}</span>
                       </div>
