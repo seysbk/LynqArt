@@ -3,6 +3,7 @@ import { useLocation, useNavigate, Link } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { AuthForm } from '../../components/ui/AuthForm'
 import { getApiErrorMessage } from '../../lib/errors'
+import { promptGoogleAuth } from '../../lib/googleAuth'
 
 const inputClass =
   'w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-slate-100 text-sm outline-none transition focus:border-indigo-500 placeholder:text-slate-500'
@@ -19,31 +20,26 @@ export function LoginPage({ session }) {
     setError('')
     setGoogleLoading(true)
     try {
-      if (window.google?.accounts?.id && import.meta.env.VITE_GOOGLE_CLIENT_ID) {
-        window.google.accounts.id.initialize({
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
-          callback: async (response) => {
-            if (!response.credential) return
-            session.signInWithGoogle({ credential: response.credential }).then(() => {
-              const nextPath = new URLSearchParams(location.search).get('next')
-              navigate(nextPath?.startsWith('/') ? nextPath : '/dashboard')
-            }).catch((err) => setError(getApiErrorMessage(err, 'Google authentication failed.'))).finally(() => setGoogleLoading(false))
-          },
-        })
-        window.google.accounts.id.prompt((notification) => {
-          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          setError('Google Sign-In is not configured for this site. Add a Google OAuth client ID to enable it.')
+      promptGoogleAuth(async (response) => {
+        if (!response.credential) {
+          setError('Google did not return an authentication credential.')
           setGoogleLoading(false)
-          }
-        })
-      } else {
-        setError('Google Sign-In is not configured for this site. Add a Google OAuth client ID to enable it.')
-        setGoogleLoading(false)
-      }
+          return
+        }
+        try {
+          await session.signInWithGoogle({ credential: response.credential, mode: 'login' })
+          const nextPath = new URLSearchParams(location.search).get('next')
+          navigate(nextPath?.startsWith('/') ? nextPath : '/dashboard')
+        } catch (err) {
+          setError(getApiErrorMessage(err, 'Google authentication failed.'))
+          setGoogleLoading(false)
+        }
+      })
     } catch (err) {
       setError(getApiErrorMessage(err, 'Google authentication failed.'))
       setGoogleLoading(false)
     }
+    window.setTimeout(() => setGoogleLoading(false), 15000)
   }
 
   const onSubmit = async (event) => {

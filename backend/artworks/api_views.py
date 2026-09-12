@@ -17,6 +17,7 @@ from rest_framework.response import Response
 from accounts.permissions import IsArtistOrReadOnly, IsOwnerOrReadOnly
 from accounts.models import ArtistProfile
 from config.security import validate_and_store_upload
+from config.storage import delete_stored_file
 from notifications.models import Notification
 
 from .models import Artwork, ArtworkContributor, ArtworkImage, ArtworkTag, ArtworkVersion, Category, Tag
@@ -139,6 +140,7 @@ class ArtworkViewSet(viewsets.ModelViewSet):
         artwork = self.get_object()
         if artwork.artist != request.user and not (getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False)):
             raise PermissionDenied('You do not have permission to modify this artwork process video.')
+        old_video_url = artwork.process_video_url
         if request.method == 'DELETE':
             artwork.process_video_url = ''
         else:
@@ -147,6 +149,8 @@ class ArtworkViewSet(viewsets.ModelViewSet):
                 return Response({'video': 'This field is required.'}, status=status.HTTP_400_BAD_REQUEST)
             artwork.process_video_url = self._store_process_video(uploaded_file)
         artwork.save(update_fields=['process_video_url', 'updated_at'])
+        if old_video_url and old_video_url != artwork.process_video_url:
+            delete_stored_file(old_video_url)
         return Response({'id': artwork.id, 'process_video_url': artwork.process_video_url})
 
     @action(
@@ -198,17 +202,28 @@ class ArtworkViewSet(viewsets.ModelViewSet):
             raise PermissionDenied('You do not have permission to modify this artwork banner.')
 
         if request.method == 'DELETE':
+            old_banner_url = artwork.banner_image
             artwork.banner_image = ''
             artwork.save(update_fields=['banner_image', 'updated_at'])
+            delete_stored_file(old_banner_url)
             return Response({'id': artwork.id, 'banner_image': ''}, status=status.HTTP_200_OK)
 
         uploaded_file = request.FILES.get('banner')
         if not uploaded_file:
             return Response({'banner': 'This field is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        old_banner_url = artwork.banner_image
         artwork.banner_image = self._store_upload(uploaded_file, 'artwork-banners')
         artwork.save(update_fields=['banner_image', 'updated_at'])
+        delete_stored_file(old_banner_url)
         return Response({'id': artwork.id, 'banner_image': artwork.banner_image}, status=status.HTTP_200_OK)
+
+    def perform_destroy(self, instance):
+        media_values = [instance.banner_image, instance.process_video_url]
+        media_values.extend(instance.images.values_list('image_url', flat=True))
+        instance.delete()
+        for media_value in media_values:
+            delete_stored_file(media_value)
 
 
 class ArtworkVersionViewSet(viewsets.ModelViewSet):
@@ -347,6 +362,11 @@ class ArtworkContributorViewSet(viewsets.ModelViewSet):
         if artwork.artist_id != user.id and not (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)):
             raise PermissionDenied('Only the lead artist can edit contributor details.')
         serializer.save()
+
+    def perform_destroy(self, instance):
+        image_url = instance.image_url
+        instance.delete()
+        delete_stored_file(image_url)
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def accept(self, request, pk=None):

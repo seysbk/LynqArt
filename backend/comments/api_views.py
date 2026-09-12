@@ -5,12 +5,12 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from accounts.permissions import IsOwnerOrReadOnly
+from accounts.permissions import IsOwnerOrReadOnly, IsModeratorOrStaff
 
 from config.security import get_client_ip
 
-from .models import Comment, Favorite, Report
-from .serializers import CommentSerializer, FavoriteSerializer, ReportSerializer
+from .models import Comment, Favorite, ModerationAction, Report
+from .serializers import CommentSerializer, FavoriteSerializer, ModerationActionSerializer, ReportSerializer
 
 
 class CommentViewSet(viewsets.ModelViewSet):
@@ -91,12 +91,14 @@ class ReportViewSet(viewsets.ModelViewSet):
     http_method_names = ['post', 'get', 'patch', 'head', 'options']
 
     def get_permissions(self):
-        if self.action in {'list', 'retrieve', 'partial_update'}:
-            return [permissions.IsAdminUser()]
+        if self.action in {'list', 'retrieve', 'partial_update', 'moderate'}:
+            return [IsModeratorOrStaff()]
         return [permissions.AllowAny()]
 
     def get_queryset(self):
-        if self.request.user.is_authenticated and (self.request.user.is_staff or self.request.user.is_superuser):
+        if self.request.user.is_authenticated and (
+            self.request.user.is_moderator or self.request.user.is_staff or self.request.user.is_superuser
+        ):
             queryset = super().get_queryset()
             if self.request.query_params.get('status'):
                 queryset = queryset.filter(status=self.request.query_params['status'])
@@ -106,3 +108,47 @@ class ReportViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         user = self.request.user if self.request.user.is_authenticated else None
         serializer.save(reporter=user, reporter_ip=get_client_ip(self.request))
+
+    @action(detail=True, methods=['post'])
+    def moderate(self, request, pk=None):
+        report = self.get_object()
+        action_serializer = ModerationActionSerializer(data=request.data, context={'request': request})
+        action_serializer.is_valid(raise_exception=True)
+        action_name = action_serializer.validated_data['action']
+        requested_status = action_serializer.validated_data.get('status')
+        internal_note = action_serializer.validated_data.get('internal_note', '')
+        public_response = action_serializer.validated_data.get('public_response', '')
+
+        status_by_action = {
+            'dismiss': 'dismissed',
+            'escalate_to_staff': 'escalated',
+            'resolve': 'reviewed',
+        }
+        report.assigned_moderator = report.assigned_moderator or request.user
+        report.moderator_notes = internal_note or report.moderator_notes
+        report.moderator_response = public_response or report.moderator_response
+        if requested_status:
+            report.status = requested_status
+        elif action_name in status_by_action:
+            report.status = status_by_action[action_name]
+        if action_name in {'dismiss', 'resolve'}:
+            from django.utils import timezone
+            report.resolved_by = request.user
+            report.resolved_at = timezone.now()
+            report.resolution = internal_note or public_response
+        report.save()
+
+        action = ModerationAction.objects.create(
+            report=report,
+            actor=request.user,
+            action=action_name,
+            internal_note=internal_note,
+            public_response=public_response,
+        )
+        return Response(
+            {
+                'report': ReportSerializer(report, context={'request': request}).data,
+                'action': ModerationActionSerializer(action, context={'request': request}).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )

@@ -93,11 +93,12 @@ def capture_report_moderation_changes(sender, instance, **kwargs):
         instance._moderation_changed = False
         return
 
-    previous = sender.objects.filter(pk=instance.pk).values('status', 'moderator_notes').first()
+    previous = sender.objects.filter(pk=instance.pk).values('status', 'moderator_notes', 'moderator_response').first()
     instance._moderation_changed = bool(
         previous and (
             previous['status'] != instance.status
             or previous['moderator_notes'] != instance.moderator_notes
+            or previous['moderator_response'] != instance.moderator_response
         )
     )
 
@@ -110,7 +111,7 @@ def notify_reporter_on_moderation(sender, instance, created, **kwargs):
     target = instance.target_artwork or instance.target_exhibition or instance.target_comment or instance.target_expert_review or instance.target_user
     target_name = getattr(target, 'title', None) or getattr(target, 'comment', None) or _display_name(target) if target else 'reported content'
     status_label = instance.get_status_display()
-    notes = instance.moderator_notes.strip() or 'No additional moderator notes were provided.'
+    notes = instance.moderator_response.strip() or instance.moderator_notes.strip() or 'No additional moderator notes were provided.'
     Notification.objects.create(
         user=instance.reporter,
         title=f'Report update: {status_label}',

@@ -84,7 +84,7 @@ CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ```bash
 CORS_ALLOWED_ORIGINS=https://lynqart.com,https://www.lynqart.com
 CORS_ALLOW_ALL_ORIGINS=False
-CSRF_TRUSTED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+CSRF_TRUSTED_ORIGINS=https://lynqart.com,https://www.lynqart.com
 ```
 
 **LAN development (same Wi-Fi/network):** replace `192.168.1.25` with the

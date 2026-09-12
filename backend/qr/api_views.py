@@ -7,6 +7,7 @@ from uuid import uuid4
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from config.storage import delete_stored_file
 from django.db.models import F, Q
 from django.http import FileResponse
 from django.utils import timezone
@@ -156,8 +157,10 @@ class QRCodeViewSet(viewsets.ModelViewSet):
         else:
             buffer = io.BytesIO()
             qr_img.save(buffer, format='PNG')
+        old_qr_image_path = qr_code.qr_image_path
         qr_code.qr_image_path, qr_code.qr_image_url = self._store_qr_image(qr_code.qr_slug, buffer.getvalue())
         qr_code.save(update_fields=['qr_image_path', 'qr_image_url'])
+        delete_stored_file(old_qr_image_path)
 
     @action(detail=True, methods=['get'])
     def download(self, request, pk=None):

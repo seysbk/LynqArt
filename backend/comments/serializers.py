@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from accounts.serializers import UserBriefSerializer
 from artworks.serializers import ArtworkBriefSerializer
-from .models import Comment, Favorite, Report
+from .models import Comment, Favorite, ModerationAction, Report
 
 
 class CommentSerializer(serializers.ModelSerializer):
@@ -40,22 +40,37 @@ class FavoriteSerializer(serializers.ModelSerializer):
 
 class ReportSerializer(serializers.ModelSerializer):
     target_label = serializers.SerializerMethodField()
+    assigned_moderator_detail = UserBriefSerializer(source='assigned_moderator', read_only=True)
+    resolved_by_detail = UserBriefSerializer(source='resolved_by', read_only=True)
+    actions = serializers.SerializerMethodField()
 
     class Meta:
         model = Report
         fields = (
             'id', 'reporter', 'reporter_ip', 'target_comment', 'target_artwork',
             'target_exhibition', 'target_expert_review', 'target_user', 'reason', 'details', 'status',
-            'moderator_notes', 'target_label', 'created_at',
+            'moderator_notes', 'assigned_moderator', 'assigned_moderator_detail',
+            'moderator_response', 'resolution', 'resolved_by_detail', 'resolved_at',
+            'actions', 'target_label', 'created_at', 'updated_at',
         )
-        read_only_fields = ('id', 'reporter', 'reporter_ip', 'status', 'moderator_notes', 'created_at')
+        read_only_fields = (
+            'id', 'reporter', 'reporter_ip', 'status', 'moderator_notes',
+            'assigned_moderator', 'assigned_moderator_detail', 'moderator_response',
+            'resolution', 'resolved_by_detail', 'resolved_at', 'actions',
+            'created_at', 'updated_at',
+        )
 
     def get_fields(self):
         fields = super().get_fields()
         request = self.context.get('request')
-        if request and request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser):
+        if request and request.user.is_authenticated and (
+            getattr(request.user, 'is_moderator', False) or request.user.is_staff or request.user.is_superuser
+        ):
             fields['status'].read_only = False
             fields['moderator_notes'].read_only = False
+            fields['assigned_moderator'].read_only = False
+            fields['moderator_response'].read_only = False
+            fields['resolution'].read_only = False
         return fields
 
     def validate(self, attrs):
@@ -79,3 +94,16 @@ class ReportSerializer(serializers.ModelSerializer):
         if obj.target_user:
             return f'User: {obj.target_user.get_full_name() or obj.target_user.username}'
         return 'Unknown content'
+
+    def get_actions(self, obj):
+        return ModerationActionSerializer(obj.actions.select_related('actor').all(), many=True, context=self.context).data
+
+
+class ModerationActionSerializer(serializers.ModelSerializer):
+    actor = UserBriefSerializer(read_only=True)
+    status = serializers.ChoiceField(choices=Report.STATUS_CHOICES, write_only=True, required=False)
+
+    class Meta:
+        model = ModerationAction
+        fields = ('id', 'actor', 'action', 'status', 'internal_note', 'public_response', 'created_at')
+        read_only_fields = ('id', 'actor', 'created_at')

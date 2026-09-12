@@ -18,6 +18,7 @@ class User(AbstractUser):
 
     is_artist = models.BooleanField(default=False)
     is_expert = models.BooleanField(default=False)
+    is_moderator = models.BooleanField(default=False)
     is_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     can_manage_exhibitions = models.BooleanField(default=False)

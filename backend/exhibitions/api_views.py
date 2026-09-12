@@ -13,6 +13,7 @@ from rest_framework.response import Response
 from accounts.permissions import IsCanManageExhibitionsOrReadOnly, IsOwnerOrReadOnly
 from artworks.models import ArtworkContributor
 from config.security import validate_and_store_upload
+from config.storage import delete_stored_file
 
 from .models import Exhibition, ExhibitionArtwork
 from .serializers import ExhibitionArtworkSerializer, ExhibitionSerializer
@@ -56,18 +57,27 @@ class ExhibitionViewSet(viewsets.ModelViewSet):
             raise PermissionDenied('You do not have permission to modify this exhibition banner.')
 
         if request.method == 'DELETE':
+            old_banner_url = exhibition.banner_image
             exhibition.banner_image = ''
             exhibition.save(update_fields=['banner_image', 'updated_at'])
+            delete_stored_file(old_banner_url)
             return Response({'id': exhibition.id, 'banner_image': ''}, status=status.HTTP_200_OK)
 
         uploaded_file = request.FILES.get('banner')
         if not uploaded_file:
             return Response({'banner': 'This field is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        old_banner_url = exhibition.banner_image
         _, banner_url = validate_and_store_upload(uploaded_file, 'exhibition-banners', max_size_mb=10)
         exhibition.banner_image = banner_url
         exhibition.save(update_fields=['banner_image', 'updated_at'])
+        delete_stored_file(old_banner_url)
         return Response({'id': exhibition.id, 'banner_image': exhibition.banner_image})
+
+    def perform_destroy(self, instance):
+        banner_url = instance.banner_image
+        instance.delete()
+        delete_stored_file(banner_url)
 
 
 class ExhibitionArtworkViewSet(viewsets.ModelViewSet):

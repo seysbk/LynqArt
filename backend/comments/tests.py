@@ -8,7 +8,7 @@ from accounts.models import User
 from artworks.models import Artwork
 from notifications.models import Notification
 
-from .models import Report
+from .models import ModerationAction, Report
 
 
 class ReportModerationTests(APITestCase):
@@ -21,6 +21,12 @@ class ReportModerationTests(APITestCase):
         self.moderator = User.objects.create_user(
             username='moderator',
             email='moderator@example.com',
+            password='pass12345',
+            is_moderator=True,
+        )
+        self.staff = User.objects.create_user(
+            username='staff',
+            email='staff@example.com',
             password='pass12345',
             is_staff=True,
         )
@@ -62,3 +68,35 @@ class ReportModerationTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertFalse(Notification.objects.filter(user=self.reporter, type='report').exists())
+
+    def test_moderator_can_create_audited_action(self):
+        self.client.force_authenticate(user=self.moderator)
+        response = self.client.post(
+            reverse('report-moderate', args=[self.report.id]),
+            {
+                'action': 'request_changes',
+                'internal_note': 'Ask the artist for provenance evidence.',
+                'public_response': 'Please provide evidence supporting this report.',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.report.refresh_from_db()
+        self.assertEqual(self.report.assigned_moderator, self.moderator)
+        self.assertEqual(self.report.moderator_response, 'Please provide evidence supporting this report.')
+        self.assertEqual(ModerationAction.objects.get(report=self.report).actor, self.moderator)
+
+    def test_staff_can_view_moderation_history(self):
+        ModerationAction.objects.create(
+            report=self.report,
+            actor=self.moderator,
+            action='dismiss',
+            internal_note='No violation found.',
+        )
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(reverse('report-detail', args=[self.report.id]))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['actions']), 1)
+        self.assertEqual(response.data['actions'][0]['action'], 'dismiss')

@@ -176,7 +176,7 @@ export function DashboardPage({ session }) {
         </div>
       )}
 
-      {user.is_staff && <ReportModerationPanel />}
+      {(user.is_moderator || user.is_staff) && <ReportModerationPanel isStaff={user.is_staff} />}
 
       {/* Account Info Bar */}
       <div className="surface-card p-5 flex flex-wrap items-center justify-between gap-4">

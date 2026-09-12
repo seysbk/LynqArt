@@ -11,16 +11,17 @@ class CustomUserAdmin(UserAdmin):
         'email',
         'is_artist',
         'is_expert',
+        'is_moderator',
         'is_verified',
         'is_staff',
         'is_active',
     )
-    list_filter = ('is_artist', 'is_expert', 'is_verified', 'is_staff', 'is_active')
+    list_filter = ('is_artist', 'is_expert', 'is_moderator', 'is_verified', 'is_staff', 'is_active')
     search_fields = ('username', 'email', 'first_name', 'last_name')
     fieldsets = UserAdmin.fieldsets + (
         (
             'Profile Flags',
-            {'fields': ('is_artist', 'is_expert', 'is_verified', 'can_manage_exhibitions')},
+            {'fields': ('is_artist', 'is_expert', 'is_moderator', 'is_verified', 'can_manage_exhibitions')},
         ),
         ('Audit', {'fields': ('created_at', 'updated_at')}),
     )

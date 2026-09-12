@@ -43,6 +43,7 @@ class Report(models.Model):
         ('reviewed', 'Reviewed'),
         ('dismissed', 'Dismissed'),
         ('actioned', 'Actioned'),
+        ('escalated', 'Escalated to Staff'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -57,7 +58,54 @@ class Report(models.Model):
     details = models.TextField(blank=True, default='')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     moderator_notes = models.TextField(blank=True, default='')
+    assigned_moderator = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_reports',
+    )
+    moderator_response = models.TextField(blank=True, default='')
+    resolution = models.TextField(blank=True, default='')
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='resolved_reports',
+    )
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ('-created_at',)
+
+
+class ModerationAction(models.Model):
+    ACTION_CHOICES = [
+        ('dismiss', 'Dismiss report'),
+        ('warn', 'Warn user'),
+        ('hide_comment', 'Hide comment'),
+        ('remove_comment', 'Remove comment'),
+        ('hide_artwork', 'Hide artwork'),
+        ('request_changes', 'Request changes'),
+        ('escalate_to_staff', 'Escalate to staff'),
+        ('resolve', 'Resolve report'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    report = models.ForeignKey(Report, on_delete=models.CASCADE, related_name='actions')
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='moderation_actions',
+    )
+    action = models.CharField(max_length=32, choices=ACTION_CHOICES)
+    internal_note = models.TextField(blank=True, default='')
+    public_response = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('created_at',)

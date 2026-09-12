@@ -90,17 +90,17 @@ These are the next priority. They are not new MVP features; they are the checks 
 - [ ] Set a unique production `SECRET_KEY`; do not use development defaults.
 - [ ] Set exact production `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, and `CSRF_TRUSTED_ORIGINS`.
 - [ ] Confirm HTTPS, secure cookies, HSTS, reverse-proxy HTTPS headers, and `SECURE_SSL_REDIRECT` work correctly behind the chosen host.
-- [ ] Configure Gunicorn/process management and a health check for the backend.
-- [ ] Configure static-file collection and serving; confirm media URLs work from the deployed frontend.
-- [ ] Configure production error logging and an alerting/exception-monitoring destination.
+- [x] Configure Gunicorn/process management and a health check for the backend.
+- [x] Configure static-file collection and serving; confirm media URLs work from the deployed frontend.
+- [x] Configure production error logging; external alerting/exception monitoring still requires a provider.
 
 ### 3.2 Media and data safety
 
 - [ ] Verify Cloudinary (or the selected object store) with real credentials, including image, video, QR, and avatar uploads.
-- [ ] Confirm the development local-media fallback still works after storage changes.
-- [ ] Define retention and deletion behavior for replaced/deleted media; remove orphaned files if necessary.
+- [x] Confirm the development local-media fallback still works after storage changes.
+- [x] Define retention and deletion behavior for replaced/deleted media; remove orphaned files if necessary.
 - [ ] Configure automated PostgreSQL backups and perform a restore test.
-- [ ] Confirm migration rollback/forward procedures and document the release process.
+- [x] Confirm migration rollback/forward procedures and document the release process.
 
 ### 3.3 Authentication and external services
 
@@ -115,7 +115,7 @@ These are the next priority. They are not new MVP features; they are the checks 
 
 - [ ] Add frontend automated coverage with Vitest and React Testing Library for login/session refresh, artwork manager save/versioning, exhibition linking, video upload state, and public rendering.
 - [ ] Add Playwright smoke coverage for registration/login, public browsing, QR resolution, artwork creation, exhibition linking, and Google sign-in availability.
-- [ ] Run the complete backend suite in the project virtual environment: `python manage.py test accounts artworks comments reviews notifications qr ai exhibitions`.
+- [x] Run the complete backend suite in the project virtual environment: `python manage.py test accounts artworks comments reviews notifications qr ai exhibitions`.
 - [ ] Perform manual mobile QA on real iOS/Android browsers, including narrow buttons, media playback, QR scanning, notification access, and modal keyboard/focus behavior.
 - [ ] Test authorization with separate artist, collaborator, organizer, expert, regular-user, anonymous, and admin accounts.
 - [ ] Test upload rejection for oversized files, invalid extensions, fake image files, unsupported videos, and duplicate process videos.
@@ -123,10 +123,10 @@ These are the next priority. They are not new MVP features; they are the checks 
 
 ### 3.5 Operational readiness
 
-- [ ] Add a short production runbook covering deploy, migrate, rollback, backups, storage, secrets rotation, and incident response.
+- [x] Add a short production runbook covering deploy, migrate, rollback, backups, storage, secrets rotation, and incident response.
 - [ ] Decide who can grant `is_artist`, `is_expert`, `can_manage_exhibitions`, and `is_verified` in production.
 - [ ] Define moderation response policy, copyright-report handling, data deletion requests, and support contact details.
-- [ ] Create realistic staging/demo seed data or a documented manual setup checklist for launch demonstrations.
+- [x] Create realistic staging/demo seed data or a documented manual setup checklist for launch demonstrations.
 - [ ] Confirm privacy/legal pages, cookie/analytics disclosure, terms, and Ghana Data Protection Act wording with the project owner/adviser.
 
 ## 4. Post-launch improvements

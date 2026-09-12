@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { AuthForm } from '../../components/ui/AuthForm'
 import { getApiErrorMessage } from '../../lib/errors'
+import { promptGoogleAuth } from '../../lib/googleAuth'
 
 const inputClass =
   'w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-slate-100 text-sm outline-none transition focus:border-indigo-500 placeholder:text-slate-500'
@@ -19,38 +20,25 @@ export function RegisterPage({ session }) {
     setError('')
     setGoogleLoading(true)
     try {
-      if (window.google?.accounts?.id) {
-        window.google.accounts.id.initialize({
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
-          callback: async (response) => {
-            if (response.credential) {
-              await session.signInWithGoogle({ credential: response.credential })
-              navigate('/dashboard')
-            }
-          },
-        })
-        window.google.accounts.id.prompt((notification) => {
-          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            promptGoogleCredentialToken()
-          }
-        })
-      } else {
-        await promptGoogleCredentialToken()
-      }
+      promptGoogleAuth(async (response) => {
+        if (!response.credential) {
+          setError('Google did not return an authentication credential.')
+          setGoogleLoading(false)
+          return
+        }
+        try {
+          await session.signInWithGoogle({ credential: response.credential, mode: 'register' })
+          navigate('/dashboard')
+        } catch (err) {
+          setError(getApiErrorMessage(err, 'Google registration failed.'))
+          setGoogleLoading(false)
+        }
+      })
     } catch (err) {
       setError(getApiErrorMessage(err, 'Google registration failed.'))
       setGoogleLoading(false)
     }
-  }
-
-  const promptGoogleCredentialToken = async () => {
-    const credential = window.prompt('Enter your Google ID token to authenticate with Google:')
-    if (!credential) {
-      setGoogleLoading(false)
-      return
-    }
-    await session.signInWithGoogle({ credential })
-    navigate('/dashboard')
+    window.setTimeout(() => setGoogleLoading(false), 15000)
   }
 
   const onSubmit = async (event) => {

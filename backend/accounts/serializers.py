@@ -38,6 +38,7 @@ class UserSerializer(serializers.ModelSerializer):
             'full_name',
             'is_artist',
             'is_expert',
+            'is_moderator',
             'is_verified',
             'is_staff',
             'can_manage_exhibitions',
