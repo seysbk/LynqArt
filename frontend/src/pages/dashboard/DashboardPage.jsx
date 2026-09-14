@@ -133,6 +133,33 @@ export function DashboardPage({ session }) {
 
   if (loading) return <LoadingState title="Loading Analytics & Workspace" description="Fetching performance metrics..." />
 
+  if (!profile?.is_artist) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6 py-8">
+        <div className="surface-card p-6 sm:p-8 text-center space-y-5">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+            <Sparkles className="h-7 w-7" />
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-indigo-400">Artist workspace</p>
+            <h1 className="text-2xl font-extrabold text-[#F4F4F5]">Your artist profile is not active yet</h1>
+            <p className="text-sm leading-relaxed text-[#A1A1AA]">
+              You are signed in. Complete your artist profile to unlock artwork uploads, public portfolio pages, QR codes, and analytics.
+            </p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-3">
+            <Link to="/profile">
+              <Button variant="primary">Complete artist profile</Button>
+            </Link>
+            <Link to="/">
+              <Button variant="secondary">Explore LynqArt</Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-8">
       {/* Workspace Header */}

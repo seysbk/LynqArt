@@ -8,8 +8,7 @@ import { Button } from '../../components/ui/Button'
 import { QrCode, Download, Eye, Plus, Check, ExternalLink, Sparkles, ArrowRight, ArrowLeft, Trash2, Users, UserPlus, X, Search } from 'lucide-react'
 import { AIAssistantModal } from '../../components/ai/AIAssistantModal'
 import { Modal } from '../../components/ui/Modal'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { MarkdownContent } from '../../components/ui/MarkdownContent'
 import { useDataRefresh } from '../../hooks/useDataRefresh'
 
 const empty = {
@@ -72,6 +71,7 @@ export function ArtworkManagerPage({ session }) {
   const [imageMeta, setImageMeta] = useState({ caption: '', display_order: 0 })
   const [pendingProcessImages, setPendingProcessImages] = useState([])
   const [pendingProcessVideo, setPendingProcessVideo] = useState(null)
+  const [mediaUploadState, setMediaUploadState] = useState(null)
   const [processImageInputKey, setProcessImageInputKey] = useState(0)
   const [exhibitions, setExhibitions] = useState([])
   const [linkedExhibitionIds, setLinkedExhibitionIds] = useState(new Set())
@@ -408,6 +408,7 @@ export function ArtworkManagerPage({ session }) {
       payload.append('caption', imageMeta.caption)
       payload.append('display_order', imageMeta.display_order)
     }
+    setMediaUploadState({ kind, message: kind === 'banner' ? 'Uploading banner...' : 'Uploading progress image(s)...' })
     try {
       await api.post(
         `/artworks/${artwork.slug}/${kind === 'banner' ? 'upload_banner' : 'upload_images'}/`,
@@ -423,6 +424,8 @@ export function ArtworkManagerPage({ session }) {
       setModalState({ isOpen: true, title: 'Upload Successful', message: `${kind === 'banner' ? 'Banner' : 'Progress image(s)'} uploaded!`, type: 'success' })
     } catch (error) {
       setModalState({ isOpen: true, title: 'Error Uploading', message: errorText(error), type: 'error' })
+    } finally {
+      setMediaUploadState(null)
     }
   }
 
@@ -441,6 +444,7 @@ export function ArtworkManagerPage({ session }) {
     if (!artwork || !pendingProcessVideo) return
     const payload = new FormData()
     payload.append('video', pendingProcessVideo)
+    setMediaUploadState({ kind: 'video', message: 'Uploading process video...' })
     try {
       await api.post(`/artworks/${artwork.slug}/upload_process_video/`, payload, { headers: { 'Content-Type': 'multipart/form-data' } })
       setPendingProcessVideo(null)
@@ -448,6 +452,8 @@ export function ArtworkManagerPage({ session }) {
       setModalState({ isOpen: true, title: 'Video Uploaded', message: 'Your process video was uploaded.', type: 'success' })
     } catch (error) {
       setModalState({ isOpen: true, title: 'Video Upload Failed', message: errorText(error), type: 'error' })
+    } finally {
+      setMediaUploadState(null)
     }
   }
 
@@ -820,7 +826,7 @@ export function ArtworkManagerPage({ session }) {
 
           {preview ? (
             <div className="surface-card p-4 min-h-[200px] prose prose-invert max-w-none text-xs text-[#F4F4F5]">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{form.markdown_statement || '*No statement written.*'}</ReactMarkdown>
+              <MarkdownContent>{form.markdown_statement || '*No statement written.*'}</MarkdownContent>
             </div>
           ) : (
             <textarea
@@ -839,13 +845,13 @@ export function ArtworkManagerPage({ session }) {
           </label>
 
           {/* Part 2 Actions */}
-          <div className="flex items-center justify-between gap-3 pt-4 border-t border-white/[0.06]">
-            <Button type="button" variant="secondary" onClick={() => setActiveStep(1)} className="text-xs">
+          <div className="flex flex-col-reverse gap-3 pt-4 border-t border-white/[0.06] sm:flex-row sm:items-center sm:justify-between">
+            <Button type="button" variant="secondary" onClick={() => setActiveStep(1)} className="w-full text-xs sm:w-auto">
               <ArrowLeft className="h-4 w-4" />
               <span>Back to Part 1</span>
             </Button>
 
-            <Button type="submit" variant="primary" disabled={saving} className="text-xs">
+            <Button type="submit" variant="primary" disabled={saving} className="w-full whitespace-normal text-center text-xs sm:w-auto">
               <span>{saving ? 'Saving Statement...' : 'Save Statement & Continue to Media'}</span>
               <ArrowRight className="h-4 w-4" />
             </Button>
@@ -876,7 +882,12 @@ export function ArtworkManagerPage({ session }) {
                   </Button>
                 </div>
               ) : (
-                <ImageUpload label="Upload Banner Graphic" onChange={(f) => upload(f, 'banner')} />
+                <ImageUpload
+                  label="Upload Banner Graphic"
+                  onChange={(f) => upload(f, 'banner')}
+                  uploading={mediaUploadState?.kind === 'banner'}
+                  uploadMessage={mediaUploadState?.message}
+                />
               )}
             </div>
 
@@ -912,6 +923,8 @@ export function ArtworkManagerPage({ session }) {
                     hint="Drag & drop or select single/multiple progress images"
                     multiple={true}
                     onChange={(files) => setPendingProcessImages(files)}
+                    uploading={mediaUploadState?.kind === 'images'}
+                    uploadMessage={mediaUploadState?.message}
                   />
                 </div>
 
@@ -926,7 +939,7 @@ export function ArtworkManagerPage({ session }) {
                       type="button"
                       variant="secondary"
                       onClick={clearPendingProcessImage}
-                      disabled={!pendingProcessImages.length && !imageMeta.caption}
+                      disabled={mediaUploadState?.kind === 'images' || (!pendingProcessImages.length && !imageMeta.caption)}
                       className="!py-1.5 text-xs"
                     >
                       Clear
@@ -935,7 +948,7 @@ export function ArtworkManagerPage({ session }) {
                       type="button"
                       variant="primary"
                       onClick={addProcessImages}
-                      disabled={!pendingProcessImages.length || !artwork}
+                      disabled={mediaUploadState?.kind === 'images' || !pendingProcessImages.length || !artwork}
                       className="!py-1.5 text-xs"
                     >
                       Add Process Image
@@ -1171,7 +1184,9 @@ export function ArtworkManagerPage({ session }) {
                 ) : (
                   <div className="flex flex-wrap items-center gap-2">
                     <input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={(event) => setPendingProcessVideo(event.target.files?.[0] || null)} className="min-w-0 text-xs text-[#A1A1AA] file:mr-2 file:rounded file:border-0 file:bg-indigo-600 file:px-2.5 file:py-1.5 file:text-xs file:font-semibold file:text-white" />
-                    <Button type="button" variant="primary" onClick={uploadProcessVideo} disabled={!pendingProcessVideo} className="!py-1.5 text-xs">Upload video</Button>
+                    <Button type="button" variant="primary" onClick={uploadProcessVideo} disabled={mediaUploadState?.kind === 'video' || !pendingProcessVideo} className="!py-1.5 text-xs">
+                      {mediaUploadState?.kind === 'video' ? 'Uploading...' : 'Upload video'}
+                    </Button>
                   </div>
                 )}
               </div>

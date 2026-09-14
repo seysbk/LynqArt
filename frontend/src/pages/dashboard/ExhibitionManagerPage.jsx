@@ -8,8 +8,7 @@ import { Button } from '../../components/ui/Button'
 import { QrCode, Download, Eye, Check, ExternalLink, ArrowRight, ArrowLeft, Trash2, Sparkles, Search } from 'lucide-react'
 import { AIAssistantModal } from '../../components/ai/AIAssistantModal'
 import { Modal } from '../../components/ui/Modal'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { MarkdownContent } from '../../components/ui/MarkdownContent'
 import { useDataRefresh } from '../../hooks/useDataRefresh'
 
 const empty = {
@@ -46,6 +45,7 @@ export function ExhibitionManagerPage() {
   const [artworkSearch, setArtworkSearch] = useState('')
   const [qrCode, setQrCode] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [uploadingBanner, setUploadingBanner] = useState(false)
   const [preview, setPreview] = useState(false)
   const [showAiModal, setShowAiModal] = useState(false)
   const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '', type: 'info', onConfirm: null, confirmText: 'OK', cancelText: null })
@@ -157,6 +157,7 @@ export function ExhibitionManagerPage() {
     if (!file || !item) return
     const payload = new FormData()
     payload.append('banner', file)
+    setUploadingBanner(true)
     try {
       await api.post(`/exhibitions/${item.slug}/upload_banner/`, payload, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -165,6 +166,8 @@ export function ExhibitionManagerPage() {
       setModalState({ isOpen: true, title: 'Upload Successful', message: 'Banner image uploaded!', type: 'success' })
     } catch (error) {
       setModalState({ isOpen: true, title: 'Error', message: errorText(error), type: 'error' })
+    } finally {
+      setUploadingBanner(false)
     }
   }
 
@@ -465,7 +468,7 @@ export function ExhibitionManagerPage() {
 
           {preview ? (
             <div className="surface-card p-4 min-h-[160px] prose prose-invert max-w-none text-xs text-[#F4F4F5]">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{form.markdown_description || '*No curator description written.*'}</ReactMarkdown>
+              <MarkdownContent>{form.markdown_description || '*No curator description written.*'}</MarkdownContent>
             </div>
           ) : (
             <textarea
@@ -490,7 +493,12 @@ export function ExhibitionManagerPage() {
                 </Button>
               </div>
             ) : (
-              <ImageUpload label="Upload Banner Graphic" onChange={uploadBanner} />
+              <ImageUpload
+                label="Upload Banner Graphic"
+                onChange={uploadBanner}
+                uploading={uploadingBanner}
+                uploadMessage="Uploading banner..."
+              />
             )}
           </div>
 
@@ -502,13 +510,13 @@ export function ExhibitionManagerPage() {
           </div>
 
           {/* Actions Bar */}
-          <div className="flex items-center justify-between gap-3 pt-4 border-t border-white/[0.06]">
-            <Button type="button" variant="secondary" onClick={() => setActiveStep(1)} className="text-xs">
+          <div className="flex flex-col-reverse gap-3 pt-4 border-t border-white/[0.06] sm:flex-row sm:items-center sm:justify-between">
+            <Button type="button" variant="secondary" onClick={() => setActiveStep(1)} className="w-full text-xs sm:w-auto">
               <ArrowLeft className="h-4 w-4" />
               <span>Back to Part 1</span>
             </Button>
 
-            <Button type="submit" variant="primary" disabled={saving} className="text-xs">
+            <Button type="submit" variant="primary" disabled={saving} className="w-full whitespace-normal text-center text-xs sm:w-auto">
               <span>{saving ? 'Saving Description...' : 'Save Description & Continue to Artworks'}</span>
               <ArrowRight className="h-4 w-4" />
             </Button>

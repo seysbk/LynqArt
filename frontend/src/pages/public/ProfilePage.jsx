@@ -16,6 +16,7 @@ export function ProfilePage({ session }) {
   const [artistProfile, setArtistProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
 
   const [form, setForm] = useState({
@@ -98,6 +99,7 @@ export function ProfilePage({ session }) {
   const handleAvatarUpload = async (file) => {
     if (!file) return
     setStatusMessage('')
+    setUploadingAvatar(true)
     try {
       const payload = new FormData()
       payload.append('avatar', file)
@@ -108,6 +110,8 @@ export function ProfilePage({ session }) {
       setStatusMessage('Profile picture uploaded successfully!')
     } catch {
       setStatusMessage('Could not upload profile picture.')
+    } finally {
+      setUploadingAvatar(false)
     }
   }
 
@@ -192,7 +196,12 @@ export function ProfilePage({ session }) {
           <h2 className="text-sm font-semibold text-[#F4F4F5]">Artist Profile Picture</h2>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex-1 w-full">
-              <ImageUpload label="Upload New Avatar Picture" onChange={handleAvatarUpload} />
+              <ImageUpload
+                label="Upload New Avatar Picture"
+                onChange={handleAvatarUpload}
+                uploading={uploadingAvatar}
+                uploadMessage="Uploading profile picture..."
+              />
             </div>
             {avatarImage && (
               <Button

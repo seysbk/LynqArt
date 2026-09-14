@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { MarkdownContent } from '../../components/ui/MarkdownContent'
 import { api } from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
 import { shareLink, sharePreviewUrl } from '../../lib/sharing'
@@ -9,6 +8,7 @@ import { Button } from '../../components/ui/Button'
 import { ArtworkCard, formatAttribution, formatCopyrightHolders } from '../../components/ui/ArtworkCard'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { LoadingState } from '../../components/ui/LoadingState'
+import { NotFoundPage } from './NotFoundPage'
 import { Heart, QrCode, Share2, Award, MessageSquare, Mail, Flag, Eye } from 'lucide-react'
 import { ContactArtistModal } from '../../components/ui/ContactArtistModal'
 import { ReportContentModal } from '../../components/ui/ReportContentModal'
@@ -70,6 +70,7 @@ export function ArtworkDetailPage({ session }) {
   const [qrCode, setQrCode] = useState(null)
   const [favorite, setFavorite] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [editingCommentId, setEditingCommentId] = useState(null)
   const [editingText, setEditingText] = useState('')
@@ -130,7 +131,11 @@ export function ArtworkDetailPage({ session }) {
         if (session.user) setFavorite(list(results[3].data).some((item) => item.artwork === data.id))
         setLoading(false)
       })
-      .catch(() => active && setLoading(false))
+      .catch((error) => {
+        if (!active) return
+        setNotFound(error.response?.status === 404)
+        setLoading(false)
+      })
     return () => {
       active = false
     }
@@ -256,6 +261,7 @@ export function ArtworkDetailPage({ session }) {
   }
 
   if (loading) return <LoadingState title="Loading Artwork" description="Fetching statement and artwork catalogue..." />
+  if (notFound) return <NotFoundPage />
   if (!artwork) return <EmptyState title="Artwork Not Found" description="This artwork link does not exist or is not public." />
 
   const artistName = artwork.artist?.full_name || artwork.artist?.username || 'Artist'
@@ -343,7 +349,7 @@ export function ArtworkDetailPage({ session }) {
             <h2 className="text-sm font-semibold uppercase tracking-wider text-indigo-400">Artist Statement</h2>
             {statement ? (
               <div className="reading-width prose prose-invert prose-p:text-[#F4F4F5] prose-p:text-base prose-p:leading-relaxed text-sm sm:text-base text-[#F4F4F5]">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{statement}</ReactMarkdown>
+                <MarkdownContent>{statement}</MarkdownContent>
               </div>
             ) : (
               <p className="text-xs text-[#71717A] italic">No artist statement added yet.</p>
@@ -473,7 +479,7 @@ export function ArtworkDetailPage({ session }) {
             {!reviewPreview && <MarkdownTips onInsert={handleReviewMarkdownInsert} value={reviewText} />}
             {reviewPreview ? (
               <div className="surface-card min-h-[120px] p-4 prose prose-invert max-w-none text-xs text-[#F4F4F5]">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{reviewText || '*No review written.*'}</ReactMarkdown>
+                <MarkdownContent>{reviewText || '*No review written.*'}</MarkdownContent>
               </div>
             ) : (
               <textarea
@@ -535,7 +541,7 @@ export function ArtworkDetailPage({ session }) {
                     </span>
                   </p>
                   <div className="prose prose-invert text-xs text-[#F4F4F5] pt-1">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{review.markdown_review}</ReactMarkdown>
+                    <MarkdownContent>{review.markdown_review}</MarkdownContent>
                   </div>
                 </div>
               ))}

@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import { Sparkles, Check, RefreshCw, X, AlertCircle } from 'lucide-react'
 import { api } from '../../lib/api'
 import { Button } from '../ui/Button'
+import { MarkdownContent } from '../ui/MarkdownContent'
 
 export function AIAssistantModal({ targetId, targetType = 'artwork', artworkTitle, sourceDescription = '', mode = 'statement', onAccept, onClose, onEditManually }) {
   const [prompt, setPrompt] = useState('')
@@ -67,7 +66,7 @@ export function AIAssistantModal({ targetId, targetType = 'artwork', artworkTitl
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="surface-card w-full max-w-2xl overflow-hidden border-white/[0.14] shadow-2xl p-6 space-y-6">
+      <div className="surface-card w-full max-w-2xl overflow-hidden border-white/[0.14] shadow-2xl p-4 sm:p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
           <div className="flex items-center gap-2">
@@ -157,31 +156,31 @@ export function AIAssistantModal({ targetId, targetType = 'artwork', artworkTitl
             </div>
 
             <div className="surface-card p-4 max-h-[320px] overflow-y-auto prose prose-invert max-w-none text-xs text-[#F4F4F5] leading-relaxed">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              <MarkdownContent>
                 {currentGeneration.generated_text}
-              </ReactMarkdown>
+              </MarkdownContent>
             </div>
 
             <div className="rounded-[9px] bg-[#0D0F14] p-3 text-[11px] text-[#71717A] italic">
               Note: You can review, edit, or customize the draft statement after inserting it into your statement editor.
             </div>
 
-            <div className="pt-2 flex items-center justify-between gap-3 border-t border-white/[0.06]">
+            <div className="pt-2 flex flex-col gap-3 border-t border-white/[0.06] sm:flex-row sm:items-center sm:justify-between">
               <Button
                 type="button"
                 variant="secondary"
                 onClick={() => setCurrentGeneration(null)}
-                className="!py-1.5 text-xs"
+                className="!py-1.5 text-xs w-full sm:w-auto"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 <span>Refine / Redraft</span>
               </Button>
 
-              <div className="flex gap-2">
-                <Button type="button" variant="secondary" onClick={onClose} className="!py-1.5 text-xs">
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                <Button type="button" variant="secondary" onClick={onClose} className="!py-1.5 text-xs w-full sm:w-auto">
                   Discard
                 </Button>
-                <Button type="button" variant="primary" onClick={handleAccept} className="!py-1.5 text-xs">
+                <Button type="button" variant="primary" onClick={handleAccept} className="!py-1.5 text-xs w-full sm:w-auto whitespace-normal text-center">
                   <Check className="h-4 w-4" />
                   <span>Accept &amp; Insert Statement</span>
                 </Button>

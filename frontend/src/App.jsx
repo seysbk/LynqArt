@@ -34,7 +34,7 @@ function App() {
 
   return (
     <>
-      <Analytics />
+      {import.meta.env.PROD && <Analytics mode="production" />}
       <ScrollToTop />
       <Routes>
       <Route element={<AppLayout session={session} />}>

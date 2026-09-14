@@ -4,6 +4,7 @@ import { api, mediaUrl } from '../../lib/api'
 import { ArtworkCard } from '../../components/ui/ArtworkCard'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { LoadingState } from '../../components/ui/LoadingState'
+import { NotFoundPage } from './NotFoundPage'
 import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus'
 import { useDataRefresh } from '../../hooks/useDataRefresh'
 import { MapPin, Globe, Video, Mail, Users } from 'lucide-react'
@@ -65,6 +66,7 @@ export function ArtistProfilePage() {
   const [leadArtworks, setLeadArtworks] = useState([])
   const [collaborativeArtworks, setCollaborativeArtworks] = useState([])
   const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
   const [contactOpen, setContactOpen] = useState(false)
   const { registerArtworksRefetchListener } = useDataRefresh()
 
@@ -81,8 +83,9 @@ export function ArtistProfilePage() {
       setLeadArtworks(leadRes.data.results || leadRes.data || [])
       setCollaborativeArtworks(collabRes.data.results || collabRes.data || [])
       setLoading(false)
-    } catch {
+    } catch (error) {
       if (!alive) return
+      setNotFound(error.response?.status === 404)
       setLoading(false)
     }
     return () => {
@@ -103,6 +106,7 @@ export function ArtistProfilePage() {
   }, [fetchData, registerArtworksRefetchListener])
 
   if (loading) return <LoadingState title="Loading Artist Portfolio" description="Fetching bio and artworks..." />
+  if (notFound) return <NotFoundPage />
   if (!profile) return <EmptyState title="Artist Profile Not Found" description="This artist profile is not available." />
 
   const artistName = profile.user?.full_name || profile.user?.username || 'Artist'
@@ -154,7 +158,7 @@ export function ArtistProfilePage() {
                 aria-label={`Visit ${artistName}'s Instagram`}
               >
                 <InstagramIcon className="h-4 w-4 text-pink-400" />
-                <span>Instagram ({profile.instagram})</span>
+                <span className="max-w-[180px] truncate">{profile.instagram}</span>
               </a>
             )}
             {profile.twitter && (
@@ -166,7 +170,7 @@ export function ArtistProfilePage() {
                 aria-label={`Visit ${artistName}'s Twitter / X account`}
               >
                 <TwitterIcon className="h-4 w-4 text-sky-400" />
-                <span>Twitter / X ({profile.twitter})</span>
+                <span className="max-w-[180px] truncate">{profile.twitter}</span>
               </a>
             )}
             {profile.linkedin && (
@@ -177,7 +181,7 @@ export function ArtistProfilePage() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] hover:text-[#F4F4F5] transition-colors"
               >
                 <LinkedinIcon className="h-4 w-4 text-blue-400" />
-                <span>LinkedIn</span>
+                <span className="max-w-[180px] truncate">{profile.linkedin}</span>
               </a>
             )}
             {profile.youtube && (
@@ -188,7 +192,7 @@ export function ArtistProfilePage() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] hover:text-[#F4F4F5] transition-colors"
               >
                 <YoutubeIcon className="h-4 w-4 text-red-500" />
-                <span>YouTube</span>
+                <span className="max-w-[180px] truncate">{profile.youtube}</span>
               </a>
             )}
             {profile.facebook && (
@@ -199,7 +203,7 @@ export function ArtistProfilePage() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] hover:text-[#F4F4F5] transition-colors"
               >
                 <FacebookIcon className="h-4 w-4 text-blue-600" />
-                <span>Facebook</span>
+                <span className="max-w-[180px] truncate">{profile.facebook}</span>
               </a>
             )}
             {profile.tiktok && (
@@ -210,7 +214,7 @@ export function ArtistProfilePage() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] hover:text-[#F4F4F5] transition-colors"
               >
                 <Video className="h-4 w-4 text-[#00f2fe]" />
-                <span>TikTok</span>
+                <span className="max-w-[180px] truncate">{profile.tiktok}</span>
               </a>
             )}
             {profile.pinterest && (
@@ -221,7 +225,7 @@ export function ArtistProfilePage() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] hover:text-[#F4F4F5] transition-colors"
               >
                 <PinterestIcon className="h-4 w-4 text-red-600" />
-                <span>Pinterest</span>
+                <span className="max-w-[180px] truncate">{profile.pinterest}</span>
               </a>
             )}
           </div>

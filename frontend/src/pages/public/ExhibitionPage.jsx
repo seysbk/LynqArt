@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { MarkdownContent } from '../../components/ui/MarkdownContent'
 import { api } from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
 import { shareLink, sharePreviewUrl } from '../../lib/sharing'
 import { ArtworkCard } from '../../components/ui/ArtworkCard'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { LoadingState } from '../../components/ui/LoadingState'
+import { NotFoundPage } from './NotFoundPage'
 import { Button } from '../../components/ui/Button'
 import { MapPin, Calendar, QrCode, Share2, Flag } from 'lucide-react'
 import { ReportContentModal } from '../../components/ui/ReportContentModal'
@@ -54,6 +54,7 @@ export function ExhibitionPage() {
   const [exhibition, setExhibition] = useState(null)
   const [qrCode, setQrCode] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
   const [message, setMessage] = useState('')
   const [reportTarget, setReportTarget] = useState(null)
   const { registerExhibitionsRefetchListener } = useDataRefresh()
@@ -72,8 +73,9 @@ export function ExhibitionPage() {
         setQrCode(list(qr.data)[0] || null)
         setLoading(false)
       })
-      .catch(() => {
+      .catch((error) => {
         if (!alive) return
+        setNotFound(error.response?.status === 404)
         setLoading(false)
       })
 
@@ -106,6 +108,7 @@ export function ExhibitionPage() {
   }
 
   if (loading) return <LoadingState title="Loading Exhibition Catalogue" description="Fetching catalogue details..." />
+  if (notFound) return <NotFoundPage />
   if (!exhibition) return <EmptyState title="Exhibition Not Found" description="This exhibition catalogue does not exist or is private." />
 
   const artworks = exhibition.artworks || []
@@ -186,7 +189,7 @@ export function ExhibitionPage() {
         <section className="space-y-3">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-indigo-400">Curator Statement</h2>
           <div className="prose prose-invert max-w-[750px] text-sm text-[#F4F4F5] leading-relaxed">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{exhibition.markdown_description}</ReactMarkdown>
+            <MarkdownContent>{exhibition.markdown_description}</MarkdownContent>
           </div>
         </section>
       )}

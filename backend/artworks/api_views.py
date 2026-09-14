@@ -1,5 +1,5 @@
 import os
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
@@ -34,6 +34,14 @@ from .serializers import (
 User = get_user_model()
 
 
+def _is_uuid(value):
+    try:
+        UUID(str(value))
+    except (ValueError, TypeError, AttributeError):
+        return False
+    return True
+
+
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all().order_by('name')
     serializer_class = CategorySerializer
@@ -59,7 +67,9 @@ class ArtworkViewSet(viewsets.ModelViewSet):
     permission_classes = [IsArtistOrReadOnly, IsOwnerOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ('title', 'slug', 'description', 'medium', 'artist__username', 'artist__email', 'category__name')
-    filterset_fields = ('status', 'is_featured', 'is_artist_featured', 'allow_comments', 'category', 'artist', 'artist_id')
+    # artist/artist_id are resolved in get_queryset so both usernames and UUIDs
+    # are supported without django-filter forcing usernames through UUIDField.
+    filterset_fields = ('status', 'is_featured', 'is_artist_featured', 'allow_comments', 'category')
     ordering_fields = ('created_at', 'updated_at', 'published_at', 'title')
 
     def finalize_response(self, request, response, *args, **kwargs):
@@ -85,7 +95,7 @@ class ArtworkViewSet(viewsets.ModelViewSet):
 
         if artist_id:
             target_user = User.objects.filter(
-                db_models.Q(id=artist_id) if len(str(artist_id)) == 36 else db_models.Q(username__iexact=artist_id)
+                db_models.Q(id=artist_id) if _is_uuid(artist_id) else db_models.Q(username__iexact=artist_id)
             ).first()
             if target_user:
                 if work_type in {'contributed', 'collaborative'}:
@@ -93,15 +103,19 @@ class ArtworkViewSet(viewsets.ModelViewSet):
                 else:
                     queryset = queryset.filter(artist=target_user)
             else:
-                queryset = queryset.filter(artist_id=artist_id)
+                queryset = queryset.filter(artist_id=artist_id) if _is_uuid(artist_id) else queryset.none()
         elif contributor_id:
             target_user = User.objects.filter(
-                db_models.Q(id=contributor_id) if len(str(contributor_id)) == 36 else db_models.Q(username__iexact=contributor_id)
+                db_models.Q(id=contributor_id) if _is_uuid(contributor_id) else db_models.Q(username__iexact=contributor_id)
             ).first()
             if target_user:
                 queryset = queryset.filter(contributors__user=target_user, contributors__status=ArtworkContributor.STATUS_ACCEPTED)
             else:
-                queryset = queryset.filter(contributors__user_id=contributor_id, contributors__status=ArtworkContributor.STATUS_ACCEPTED)
+                queryset = (
+                    queryset.filter(contributors__user_id=contributor_id, contributors__status=ArtworkContributor.STATUS_ACCEPTED)
+                    if _is_uuid(contributor_id)
+                    else queryset.none()
+                )
 
         user = self.request.user
         if not user.is_authenticated:

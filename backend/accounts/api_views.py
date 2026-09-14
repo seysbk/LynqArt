@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.db.models import Q
@@ -19,6 +21,14 @@ from .serializers import (
 )
 
 User = get_user_model()
+
+
+def _is_uuid(value):
+    try:
+        UUID(str(value))
+    except (ValueError, TypeError, AttributeError):
+        return False
+    return True
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -61,7 +71,10 @@ class ArtistProfileViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         user_lookup = self.request.query_params.get('user')
         if user_lookup:
-            queryset = queryset.filter(user_id=user_lookup) | queryset.filter(user__username__iexact=user_lookup)
+            if _is_uuid(user_lookup):
+                queryset = queryset.filter(user_id=user_lookup) | queryset.filter(user__username__iexact=user_lookup)
+            else:
+                queryset = queryset.filter(user__username__iexact=user_lookup)
         if self.action in {'update', 'partial_update', 'destroy'} and self.request.user.is_authenticated:
             return queryset.filter(user=self.request.user)
         return queryset
@@ -69,7 +82,11 @@ class ArtistProfileViewSet(viewsets.ModelViewSet):
     def get_object(self):
         lookup = self.kwargs.get(self.lookup_field)
         queryset = self.filter_queryset(self.get_queryset())
-        obj = queryset.filter(user_id=lookup).first() or queryset.filter(user__username__iexact=lookup).first()
+        obj = None
+        if _is_uuid(lookup):
+            obj = queryset.filter(user_id=lookup).first()
+        if obj is None:
+            obj = queryset.filter(user__username__iexact=lookup).first()
         if not obj:
             from django.http import Http404
             raise Http404('Artist profile not found.')

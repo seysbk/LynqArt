@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { CenteredState } from '../../components/ui/CenteredState'
+import { NotFoundPage } from './NotFoundPage'
 
 export function QRLandingPage() {
   const { qrSlug } = useParams()
@@ -16,13 +17,7 @@ export function QRLandingPage() {
   }, [qrSlug])
 
   if (failed) {
-    return (
-      <CenteredState
-        title="QR Code Resolution Failed"
-        description="This physical QR tag code may have expired or been deactivated by the exhibition organizer."
-        icon="help"
-      />
-    )
+    return <NotFoundPage />
   }
 
   if (!target) {
