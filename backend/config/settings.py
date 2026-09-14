@@ -48,7 +48,7 @@ INSTALLED_APPS = [
     'ai',
     'qr',
     'exhibitions',
-    'notifications',
+    'notifications.apps.NotificationsConfig',
 ]
 
 MIDDLEWARE = [

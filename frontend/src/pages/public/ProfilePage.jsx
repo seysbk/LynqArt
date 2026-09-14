@@ -201,6 +201,7 @@ export function ProfilePage({ session }) {
                 onChange={handleAvatarUpload}
                 uploading={uploadingAvatar}
                 uploadMessage="Uploading profile picture..."
+                maxSizeMb={5}
               />
             </div>
             {avatarImage && (

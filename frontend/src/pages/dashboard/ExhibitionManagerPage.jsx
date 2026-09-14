@@ -94,13 +94,13 @@ export function ExhibitionManagerPage() {
     setForm({ ...form, markdown_description: current + addition })
   }
 
-  const saveExhibitionData = async (nextStep = null) => {
+  const saveExhibitionData = async (nextStep = null, formOverride = null) => {
     setSaving(true)
     try {
       const payload = {
-        ...form,
-        start_date: form.start_date || null,
-        end_date: form.end_date || null,
+        ...(formOverride || form),
+        start_date: (formOverride || form).start_date || null,
+        end_date: (formOverride || form).end_date || null,
       }
       const { data } = item
         ? await api.patch(`/exhibitions/${item.slug}/`, payload)
@@ -451,9 +451,11 @@ export function ExhibitionManagerPage() {
               sourceDescription={`${form.short_description || ''}\n${form.markdown_description || ''}`.trim()}
               mode="curator"
               onAccept={(text) => {
-                setForm((prev) => ({ ...prev, markdown_description: text }))
+                const nextForm = { ...form, markdown_description: text }
+                setForm(nextForm)
                 setActiveStep(2)
                 setPreview(false)
+                saveExhibitionData(2, nextForm)
               }}
               onClose={() => setShowAiModal(false)}
               onEditManually={() => {

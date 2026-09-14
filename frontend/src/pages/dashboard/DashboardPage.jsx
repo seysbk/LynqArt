@@ -203,7 +203,9 @@ export function DashboardPage({ session }) {
         </div>
       )}
 
-      {(user.is_moderator || user.is_staff) && <ReportModerationPanel isStaff={user.is_staff} />}
+      {(profile?.is_moderator === true || profile?.is_staff === true) && (
+        <ReportModerationPanel isStaff={profile.is_staff === true} />
+      )}
 
       {/* Account Info Bar */}
       <div className="surface-card p-5 flex flex-wrap items-center justify-between gap-4">

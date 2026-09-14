@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from './Icons'
 
-export function ImageUpload({ label, value, onChange, accept = 'image/*', hint, multiple = false, uploading = false, uploadMessage = 'Uploading image...' }) {
+export function ImageUpload({ label, value, onChange, accept = 'image/*', hint, multiple = false, uploading = false, uploadMessage = 'Uploading image...', maxSizeMb = 10 }) {
   const inputRef = useRef(null)
   const [dragging, setDragging] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState([])
+  const [validationError, setValidationError] = useState('')
 
   const previewUrls = useMemo(
     () => selectedFiles.map((file) => (file.type.startsWith('image/') ? URL.createObjectURL(file) : null)),
@@ -18,6 +19,17 @@ export function ImageUpload({ label, value, onChange, accept = 'image/*', hint, 
   const handleFiles = (files) => {
     if (!files || !files.length) return
     const nextFiles = multiple ? Array.from(files) : [files[0]]
+    const invalidType = nextFiles.find((file) => !['image/jpeg', 'image/png', 'image/webp'].includes(file.type))
+    const invalidSize = nextFiles.find((file) => file.size > maxSizeMb * 1024 * 1024)
+    if (invalidType) {
+      setValidationError('Use a JPG, PNG, or WEBP image.')
+      return
+    }
+    if (invalidSize) {
+      setValidationError(`Each image must be ${maxSizeMb} MB or smaller.`)
+      return
+    }
+    setValidationError('')
     setSelectedFiles(nextFiles)
     if (multiple) {
       onChange(nextFiles)
@@ -99,6 +111,9 @@ export function ImageUpload({ label, value, onChange, accept = 'image/*', hint, 
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-300/30 border-t-indigo-300" aria-hidden="true" />
             <span>{uploadMessage}</span>
           </div>
+        )}
+        {validationError && (
+          <p className="mt-3 text-xs font-medium text-rose-300" role="alert">{validationError}</p>
         )}
     </div>
   )

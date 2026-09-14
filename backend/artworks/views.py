@@ -19,14 +19,15 @@ def healthcheck(request):
 @permission_classes([AllowAny])
 def share_artwork_preview(request, slug):
     artwork = get_object_or_404(
-        Artwork.objects.select_related('artist'),
+        Artwork.objects.select_related('artist').prefetch_related('images'),
         slug=slug,
         status=Artwork.STATUS_PUBLISHED,
     )
     artist_name = artwork.artist.get_full_name() or artwork.artist.username
     title = f'{artwork.title} by {artist_name} | LynqArt'
     description = artwork.description or f'About this work: {artwork.title}'
-    image_url = artwork.banner_image or ''
+    fallback_image = artwork.images.order_by('display_order', 'created_at').first()
+    image_url = artwork.banner_image or (fallback_image.image_url if fallback_image else '')
     if image_url and not image_url.startswith(('http://', 'https://')):
         image_url = request.build_absolute_uri(image_url if image_url.startswith('/') else f'{settings.MEDIA_URL}{image_url}')
     canonical_url = f'{getattr(settings, "FRONTEND_BASE_URL", request.build_absolute_uri("/")).rstrip("/")}/artworks/{artwork.slug}'

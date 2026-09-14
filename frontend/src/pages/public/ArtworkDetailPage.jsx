@@ -31,7 +31,7 @@ const setMeta = (selector, attribute, value) => {
 
 const updateSocialMetadata = (artwork) => {
   const description = (artwork.description || `About this work: ${artwork.title}`).slice(0, 200)
-  const image = mediaUrl(artwork.banner_image)
+  const image = mediaUrl(artwork.banner_image || artwork.images?.[0]?.image_url)
   const url = window.location.href
   setMeta('meta[name="description"]', 'name', description)
   setMeta('meta[property="og:title"]', 'property', artwork.title)
@@ -458,7 +458,9 @@ export function ArtworkDetailPage({ session }) {
         </div>
 
         {session.user?.is_expert && (
-          <form onSubmit={submitExpertReview} className="surface-card max-w-2xl space-y-3 border-amber-500/30 bg-amber-500/5 p-5">
+          <details className="surface-card max-w-2xl border-amber-500/30 bg-amber-500/5">
+            <summary className="cursor-pointer p-5 text-xs font-semibold uppercase tracking-wider text-amber-400">Write an Expert Review</summary>
+            <form onSubmit={submitExpertReview} className="space-y-3 border-t border-amber-500/20 p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-400">Write an Expert Review</h3>
@@ -506,7 +508,8 @@ export function ArtworkDetailPage({ session }) {
                 {submittingReview ? 'Publishing...' : 'Publish Expert Review'}
               </Button>
             </div>
-          </form>
+            </form>
+          </details>
         )}
 
         {/* Dedicated Expert Review Feed */}
@@ -554,19 +557,22 @@ export function ArtworkDetailPage({ session }) {
           <h3 className="text-xs font-semibold uppercase tracking-wider text-[#A1A1AA]">Community Feedback &amp; Visitor Responses</h3>
 
           {artwork.allow_comments ? session.user ? (
-            <form onSubmit={submitComment} className="space-y-3 max-w-xl">
-              <textarea
-                required
-                rows={2}
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Leave a response or question..."
-                className="w-full rounded-[10px] bg-[#141720] border border-white/[0.09] p-3 text-xs text-[#F4F4F5] outline-none focus:border-indigo-400"
-              />
-              <Button type="submit" variant="primary" className="!py-1.5 !px-3 text-xs">
-                Post Response
-              </Button>
-            </form>
+            <details className="max-w-xl rounded-[10px] border border-white/[0.08] bg-[#141720]">
+              <summary className="cursor-pointer p-4 text-xs font-semibold text-[#F4F4F5]">Leave a comment</summary>
+              <form onSubmit={submitComment} className="space-y-3 border-t border-white/[0.06] p-4">
+                <textarea
+                  required
+                  rows={2}
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Leave a response or question..."
+                  className="w-full rounded-[10px] bg-[#0D0F14] border border-white/[0.09] p-3 text-xs text-[#F4F4F5] outline-none focus:border-indigo-400"
+                />
+                <Button type="submit" variant="primary" className="!py-1.5 !px-3 text-xs">
+                  Post Response
+                </Button>
+              </form>
+            </details>
           ) : (
             <p className="text-xs text-[#71717A]">
               <Link to="/login" className="text-indigo-400 hover:underline">Sign in</Link> to participate in discussions.

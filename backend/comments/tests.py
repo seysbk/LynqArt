@@ -8,7 +8,7 @@ from accounts.models import User
 from artworks.models import Artwork
 from notifications.models import Notification
 
-from .models import ModerationAction, Report
+from .models import Comment, ModerationAction, Report
 
 
 class ReportModerationTests(APITestCase):
@@ -100,3 +100,57 @@ class ReportModerationTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['actions']), 1)
         self.assertEqual(response.data['actions'][0]['action'], 'dismiss')
+
+
+class CommentNotificationTests(APITestCase):
+    def setUp(self):
+        self.artist = User.objects.create_user(
+            username='comment_artist',
+            email='comment_artist@example.com',
+            password='pass12345',
+            is_artist=True,
+        )
+        self.visitor = User.objects.create_user(
+            username='comment_visitor',
+            email='comment_visitor@example.com',
+            password='pass12345',
+        )
+        self.artwork = Artwork.objects.create(
+            artist=self.artist,
+            title='Commentable work',
+            slug=f'commentable-work-{uuid4().hex[:8]}',
+            status=Artwork.STATUS_PUBLISHED,
+        )
+
+    def test_comment_notifies_artwork_artist(self):
+        self.client.force_authenticate(user=self.visitor)
+        response = self.client.post(
+            reverse('comment-list'),
+            {'artwork': str(self.artwork.id), 'comment': 'This is a thoughtful response.'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        notification = Notification.objects.get(user=self.artist, type='comment')
+        self.assertIn('Commentable work', notification.title)
+        self.assertIn('thoughtful response', notification.message)
+
+    def test_reply_notifies_original_commenter_and_artist(self):
+        parent = Comment.objects.create(
+            artwork=self.artwork,
+            user=self.visitor,
+            comment='The material choices are interesting.',
+        )
+        self.client.force_authenticate(user=self.artist)
+        response = self.client.post(
+            reverse('comment-list'),
+            {
+                'artwork': str(self.artwork.id),
+                'parent_comment': str(parent.id),
+                'comment': 'Thank you for noticing the material choices.',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(Notification.objects.filter(user=self.visitor, type='reply').exists())

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
@@ -71,6 +71,7 @@ export function ArtworkManagerPage({ session }) {
   const [imageMeta, setImageMeta] = useState({ caption: '', display_order: 0 })
   const [pendingProcessImages, setPendingProcessImages] = useState([])
   const [pendingProcessVideo, setPendingProcessVideo] = useState(null)
+  const [processVideoError, setProcessVideoError] = useState('')
   const [mediaUploadState, setMediaUploadState] = useState(null)
   const [processImageInputKey, setProcessImageInputKey] = useState(0)
   const [exhibitions, setExhibitions] = useState([])
@@ -91,6 +92,15 @@ export function ArtworkManagerPage({ session }) {
   const [contributorRole, setContributorRole] = useState('Co-Artist')
   const [addingContributor, setAddingContributor] = useState(false)
   const userSearchRequestRef = useRef(0)
+
+  const processVideoPreviewUrl = useMemo(
+    () => (pendingProcessVideo ? URL.createObjectURL(pendingProcessVideo) : ''),
+    [pendingProcessVideo],
+  )
+
+  useEffect(() => () => {
+    if (processVideoPreviewUrl) URL.revokeObjectURL(processVideoPreviewUrl)
+  }, [processVideoPreviewUrl])
 
   const searchUsers = async (query, explicit = false) => {
     const enteredQuery = query.trim()
@@ -268,27 +278,28 @@ export function ArtworkManagerPage({ session }) {
     })
   }
 
-  const saveArtworkData = async (nextStep = null) => {
+  const saveArtworkData = async (nextStep = null, formOverride = null) => {
     setSaving(true)
     try {
-      if (form.copyright_holder_choice === 'self' && !form.copyright_confirmed) {
+      const activeForm = formOverride || form
+      if (activeForm.copyright_holder_choice === 'self' && !activeForm.copyright_confirmed) {
         setModalState({ isOpen: true, title: 'Copyright Confirmation Required', message: 'Confirm that you are the copyright holder, or choose another copyright-holder option before saving.', type: 'warning' })
         return null
       }
       const payload = {
-        ...form,
-        year_created: form.year_created ? parseInt(form.year_created, 10) : null,
-        category_id: form.category_id || null,
+        ...activeForm,
+        year_created: activeForm.year_created ? parseInt(activeForm.year_created, 10) : null,
+        category_id: activeForm.category_id || null,
       }
       delete payload.markdown_statement
       delete payload.change_note
       delete payload.copyright_holder_choice
-      if (form.copyright_holder_choice === 'self') payload.copyright_holder = currentUserName
-      if (form.copyright_holder_choice === 'none') {
+      if (activeForm.copyright_holder_choice === 'self') payload.copyright_holder = currentUserName
+      if (activeForm.copyright_holder_choice === 'none') {
         payload.copyright_holder = ''
         payload.copyright_confirmed = false
       }
-      if (form.copyright_holder_choice === 'other') payload.copyright_confirmed = false
+      if (activeForm.copyright_holder_choice === 'other') payload.copyright_confirmed = false
 
       const { data } = artwork
         ? await api.patch(`/artworks/${artwork.slug}/`, payload)
@@ -296,15 +307,15 @@ export function ArtworkManagerPage({ session }) {
 
       // Handle statement version update if changed
       const currentStatement = artwork?.current_version_detail?.markdown_statement || ''
-      if (form.markdown_statement.trim() && form.markdown_statement !== currentStatement) {
+      if (activeForm.markdown_statement.trim() && activeForm.markdown_statement !== currentStatement) {
         const versions = data.versions || artwork?.versions || []
         const nextVersion = Math.max(0, ...versions.map((item) => item.version_number)) + 1
         await api.post('/artworks/versions/', {
           artwork: data.id,
           version_number: nextVersion,
-          markdown_statement: form.markdown_statement,
+          markdown_statement: activeForm.markdown_statement,
           ai_generated: aiStatementAccepted,
-          change_note: form.change_note || `Version ${nextVersion} statement update`,
+          change_note: activeForm.change_note || `Version ${nextVersion} statement update`,
         })
       }
 
@@ -455,6 +466,26 @@ export function ArtworkManagerPage({ session }) {
     } finally {
       setMediaUploadState(null)
     }
+  }
+
+  const selectProcessVideo = (file) => {
+    setProcessVideoError('')
+    if (!file) {
+      setPendingProcessVideo(null)
+      return
+    }
+    const extension = file.name.split('.').pop()?.toLowerCase()
+    if (!['mp4', 'webm', 'mov'].includes(extension) || (file.type && !file.type.startsWith('video/'))) {
+      setPendingProcessVideo(null)
+      setProcessVideoError('Choose an MP4, WebM, or MOV video.')
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setPendingProcessVideo(null)
+      setProcessVideoError('This video is larger than 10 MB. Please choose a smaller file.')
+      return
+    }
+    setPendingProcessVideo(file)
   }
 
   const deleteProcessVideo = async () => {
@@ -808,10 +839,12 @@ export function ArtworkManagerPage({ session }) {
               sourceDescription={form.description}
               mode="statement"
               onAccept={(text) => {
-                setForm((prev) => ({ ...prev, markdown_statement: text }))
+                const nextForm = { ...form, markdown_statement: text }
+                setForm(nextForm)
                 setAiStatementAccepted(true)
                 setActiveStep(2)
                 setPreview(false)
+                saveArtworkData(2, nextForm)
               }}
               onClose={() => setShowAiModal(false)}
               onEditManually={() => {
@@ -1182,11 +1215,32 @@ export function ArtworkManagerPage({ session }) {
                     <Button type="button" variant="secondary" onClick={deleteProcessVideo} className="!py-1 !px-2.5 text-xs text-red-400">Remove video</Button>
                   </div>
                 ) : (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={(event) => setPendingProcessVideo(event.target.files?.[0] || null)} className="min-w-0 text-xs text-[#A1A1AA] file:mr-2 file:rounded file:border-0 file:bg-indigo-600 file:px-2.5 file:py-1.5 file:text-xs file:font-semibold file:text-white" />
-                    <Button type="button" variant="primary" onClick={uploadProcessVideo} disabled={mediaUploadState?.kind === 'video' || !pendingProcessVideo} className="!py-1.5 text-xs">
-                      {mediaUploadState?.kind === 'video' ? 'Uploading...' : 'Upload video'}
-                    </Button>
+                  <div className="space-y-3">
+                    {pendingProcessVideo && processVideoPreviewUrl ? (
+                      <div className="relative overflow-hidden rounded-xl border border-white/[0.1] bg-[#0D0F14]">
+                        <video controls muted src={processVideoPreviewUrl} className="max-h-56 w-full bg-black object-contain" />
+                        {mediaUploadState?.kind === 'video' && (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/65 text-xs font-semibold text-white">
+                            <span className="h-7 w-7 animate-spin rounded-full border-2 border-white/30 border-t-white" aria-hidden="true" />
+                            <span aria-live="polite">Uploading process video...</span>
+                          </div>
+                        )}
+                        <p className="truncate px-3 py-2 text-[11px] text-slate-300">{pendingProcessVideo.name}</p>
+                      </div>
+                    ) : (
+                      <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-white/[0.1] bg-[#0D0F14] p-5 text-center hover:border-indigo-400/60">
+                        <span className="text-xs font-semibold text-[#F4F4F5]">Choose process video</span>
+                        <span className="mt-1 text-[11px] text-[#71717A]">MP4, WebM, or MOV · maximum 10 MB</span>
+                        <input type="file" accept="video/mp4,video/webm,video/quicktime" disabled={mediaUploadState?.kind === 'video'} onChange={(event) => selectProcessVideo(event.target.files?.[0])} className="sr-only" />
+                      </label>
+                    )}
+                    {processVideoError && <p className="text-xs font-medium text-rose-300" role="alert">{processVideoError}</p>}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button type="button" variant="secondary" onClick={() => selectProcessVideo(null)} disabled={mediaUploadState?.kind === 'video' || !pendingProcessVideo} className="!py-1.5 text-xs">Clear</Button>
+                      <Button type="button" variant="primary" onClick={uploadProcessVideo} disabled={mediaUploadState?.kind === 'video' || !pendingProcessVideo} className="!py-1.5 text-xs">
+                        {mediaUploadState?.kind === 'video' ? 'Uploading...' : 'Upload video'}
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
