@@ -37,6 +37,7 @@ class ArtworkVersionSerializer(serializers.ModelSerializer):
             'created_at',
         )
         read_only_fields = ('id', 'created_at', 'version_number')
+        validators = []
 
 
 class ArtworkImageSerializer(serializers.ModelSerializer):

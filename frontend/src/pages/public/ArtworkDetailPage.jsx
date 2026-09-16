@@ -78,7 +78,7 @@ export function ArtworkDetailPage({ session }) {
   const [replyText, setReplyText] = useState('')
   const [reviewTitle, setReviewTitle] = useState('')
   const [reviewText, setReviewText] = useState('')
-  const [reviewRating, setReviewRating] = useState(0)
+  const [reviewRating, setReviewRating] = useState(5)
   const [reviewPreview, setReviewPreview] = useState(false)
   const [submittingReview, setSubmittingReview] = useState(false)
   const [message, setMessage] = useState('')
@@ -174,24 +174,29 @@ export function ArtworkDetailPage({ session }) {
 
   const submitExpertReview = async (event) => {
     event.preventDefault()
+    const numRating = Number(reviewRating)
     if (!reviewTitle.trim() || !reviewText.trim() || !session.user?.is_expert) return
+    if (numRating < 1 || numRating > 5) {
+      setMessage('Please select a star rating between 1 and 5.')
+      return
+    }
     setSubmittingReview(true)
     try {
       const { data } = await api.post('/reviews/', {
         artwork: artwork.id,
         title: reviewTitle.trim(),
         markdown_review: reviewText.trim(),
-        rating: Number(reviewRating),
+        rating: numRating,
       })
       setReviews([data, ...reviews])
       setReviewTitle('')
       setReviewText('')
-      setReviewRating(0)
+      setReviewRating(5)
       setMessage('Expert review published.')
       // Refetch to ensure fresh data
       fetchCommentsAndReviews()
-    } catch {
-      setMessage('Could not publish expert review.')
+    } catch (err) {
+      setMessage(err?.response?.data?.detail || err?.response?.data?.rating?.[0] || 'Could not publish expert review.')
     } finally {
       setSubmittingReview(false)
     }
@@ -226,6 +231,17 @@ export function ArtworkDetailPage({ session }) {
       fetchCommentsAndReviews()
     } catch {
       setMessage('Could not delete comment.')
+    }
+  }
+
+  const deleteReview = async (reviewId) => {
+    try {
+      await api.delete(`/reviews/${reviewId}/`)
+      setReviews(reviews.filter((item) => item.id !== reviewId))
+      setMessage('Expert review deleted.')
+      fetchCommentsAndReviews()
+    } catch {
+      setMessage('Could not delete expert review.')
     }
   }
 
@@ -495,13 +511,14 @@ export function ArtworkDetailPage({ session }) {
             )}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <label className="flex items-center gap-2 text-xs text-[#A1A1AA]">
-                Rating
+                Rating *
                 <select
+                  required
                   value={reviewRating}
                   onChange={(event) => setReviewRating(event.target.value)}
                   className="rounded-[8px] bg-[#141720] border border-white/[0.09] px-2 py-1.5 text-xs text-[#F4F4F5] outline-none focus:border-amber-400"
                 >
-                  {[0, 1, 2, 3, 4, 5].map((rating) => <option key={rating} value={rating}>{rating}/5</option>)}
+                  {[1, 2, 3, 4, 5].map((rating) => <option key={rating} value={rating}>{rating} Star{rating > 1 ? 's' : ''} ({rating}/5)</option>)}
                 </select>
               </label>
               <Button type="submit" variant="primary" disabled={submittingReview} className="!py-1.5 !px-3 text-xs bg-amber-600 hover:bg-amber-500">
@@ -534,6 +551,15 @@ export function ArtworkDetailPage({ session }) {
                       >
                         <Flag className="h-3.5 w-3.5" />
                       </button>
+                      {(session.user?.id === review.reviewer?.id || session.user?.is_staff || session.user?.is_superuser) && (
+                        <button
+                          type="button"
+                          onClick={() => deleteReview(review.id)}
+                          className="text-red-400 hover:underline text-[11px] font-medium ml-1"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                     <span className="text-xs text-amber-400 font-bold">★ {review.rating}/5</span>
                   </div>
@@ -584,7 +610,7 @@ export function ArtworkDetailPage({ session }) {
           {comments.length ? (
             <div className="space-y-3 max-w-2xl">
               {comments.map((item) => {
-                const isOwner = session.user?.id === item.user?.id
+                const isOwner = session.user?.id === item.user?.id || session.user?.is_staff || session.user?.is_superuser
                 const isEditing = editingCommentId === item.id
                 const canReply = session.user && (
                   artwork.artist?.id === session.user.id ||
