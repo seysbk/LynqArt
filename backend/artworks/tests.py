@@ -250,3 +250,36 @@ class ArtworkContributorTests(APITestCase):
         # Cannot delete artwork (returns 403 or 404)
         del_res = self.client.delete(reverse('artwork-detail', args=[self.artwork.slug]))
         self.assertIn(del_res.status_code, (status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND))
+
+
+class ArtworkVersionTests(APITestCase):
+    def setUp(self):
+        self.artist = User.objects.create_user(username='version_artist', email='v_artist@example.com', password='pass12345', is_artist=True)
+        self.artwork = Artwork.objects.create(
+            artist=self.artist,
+            title='Versioning Test Artwork',
+            slug='versioning-test-artwork',
+            status=Artwork.STATUS_PUBLISHED,
+        )
+
+    def test_create_multiple_artwork_versions_without_unique_together_error(self):
+        self.client.force_authenticate(user=self.artist)
+
+        # Version 1
+        v1_res = self.client.post(
+            reverse('artworkversion-list'),
+            {'artwork': str(self.artwork.id), 'markdown_statement': 'Initial version 1 statement.'},
+        )
+        self.assertEqual(v1_res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(v1_res.data['version_number'], 1)
+
+        # Version 2
+        v2_res = self.client.post(
+            reverse('artworkversion-list'),
+            {'artwork': str(self.artwork.id), 'markdown_statement': 'Updated version 2 statement.'},
+        )
+        self.assertEqual(v2_res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(v2_res.data['version_number'], 2)
+
+        self.artwork.refresh_from_db()
+        self.assertEqual(self.artwork.current_version.version_number, 2)

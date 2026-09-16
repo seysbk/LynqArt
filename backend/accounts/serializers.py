@@ -212,11 +212,22 @@ class BecomeArtistSerializer(serializers.ModelSerializer):
 
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):
-    protected_fields = {'is_artist', 'is_expert', 'is_verified', 'can_manage_exhibitions', 'is_staff', 'is_superuser', 'email', 'username'}
+    protected_fields = {'is_artist', 'is_expert', 'is_verified', 'can_manage_exhibitions', 'is_staff', 'is_superuser', 'username'}
 
     class Meta:
         model = User
-        fields = ('first_name', 'last_name')
+        fields = ('first_name', 'last_name', 'email')
+
+    def validate_email(self, value):
+        if value:
+            value = value.lower().strip()
+            user = self.context['request'].user if 'request' in self.context else self.instance
+            qs = User.objects.filter(email__iexact=value)
+            if user and user.pk:
+                qs = qs.exclude(pk=user.pk)
+            if qs.exists():
+                raise serializers.ValidationError('A user with this email address is already registered.')
+        return value
 
     def validate(self, attrs):
         forbidden = self.protected_fields.intersection(self.initial_data.keys())

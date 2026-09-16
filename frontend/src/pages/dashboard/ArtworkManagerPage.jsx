@@ -309,13 +309,12 @@ export function ArtworkManagerPage({ session }) {
       const currentStatement = artwork?.current_version_detail?.markdown_statement || ''
       if (activeForm.markdown_statement.trim() && activeForm.markdown_statement !== currentStatement) {
         const versions = data.versions || artwork?.versions || []
-        const nextVersion = Math.max(0, ...versions.map((item) => item.version_number)) + 1
+        const nextVersionNumber = Math.max(0, ...versions.map((item) => item.version_number || 0)) + 1
         await api.post('/artworks/versions/', {
           artwork: data.id,
-          version_number: nextVersion,
           markdown_statement: activeForm.markdown_statement,
           ai_generated: aiStatementAccepted,
-          change_note: activeForm.change_note || `Version ${nextVersion} statement update`,
+          change_note: activeForm.change_note || `Version ${nextVersionNumber} statement update`,
         })
       }
 

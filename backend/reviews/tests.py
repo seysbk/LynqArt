@@ -56,6 +56,18 @@ class ExpertReviewApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['reviewer']['id'], str(self.expert.id))
 
+    def test_review_rating_must_be_between_1_and_5(self):
+        self.client.force_authenticate(user=self.expert)
+        payload = {
+            'artwork': self.artwork.id,
+            'title': 'Zero rating review',
+            'markdown_review': 'Testing zero rating constraint.',
+            'rating': 0,
+        }
+        response = self.client.post(self.url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('rating', response.data)
+
     def test_experts_can_only_edit_their_own_reviews(self):
         review = ExpertReview.objects.create(
             artwork=self.artwork,
